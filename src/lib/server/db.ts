@@ -1,0 +1,113 @@
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import * as schema from './schema';
+
+const dataDir = join(process.cwd(), 'data');
+const uploadsDir = join(dataDir, 'uploads');
+
+mkdirSync(uploadsDir, { recursive: true });
+
+const sqlite = new Database(join(dataDir, 'qix.db'));
+sqlite.pragma('journal_mode = WAL');
+sqlite.pragma('foreign_keys = ON');
+
+sqlite.exec(`
+	CREATE TABLE IF NOT EXISTS users (
+		id TEXT PRIMARY KEY,
+		username TEXT NOT NULL UNIQUE,
+		password_hash TEXT NOT NULL,
+		display_name TEXT,
+		bio TEXT,
+		avatar_path TEXT,
+		last_seen_at INTEGER,
+		locale TEXT,
+		created_at INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS sessions (
+		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		expires_at INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS chats (
+		id TEXT PRIMARY KEY,
+		created_at INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS chat_members (
+		chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		last_read_at INTEGER,
+		pinned_at INTEGER,
+		muted INTEGER NOT NULL DEFAULT 0,
+		PRIMARY KEY (chat_id, user_id)
+	);
+
+	CREATE TABLE IF NOT EXISTS messages (
+		id TEXT PRIMARY KEY,
+		chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+		sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		body TEXT NOT NULL DEFAULT '',
+		kind TEXT NOT NULL DEFAULT 'text',
+		reply_to_id TEXT,
+		edited_at INTEGER,
+		deleted_at INTEGER,
+		created_at INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS attachments (
+		id TEXT PRIMARY KEY,
+		message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+		filename TEXT NOT NULL,
+		mime TEXT NOT NULL,
+		size INTEGER NOT NULL,
+		path TEXT NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS message_reactions (
+		message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		emoji TEXT NOT NULL,
+		PRIMARY KEY (message_id, user_id)
+	);
+
+	CREATE TABLE IF NOT EXISTS link_previews (
+		id TEXT PRIMARY KEY,
+		message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+		url TEXT NOT NULL,
+		title TEXT,
+		description TEXT,
+		image_url TEXT
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+	CREATE INDEX IF NOT EXISTS idx_chat_members_user ON chat_members(user_id);
+	CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id, created_at);
+	CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id);
+`);
+
+function ensureColumn(table: string, column: string, ddl: string) {
+	const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+	if (!cols.some((c) => c.name === column)) {
+		sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+	}
+}
+
+ensureColumn('users', 'display_name', 'display_name TEXT');
+ensureColumn('users', 'bio', 'bio TEXT');
+ensureColumn('users', 'avatar_path', 'avatar_path TEXT');
+ensureColumn('users', 'last_seen_at', 'last_seen_at INTEGER');
+ensureColumn('users', 'locale', 'locale TEXT');
+ensureColumn('chat_members', 'last_read_at', 'last_read_at INTEGER');
+ensureColumn('chat_members', 'pinned_at', 'pinned_at INTEGER');
+ensureColumn('chat_members', 'muted', 'muted INTEGER NOT NULL DEFAULT 0');
+ensureColumn('messages', 'kind', "kind TEXT NOT NULL DEFAULT 'text'");
+ensureColumn('messages', 'reply_to_id', 'reply_to_id TEXT');
+ensureColumn('messages', 'edited_at', 'edited_at INTEGER');
+ensureColumn('messages', 'deleted_at', 'deleted_at INTEGER');
+
+export const db = drizzle(sqlite, { schema });
+export { uploadsDir };
