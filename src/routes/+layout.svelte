@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { onNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import CallOverlay from '$lib/components/CallOverlay.svelte';
 	import AppFlash from '$lib/components/AppFlash.svelte';
@@ -21,6 +22,20 @@
 
 	let { children } = $props();
 	let themeColor = $state('#1a7a6d');
+
+	onNavigate((navigation) => {
+		if (typeof document === 'undefined') return;
+		if (!document.startViewTransition) return;
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		if (document.documentElement.getAttribute('data-reduce-motion') === '1') return;
+
+		return new Promise<void>((resolve) => {
+			document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
 
 	onMount(() => {
 		initLocale();

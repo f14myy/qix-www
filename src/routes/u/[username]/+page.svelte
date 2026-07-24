@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Ban from '@lucide/svelte/icons/ban';
+	import Calendar from '@lucide/svelte/icons/calendar';
 	import Check from '@lucide/svelte/icons/check';
 	import Copy from '@lucide/svelte/icons/copy';
 	import MessageCircle from '@lucide/svelte/icons/message-circle';
@@ -103,19 +104,12 @@
 	}
 </script>
 
-<div class="screen">
-	<header class="topbar topbar-transparent">
-		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => history.back()}>
-			<ArrowLeft size={22} />
+<div class="screen profile-screen">
+	<header class="topbar topbar-over-media">
+		<button type="button" class="icon-btn icon-btn-glass" aria-label={i18n.t('back')} onclick={() => history.back()}>
+			<ArrowLeft size={20} />
 		</button>
-		<h1>{i18n.t('profile.title')}</h1>
-		{#if data.isSelf}
-			<a class="icon-btn" href="/settings/profile" aria-label={i18n.t('settings.profile')}>
-				<Pencil size={20} />
-			</a>
-		{:else}
-			<span class="icon-btn" style="visibility:hidden" aria-hidden="true"><Pencil size={20} /></span>
-		{/if}
+		<span class="topbar-spacer"></span>
 	</header>
 
 	<div class="profile-page">
@@ -127,51 +121,72 @@
 					alt=""
 				/>
 			{/if}
+			<span class="profile-banner-shade"></span>
 		</div>
 
 		<div class="profile-view">
-			<div class="profile-avatar-stage">
-				<Avatar
-					name={title}
-					size={104}
-					avatarPath={data.profile.avatarPath}
-					userId={data.profile.id}
-					{online}
-				/>
+			<div class="profile-identity">
+				<div class="profile-avatar-stage" class:online>
+					<Avatar
+						name={title}
+						size={104}
+						avatarPath={data.profile.avatarPath}
+						userId={data.profile.id}
+						{online}
+					/>
+				</div>
+
+				{#if data.isSelf}
+					<a class="btn btn-ghost profile-edit-pill" href="/settings/profile">
+						<Pencil size={16} />
+						{i18n.t('settings.profile')}
+					</a>
+				{:else if !blockedByMe && !data.blocked}
+					<button class="btn profile-edit-pill" type="button" disabled={loading} onclick={openChat}>
+						<MessageCircle size={16} />
+						{data.existingChatId ? i18n.t('profile.openChat') : i18n.t('profile.message')}
+					</button>
+				{/if}
 			</div>
 
-			<h2 class="profile-name">
-				<NameWithBadges name={title} badges={data.profile.badges} size="lg" />
-			</h2>
+			<div class="profile-copy">
+				<h1 class="profile-name">
+					<NameWithBadges name={title} badges={data.profile.badges} size="lg" />
+				</h1>
 
-			<button type="button" class="profile-user-btn" onclick={copyUsername}>
-				<span>@{data.profile.username}</span>
-				{#if copied}
-					<Check size={14} />
-				{:else}
-					<Copy size={14} />
+				<button type="button" class="profile-user-btn" onclick={copyUsername}>
+					<span>@{data.profile.username}</span>
+					{#if copied}
+						<Check size={14} />
+					{:else}
+						<Copy size={14} />
+					{/if}
+				</button>
+
+				{#if status}
+					<p class="peer-status profile-status" class:online>{status}</p>
 				{/if}
-			</button>
+			</div>
 
 			{#if data.profile.badges.length}
-				<NameWithBadges name="" badges={data.profile.badges} showLabels />
-			{/if}
-
-			{#if status}
-				<p class="peer-status profile-status" class:online>{status}</p>
+				<div class="profile-badges">
+					<NameWithBadges name="" badges={data.profile.badges} showLabels />
+				</div>
 			{/if}
 
 			{#if data.profile.bio}
 				<p class="profile-bio">{data.profile.bio}</p>
 			{:else if data.isSelf}
-				<p class="profile-bio profile-bio-empty">{i18n.t('profile.bioEmpty')}</p>
+				<a class="profile-bio profile-bio-empty" href="/settings/profile">
+					{i18n.t('profile.bioEmpty')}
+				</a>
 			{/if}
 
-			<div class="profile-meta">
-				<div class="profile-meta-row">
-					<span class="profile-meta-label">{i18n.t('profile.joined')}</span>
-					<span class="profile-meta-value">{joined}</span>
-				</div>
+			<div class="profile-chips">
+				<span class="profile-chip">
+					<Calendar size={14} />
+					{i18n.t('profile.joined')} {joined}
+				</span>
 			</div>
 
 			{#if blockedByMe}
@@ -180,14 +195,8 @@
 
 			{#if !data.isSelf}
 				<div class="profile-actions">
-					{#if !blockedByMe && !data.blocked}
-						<button class="btn btn-block" type="button" disabled={loading} onclick={openChat}>
-							<MessageCircle size={18} />
-							{data.existingChatId ? i18n.t('profile.openChat') : i18n.t('profile.message')}
-						</button>
-					{/if}
 					<button
-						class="btn btn-ghost btn-block"
+						class="btn btn-ghost btn-block profile-action-secondary"
 						type="button"
 						disabled={blocking}
 						onclick={toggleBlock}

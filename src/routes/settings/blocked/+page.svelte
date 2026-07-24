@@ -50,13 +50,13 @@
 			</div>
 		{:else}
 			<section class="settings-section">
-				<div class="settings-card">
+				<div class="settings-card soft">
 					{#each blocked as user (user.id)}
 						<div class="settings-row blocked-row">
 							<a class="blocked-user" href="/u/{user.username}">
 								<Avatar
 									name={user.displayName || user.username}
-									size={40}
+									size={42}
 									avatarPath={user.avatarPath}
 									userId={user.id}
 								/>

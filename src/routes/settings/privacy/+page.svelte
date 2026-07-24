@@ -31,9 +31,7 @@
 		settings = await patchSettings({ profileVisibility: v });
 	}
 
-	async function toggle(
-		key: 'readReceipts' | 'showTyping' | 'lastSeenReciprocity'
-	) {
+	async function toggle(key: 'readReceipts' | 'showTyping' | 'lastSeenReciprocity') {
 		if (!settings) return;
 		settings = await patchSettings({ [key]: !settings[key] });
 	}
@@ -51,7 +49,7 @@
 		{#if settings}
 			<section class="settings-section">
 				<h2>{i18n.t('settings.lastSeen')}</h2>
-				<div class="settings-card">
+				<div class="settings-card soft">
 					<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
 						<div class="theme-pills stacked-pills">
 							<button
@@ -91,7 +89,7 @@
 
 			<section class="settings-section">
 				<h2>{i18n.t('settings.whoCanMessage')}</h2>
-				<div class="settings-card">
+				<div class="settings-card soft">
 					<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
 						<div class="theme-pills stacked-pills">
 							<button
@@ -119,9 +117,9 @@
 
 			<section class="settings-section">
 				<h2>{i18n.t('settings.profileVisibility')}</h2>
-				<div class="settings-card">
+				<p class="settings-section-hint">{i18n.t('settings.profileVisibilityHint')}</p>
+				<div class="settings-card soft">
 					<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
-						<p class="field-hint" style="margin:0 0 4px">{i18n.t('settings.profileVisibilityHint')}</p>
 						<div class="theme-pills stacked-pills">
 							<button
 								type="button"
@@ -147,7 +145,7 @@
 			</section>
 
 			<section class="settings-section">
-				<div class="settings-card">
+				<div class="settings-card soft">
 					<label class="settings-row toggle-row">
 						<span class="toggle-copy">
 							<span class="label">{i18n.t('settings.readReceipts')}</span>

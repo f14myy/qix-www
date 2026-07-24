@@ -224,33 +224,35 @@
 		</section>
 
 		<section class="settings-section">
-			<div class="field">
-				<div class="field-head">
-					<label for="displayName">{i18n.t('profile.displayName')}</label>
-					<span class="field-count">{displayName.length}/{NAME_MAX}</span>
+			<div class="settings-card soft pad settings-form-stack">
+				<div class="field">
+					<div class="field-head">
+						<label for="displayName">{i18n.t('profile.displayName')}</label>
+						<span class="field-count">{displayName.length}/{NAME_MAX}</span>
+					</div>
+					<input
+						id="displayName"
+						maxlength={NAME_MAX}
+						bind:value={displayName}
+						placeholder={data.profile.username}
+						autocomplete="nickname"
+					/>
+					<p class="field-hint">{i18n.t('profile.displayNameHint')}</p>
 				</div>
-				<input
-					id="displayName"
-					maxlength={NAME_MAX}
-					bind:value={displayName}
-					placeholder={data.profile.username}
-					autocomplete="nickname"
-				/>
-				<p class="field-hint">{i18n.t('profile.displayNameHint')}</p>
-			</div>
-			<div class="field" style="margin-top:16px">
-				<div class="field-head">
-					<label for="bio">{i18n.t('profile.bio')}</label>
-					<span class="field-count">{bio.length}/{BIO_MAX}</span>
+				<div class="field">
+					<div class="field-head">
+						<label for="bio">{i18n.t('profile.bio')}</label>
+						<span class="field-count">{bio.length}/{BIO_MAX}</span>
+					</div>
+					<textarea
+						id="bio"
+						class="profile-bio-input"
+						maxlength={BIO_MAX}
+						rows="4"
+						bind:value={bio}
+						placeholder={i18n.t('profile.bioPlaceholder')}
+					></textarea>
 				</div>
-				<textarea
-					id="bio"
-					class="profile-bio-input"
-					maxlength={BIO_MAX}
-					rows="4"
-					bind:value={bio}
-					placeholder={i18n.t('profile.bioPlaceholder')}
-				></textarea>
 			</div>
 		</section>
 

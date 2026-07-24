@@ -42,19 +42,25 @@
 	<div class="settings-body">
 		{#if permission !== 'unsupported'}
 			<section class="settings-section">
-				<div class="settings-card">
+				<div class="settings-card soft">
 					{#if permission === 'granted'}
 						<div class="settings-row">
-							<span class="label">{i18n.t('settings.notifyPermissionGranted')}</span>
-							<span class="value ok-dot">●</span>
+							<span class="toggle-copy">
+								<span class="label">{i18n.t('settings.notifyPermissionGranted')}</span>
+							</span>
+							<span class="value ok-dot" aria-hidden="true">●</span>
 						</div>
 					{:else if permission === 'denied'}
 						<div class="settings-row">
-							<span class="label">{i18n.t('settings.notifyPermissionDenied')}</span>
+							<span class="toggle-copy">
+								<span class="label">{i18n.t('settings.notifyPermissionDenied')}</span>
+							</span>
 						</div>
 					{:else}
 						<button class="settings-row link-row" type="button" onclick={requestPerm}>
-							<span class="label">{i18n.t('settings.notifyPermission')}</span>
+							<span class="toggle-copy">
+								<span class="label">{i18n.t('settings.notifyPermission')}</span>
+							</span>
 							<span class="value">→</span>
 						</button>
 					{/if}
@@ -64,7 +70,8 @@
 
 		{#if settings}
 			<section class="settings-section">
-				<div class="settings-card">
+				<h2>{i18n.t('settings.notifications')}</h2>
+				<div class="settings-card soft">
 					<label class="settings-row toggle-row">
 						<span class="toggle-copy">
 							<span class="label">{i18n.t('settings.notifyMessages')}</span>

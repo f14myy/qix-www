@@ -1,7 +1,7 @@
 {
 	"name": "qix",
 	"private": true,
-	"version": "0.1.0-beta.0",
+	"version": "beta.2507.1.36",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",

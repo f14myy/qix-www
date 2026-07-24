@@ -1010,7 +1010,7 @@
 			</button>
 		{:else if isChannel}
 			<div class="peer-link channel-head">
-				<ChannelAvatar channelKey={data.channel!.key} size={34} />
+				<ChannelAvatar channelKey={data.channel!.key} size={36} />
 				<div class="peer-meta">
 					<h1 class="peer-title">{peerTitle}</h1>
 					{#if statusText}
@@ -1018,27 +1018,29 @@
 					{/if}
 				</div>
 			</div>
-			<button
-				type="button"
-				class="icon-btn"
-				aria-label={i18n.t('chats.searchMessages')}
-				onclick={() => (showSearch = true)}
-			>
-				<Search size={20} />
-			</button>
-			<button
-				type="button"
-				class="icon-btn"
-				aria-label={i18n.t('chat.more')}
-				onclick={() => (showMenu = true)}
-			>
-				<Ellipsis size={20} />
-			</button>
+			<div class="topbar-actions">
+				<button
+					type="button"
+					class="icon-btn"
+					aria-label={i18n.t('chats.searchMessages')}
+					onclick={() => (showSearch = true)}
+				>
+					<Search size={20} />
+				</button>
+				<button
+					type="button"
+					class="icon-btn"
+					aria-label={i18n.t('chat.more')}
+					onclick={() => (showMenu = true)}
+				>
+					<Ellipsis size={20} />
+				</button>
+			</div>
 		{:else}
 			<a class="peer-link" href="/u/{data.peer!.username}">
 				<Avatar
 					name={peerTitle}
-					size={34}
+					size={36}
 					avatarPath={data.peer!.avatarPath}
 					userId={data.peer!.id}
 				/>
@@ -1070,22 +1072,24 @@
 					{/if}
 				</div>
 			</a>
-			<button
-				type="button"
-				class="icon-btn"
-				aria-label={i18n.t('chats.searchMessages')}
-				onclick={() => (showSearch = true)}
-			>
-				<Search size={20} />
-			</button>
-			<button
-				type="button"
-				class="icon-btn"
-				aria-label={i18n.t('chat.more')}
-				onclick={() => (showMenu = true)}
-			>
-				<Ellipsis size={20} />
-			</button>
+			<div class="topbar-actions">
+				<button
+					type="button"
+					class="icon-btn"
+					aria-label={i18n.t('chats.searchMessages')}
+					onclick={() => (showSearch = true)}
+				>
+					<Search size={20} />
+				</button>
+				<button
+					type="button"
+					class="icon-btn"
+					aria-label={i18n.t('chat.more')}
+					onclick={() => (showMenu = true)}
+				>
+					<Ellipsis size={20} />
+				</button>
+			</div>
 		{/if}
 	</header>
 

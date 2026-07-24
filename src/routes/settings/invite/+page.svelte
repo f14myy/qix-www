@@ -34,19 +34,18 @@
 			<ArrowLeft size={22} />
 		</button>
 		<h1>{i18n.t('invite.myLink')}</h1>
-		<span class="icon-btn" style="visibility:hidden" aria-hidden="true"><ArrowLeft size={22} /></span>
 	</header>
 
-	<div class="settings-body" style="display:flex;flex-direction:column;align-items:center;gap:16px">
-		<p class="hint" style="text-align:center">{i18n.t('invite.myLead')}</p>
+	<div class="settings-body invite-body">
+		<p class="invite-lead">{i18n.t('invite.myLead')}</p>
 		{#if qrUrl}
-			<img src={qrUrl} alt="QR" width="220" height="220" style="border-radius:16px;background:#fff;padding:8px" />
+			<img class="invite-qr" src={qrUrl} alt="QR" width="220" height="220" />
 		{:else}
-			<span class="hint"><QrCode size={40} /></span>
+			<span class="invite-qr-placeholder" aria-hidden="true"><QrCode size={40} /></span>
 		{/if}
 		{#if inviteUrl}
-			<code style="word-break:break-all;font-size:0.85rem;text-align:center;padding:0 12px">{inviteUrl}</code>
-			<button class="btn" type="button" onclick={copy}>
+			<code class="invite-url">{inviteUrl}</code>
+			<button class="btn invite-copy-btn" type="button" onclick={copy}>
 				<Copy size={16} />
 				{copied ? i18n.t('invite.copied') : i18n.t('invite.copy')}
 			</button>

@@ -197,14 +197,14 @@
 		{#if shownCodes && !codesAcked}
 			<section class="settings-section">
 				<h2>{i18n.t('security.recoveryCodes')}</h2>
-				<div class="settings-card" style="padding:14px">
+				<div class="settings-card soft pad">
 					<p class="field-hint" style="margin-bottom:12px">{i18n.t('security.recoveryCodesHint')}</p>
 					<ul class="recovery-code-list">
 						{#each shownCodes as code}
 							<li><code>{code}</code></li>
 						{/each}
 					</ul>
-					<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+					<div class="settings-form-actions">
 						<button type="button" class="btn btn-ghost" onclick={copyCodes}
 							>{i18n.t('security.copyCodes')}</button
 						>
@@ -218,12 +218,12 @@
 
 		<section class="settings-section">
 			<h2>{i18n.t('security.changePassword')}</h2>
-			<form class="settings-card" style="padding:14px" onsubmit={changePassword}>
+			<form class="settings-card soft pad settings-form-stack" onsubmit={changePassword}>
 				<div class="field">
 					<label for="cur-pw">{i18n.t('security.currentPassword')}</label>
 					<input id="cur-pw" type="password" autocomplete="current-password" bind:value={currentPw} required />
 				</div>
-				<div class="field" style="margin-top:12px">
+				<div class="field">
 					<label for="new-pw">{i18n.t('security.newPassword')}</label>
 					<input
 						id="new-pw"
@@ -234,7 +234,7 @@
 						required
 					/>
 				</div>
-				<div class="field" style="margin-top:12px">
+				<div class="field">
 					<label for="new-pw2">{i18n.t('security.confirmPassword')}</label>
 					<input
 						id="new-pw2"
@@ -245,9 +245,9 @@
 						required
 					/>
 				</div>
-				{#if pwError}<p class="error" style="margin-top:10px">{pwError}</p>{/if}
-				{#if pwStatus}<p class="profile-flash" style="margin-top:10px">{pwStatus}</p>{/if}
-				<button class="btn btn-block" style="margin-top:14px" type="submit" disabled={pwSaving}>
+				{#if pwError}<p class="error">{pwError}</p>{/if}
+				{#if pwStatus}<p class="profile-flash" style="padding:0">{pwStatus}</p>{/if}
+				<button class="btn btn-block" type="submit" disabled={pwSaving}>
 					{pwSaving ? i18n.t('security.saving') : i18n.t('security.updatePassword')}
 				</button>
 			</form>
@@ -255,11 +255,11 @@
 
 		<section class="settings-section">
 			<h2>{i18n.t('security.sessions')}</h2>
-			<div class="settings-card">
+			<div class="settings-card soft">
 				{#each sessions as s (s.id)}
-					<div class="settings-row" style="align-items:flex-start">
+					<div class="settings-row session-row">
 						<span class="settings-nav-icon"><Smartphone size={18} /></span>
-						<span class="toggle-copy" style="flex:1">
+						<span class="toggle-copy">
 							<span class="label"
 								>{s.label}{#if s.current}
 									· {i18n.t('security.thisDevice')}{/if}</span
@@ -285,75 +285,46 @@
 
 		<section class="settings-section">
 			<h2>{i18n.t('security.recovery')}</h2>
-			<div class="settings-card" style="padding:14px">
-				<p class="field-hint" style="margin-bottom:10px">
+			<form class="settings-card soft pad settings-form-stack" onsubmit={regenerateCodes}>
+				<p class="field-hint" style="margin:0">
 					{i18n.t('security.remainingCodes', { n: remainingCodes })}
 				</p>
-				<form onsubmit={regenerateCodes}>
-					<div class="field">
-						<label for="regen-pw">{i18n.t('security.currentPassword')}</label>
-						<input
-							id="regen-pw"
-							type="password"
-							autocomplete="current-password"
-							bind:value={regenPw}
-							required
-						/>
-					</div>
-					{#if regenError}<p class="error" style="margin-top:8px">{regenError}</p>{/if}
-					<button class="btn btn-block" style="margin-top:12px" type="submit" disabled={regenLoading}>
-						<span style="display:inline-flex;align-items:center;gap:8px"
-							><KeyRound size={16} />
-							{regenLoading ? i18n.t('security.saving') : i18n.t('security.regenCodes')}</span
-						>
-					</button>
-				</form>
-			</div>
+				<div class="field">
+					<label for="regen-pw">{i18n.t('security.currentPassword')}</label>
+					<input
+						id="regen-pw"
+						type="password"
+						autocomplete="current-password"
+						bind:value={regenPw}
+						required
+					/>
+				</div>
+				{#if regenError}<p class="error">{regenError}</p>{/if}
+				<button class="btn btn-block" type="submit" disabled={regenLoading}>
+					<KeyRound size={16} />
+					{regenLoading ? i18n.t('security.saving') : i18n.t('security.regenCodes')}
+				</button>
+			</form>
 		</section>
 
 		<section class="settings-section">
 			<h2>{i18n.t('security.dangerZone')}</h2>
-			<form class="settings-card" style="padding:14px" onsubmit={deleteAccount}>
-				<p class="field-hint" style="margin-bottom:12px">{i18n.t('security.deleteHint')}</p>
+			<form class="settings-card soft pad danger-card settings-form-stack" onsubmit={deleteAccount}>
+				<p class="field-hint" style="margin:0">{i18n.t('security.deleteHint')}</p>
 				<div class="field">
 					<label for="del-user">{i18n.t('security.typeUsername', { user: data.user?.username ?? '' })}</label>
 					<input id="del-user" autocomplete="off" bind:value={deleteConfirm} required />
 				</div>
-				<div class="field" style="margin-top:12px">
+				<div class="field">
 					<label for="del-pw">{i18n.t('security.currentPassword')}</label>
 					<input id="del-pw" type="password" autocomplete="current-password" bind:value={deletePw} required />
 				</div>
-				{#if deleteError}<p class="error" style="margin-top:8px">{deleteError}</p>{/if}
-				<button
-					class="btn btn-block btn-danger-outline"
-					style="margin-top:14px"
-					type="submit"
-					disabled={deleteLoading}
-				>
-					<span style="display:inline-flex;align-items:center;gap:8px"
-						><Trash2 size={16} />
-						{deleteLoading ? i18n.t('security.deleting') : i18n.t('security.deleteAccount')}</span
-					>
+				{#if deleteError}<p class="error">{deleteError}</p>{/if}
+				<button class="btn btn-block btn-danger-outline" type="submit" disabled={deleteLoading}>
+					<Trash2 size={16} />
+					{deleteLoading ? i18n.t('security.deleting') : i18n.t('security.deleteAccount')}
 				</button>
 			</form>
 		</section>
 	</div>
 </div>
-
-<style>
-	.recovery-code-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: grid;
-		gap: 6px;
-		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-		font-size: 0.9rem;
-	}
-	.recovery-code-list code {
-		background: color-mix(in srgb, var(--bg) 70%, var(--border));
-		padding: 6px 10px;
-		border-radius: 8px;
-		display: block;
-	}
-</style>

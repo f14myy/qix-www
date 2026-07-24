@@ -26,6 +26,7 @@
 	import { shouldForceOnboarding } from '$lib/onboarding';
 	import { listQueued } from '$lib/sendQueue';
 	import { formatRelativeTime, isOnlineIso } from '$lib/time';
+	import { APP_VERSION } from '$lib/version';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -679,6 +680,7 @@
 			{/each}
 		{/if}
 	</div>
+	<p class="app-version" aria-hidden="true">{APP_VERSION}</p>
 </div>
 
 {#snippet chatRow(chat: PageData['chats'][number], index: number, swipeable: boolean)}

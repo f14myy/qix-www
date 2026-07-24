@@ -76,7 +76,7 @@
 	] as const;
 </script>
 
-<div class="screen">
+<div class="screen settings-screen">
 	<header class="topbar">
 		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goto('/')}>
 			<ArrowLeft size={22} />
@@ -127,7 +127,7 @@
 			<a class="settings-profile-card" href="/u/{data.user?.username}">
 				<Avatar
 					name={meTitle}
-					size={56}
+					size={60}
 					avatarPath={data.user?.avatarPath ?? null}
 					userId={data.user?.id}
 				/>

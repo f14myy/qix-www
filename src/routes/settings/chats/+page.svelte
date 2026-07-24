@@ -31,7 +31,8 @@
 	<div class="settings-body">
 		{#if settings}
 			<section class="settings-section">
-				<div class="settings-card">
+				<h2>{i18n.t('settings.navChats')}</h2>
+				<div class="settings-card soft">
 					<label class="settings-row toggle-row">
 						<span class="toggle-copy">
 							<span class="label">{i18n.t('settings.sendWithEnter')}</span>
