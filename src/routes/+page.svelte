@@ -16,6 +16,8 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ChannelAvatar from '$lib/components/ChannelAvatar.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
+	import { lastMessagePreview } from '$lib/chatPreview';
+	import { toast } from '$lib/flash.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import { notifyMessage } from '$lib/notify';
 	import { listQueued } from '$lib/sendQueue';
@@ -65,6 +67,7 @@
 	let drafts = $state<Record<string, string>>({});
 	let failedChats = $state<Set<string>>(new Set());
 	let requestCount = $state(0);
+	let showSwipeHint = $state(false);
 
 	const ACTION_W = 180;
 	const OPEN_AT = 56;
@@ -111,27 +114,12 @@
 	}
 
 	function preview(chat: PageData['chats'][number]) {
-		const draft = drafts[chat.id];
-		if (draft) return `${i18n.t('chats.draft')}: ${draft}`;
-		if (failedChats.has(chat.id)) return i18n.t('chats.sendFailed');
-		if (!chat.lastMessage) return i18n.t('chats.noMessages');
-		if (chat.lastMessage.deleted) return '';
-		if (chat.lastMessage.body?.startsWith('e2ee:1:')) {
-			const mine = chat.lastMessage.senderId === data.user?.id;
-			const prefix = mine ? i18n.t('chat.youPrefix') : '';
-			return `${prefix}${i18n.t('e2ee.preview')}`;
-		}
-		const mine = chat.lastMessage.senderId === data.user?.id;
-		const prefix = mine ? i18n.t('chat.youPrefix') : '';
-		if (chat.lastMessage.kind === 'voice') return `${prefix}${i18n.t('chats.voice')}`;
-		if (chat.lastMessage.kind === 'video') return `${prefix}${i18n.t('chat.video')}`;
-		if (chat.lastMessage.hasAttachment && !chat.lastMessage.body) {
-			return `${prefix}${i18n.t('chat.photo')}`;
-		}
-		if (chat.lastMessage.hasAttachment) {
-			return `${prefix}${chat.lastMessage.body}`;
-		}
-		return `${prefix}${chat.lastMessage.body}`;
+		return lastMessagePreview(chat, {
+			userId: data.user?.id,
+			t: i18n.t,
+			draft: drafts[chat.id],
+			failed: failedChats.has(chat.id)
+		});
 	}
 
 	function previewIcon(chat: PageData['chats'][number]) {
@@ -370,11 +358,11 @@
 			});
 			const json = await res.json();
 			if (res.status === 202 || json.pending) {
-				alert(i18n.t('requests.sent'));
+				toast(i18n.t('requests.sent'));
 				return;
 			}
 			if (res.ok && json.chatId) openChat(json.chatId);
-			else alert(json.error || 'Error');
+			else toast(json.error || i18n.t('common.error'), 'err');
 		} finally {
 			openingUser = false;
 		}
@@ -382,6 +370,13 @@
 
 	onMount(() => {
 		loadLocalHints();
+		try {
+			if (localStorage.getItem('qix-hint-swipe-list') !== '1' && data.chats.length > 0) {
+				showSwipeHint = true;
+			}
+		} catch {
+			/* ignore */
+		}
 		if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('focus')) {
 			queueMicrotask(() => searchInput?.focus());
 			history.replaceState({}, '', '/');
@@ -472,11 +467,36 @@
 			<a class="icon-btn" href="/archive" aria-label={i18n.t('chats.archive')}>
 				<Archive size={20} />
 			</a>
-			<button type="button" class="icon-btn" aria-label="Settings" onclick={() => goto('/settings')}>
+			<button
+				type="button"
+				class="icon-btn"
+				aria-label={i18n.t('common.settings')}
+				onclick={() => goto('/settings')}
+			>
 				<Settings size={20} />
 			</button>
 		</div>
 	</header>
+
+	{#if showSwipeHint}
+		<div class="coach-banner list-coach" role="status">
+			<p>{i18n.t('chats.swipeHint')}</p>
+			<button
+				type="button"
+				class="btn btn-ghost coach-dismiss"
+				onclick={() => {
+					showSwipeHint = false;
+					try {
+						localStorage.setItem('qix-hint-swipe-list', '1');
+					} catch {
+						/* ignore */
+					}
+				}}
+			>
+				{i18n.t('chats.swipeHintDismiss')}
+			</button>
+		</div>
+	{/if}
 
 	<div class="list-filter">
 		<span class="list-filter-ico" aria-hidden="true"><Search size={16} /></span>
@@ -484,13 +504,19 @@
 			bind:this={searchInput}
 			type="search"
 			placeholder={i18n.t('chats.filter')}
+			aria-label={i18n.t('common.search')}
 			bind:value={filter}
 			oninput={onFilterInput}
 			autocomplete="off"
 			enterkeyhint="search"
 		/>
 		{#if filter}
-			<button type="button" class="list-filter-clear" aria-label="Clear" onclick={clearSearch}>
+			<button
+				type="button"
+				class="list-filter-clear"
+				aria-label={i18n.t('common.clear')}
+				onclick={clearSearch}
+			>
 				<X size={16} />
 			</button>
 		{/if}
@@ -586,8 +612,18 @@
 		{:else if data.chats.length === 0}
 			<div class="empty empty-animate">
 				<span class="empty-icon"><MessageCircle size={36} /></span>
+				<strong>{i18n.t('chats.emptyTitle')}</strong>
 				<p>{i18n.t('chats.empty')}</p>
-				<p class="search-hint">{i18n.t('chats.searchHint')}</p>
+				<button
+					type="button"
+					class="btn"
+					onclick={() => {
+						searchInput?.focus();
+						filter = '';
+					}}
+				>
+					{i18n.t('chats.emptyCta')}
+				</button>
 			</div>
 		{:else}
 			{#if pinned.length}

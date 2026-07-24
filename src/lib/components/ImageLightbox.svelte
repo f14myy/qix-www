@@ -2,6 +2,7 @@
 	import X from '@lucide/svelte/icons/x';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import { useI18n } from '$lib/i18n/useI18n.svelte';
 
 	let {
 		urls,
@@ -12,6 +13,8 @@
 		index?: number;
 		onclose: () => void;
 	} = $props();
+
+	const i18n = useI18n();
 
 	let current = $state(0);
 	let scale = $state(1);
@@ -190,7 +193,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- svelte-ignore a11y_interactive_supports_focus -->
 <div class="lightbox" onclick={onclose} role="dialog" aria-modal="true" tabindex="-1">
-	<button type="button" class="lightbox-close icon-btn" aria-label="Close" onclick={onclose}>
+	<button type="button" class="lightbox-close icon-btn" aria-label={i18n.t('common.close')} onclick={onclose}>
 		<X size={22} />
 	</button>
 
@@ -198,7 +201,7 @@
 		<button
 			type="button"
 			class="lightbox-nav prev icon-btn"
-			aria-label="Previous"
+			aria-label={i18n.t('common.prev')}
 			onclick={(e) => {
 				e.stopPropagation();
 				prev();
@@ -209,7 +212,7 @@
 		<button
 			type="button"
 			class="lightbox-nav next icon-btn"
-			aria-label="Next"
+			aria-label={i18n.t('common.next')}
 			onclick={(e) => {
 				e.stopPropagation();
 				next();

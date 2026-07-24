@@ -13,6 +13,7 @@
 		hangupCall,
 		rejectCall
 	} from '$lib/calls/store.svelte';
+	import { toast } from '$lib/flash.svelte';
 	import { haptic } from '$lib/haptic';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 
@@ -68,7 +69,7 @@
 		try {
 			await acceptCall();
 		} catch (e) {
-			alert(e instanceof Error ? e.message : 'Error');
+			toast(e instanceof Error ? e.message : i18n.t('common.error'), 'err');
 		} finally {
 			busy = false;
 		}

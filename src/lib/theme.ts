@@ -117,6 +117,11 @@ const STATUS_BAR: Record<LookId, { light: string; dark: string }> = {
 	dusk: { light: '#5b4a7a', dark: '#100e16' }
 };
 
+function emitThemeEvent() {
+	if (typeof window === 'undefined') return;
+	window.dispatchEvent(new CustomEvent('qix-theme'));
+}
+
 function isLook(v: string | null): v is LookId {
 	return !!v && (LOOK_IDS as string[]).includes(v);
 }
@@ -170,14 +175,24 @@ export function resolveTheme(pref: ThemePreference): 'light' | 'dark' {
 	return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+export function statusBarColor(
+	look: LookId = typeof document !== 'undefined' ? getStoredLook() : 'qix',
+	mode: 'light' | 'dark' = typeof document !== 'undefined'
+		? resolveTheme(getStoredTheme())
+		: 'light'
+): string {
+	return mode === 'dark' ? STATUS_BAR[look].dark : STATUS_BAR[look].light;
+}
+
 export function applyLook(look: LookId, resolved?: 'light' | 'dark') {
 	document.documentElement.dataset.look = look;
 	document.documentElement.removeAttribute('data-accent');
 	const mode = resolved ?? resolveTheme(getStoredTheme());
 	const meta = document.querySelector('meta[name="theme-color"]');
 	if (meta) {
-		meta.setAttribute('content', mode === 'dark' ? STATUS_BAR[look].dark : STATUS_BAR[look].light);
+		meta.setAttribute('content', statusBarColor(look, mode));
 	}
+	emitThemeEvent();
 }
 
 export function applyWallpaper(wallpaper: WallpaperId) {

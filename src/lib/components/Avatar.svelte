@@ -13,9 +13,8 @@
 		online?: boolean;
 	} = $props();
 
-	const colors = ['#1a7a6d', '#2b6cb0', '#c05621', '#5b4bb7', '#2f855a', '#b83232', '#2c7a7b'];
 	const letter = $derived((name?.[0] || '?').toUpperCase());
-	const bg = $derived(colors[(name?.charCodeAt(0) || 0) % colors.length]);
+	const tone = $derived(((name?.charCodeAt(0) || 0) % 7) + 1);
 	const src = $derived(
 		userId && avatarPath ? `/api/avatars/${userId}?v=${encodeURIComponent(avatarPath)}` : null
 	);
@@ -33,8 +32,9 @@
 		/>
 	{:else}
 		<div
-			class="avatar"
-			style="width:{size}px;height:{size}px;background:{bg};font-size:{size * 0.38}px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12)"
+			class="avatar avatar-letter"
+			data-tone={tone}
+			style="width:{size}px;height:{size}px;font-size:{size * 0.38}px"
 		>
 			{letter}
 		</div>

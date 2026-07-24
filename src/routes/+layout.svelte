@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import CallOverlay from '$lib/components/CallOverlay.svelte';
+	import AppFlash from '$lib/components/AppFlash.svelte';
+	import RecoveryCodesGate from '$lib/components/RecoveryCodesGate.svelte';
 	import {
 		handleIncomingInvite,
 		onCallAccepted,
@@ -10,7 +12,7 @@
 		onCallSignal,
 		resumeActiveCall
 	} from '$lib/calls/store.svelte';
-	import { initTheme } from '$lib/theme';
+	import { initTheme, statusBarColor } from '$lib/theme';
 	import { initLocale } from '$lib/i18n';
 	import { fetchSettings } from '$lib/settings';
 	import { registerServiceWorker } from '$lib/pwa';
@@ -22,8 +24,12 @@
 
 	onMount(() => {
 		initLocale();
-		const resolved = initTheme();
-		themeColor = resolved === 'dark' ? '#0c1116' : '#1a7a6d';
+		initTheme();
+		themeColor = statusBarColor();
+		const onTheme = () => {
+			themeColor = statusBarColor();
+		};
+		window.addEventListener('qix-theme', onTheme);
 		registerServiceWorker();
 		fetchSettings().catch(() => {
 			/* guest / offline */
@@ -36,8 +42,8 @@
 
 		const mq = window.matchMedia('(prefers-color-scheme: dark)');
 		const onChange = () => {
-			const next = initTheme();
-			themeColor = next === 'dark' ? '#0c1116' : '#1a7a6d';
+			initTheme();
+			themeColor = statusBarColor();
 		};
 		mq.addEventListener('change', onChange);
 
@@ -132,6 +138,7 @@
 
 		return () => {
 			mq.removeEventListener('change', onChange);
+			window.removeEventListener('qix-theme', onTheme);
 			document.removeEventListener('visibilitychange', onVisibility);
 			disconnectCalls();
 		};
@@ -155,6 +162,9 @@
 	{@render children()}
 </div>
 
+<AppFlash />
+
 {#if page.data.user}
+	<RecoveryCodesGate />
 	<CallOverlay />
 {/if}

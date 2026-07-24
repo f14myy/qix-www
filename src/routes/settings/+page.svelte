@@ -108,13 +108,14 @@
 				<div class="settings-profile-copy">
 					<strong>{meTitle}</strong>
 					<span>@{data.user?.username}</span>
+					<span class="hint">{i18n.t('settings.viewProfile')}</span>
 				</div>
 				<span class="settings-nav-chevron"><ChevronRight size={18} /></span>
 			</a>
-			<div class="settings-card" style="margin-top:10px">
+			<div class="settings-card soft" style="margin-top:10px">
 				<a class="settings-row link-row settings-nav-row" href="/settings/profile">
 					<span class="settings-nav-icon"><UserRound size={18} /></span>
-					<span class="label">{i18n.t('settings.navProfile')}</span>
+					<span class="label">{i18n.t('settings.editProfile')}</span>
 					<span class="settings-nav-chevron"><ChevronRight size={18} /></span>
 				</a>
 				<a class="settings-row link-row settings-nav-row" href="/settings/security">
@@ -127,7 +128,7 @@
 
 		<section class="settings-section">
 			<h2>{i18n.t('settings.sectionPrefs')}</h2>
-			<div class="settings-card">
+			<div class="settings-card soft">
 				{#each nav.slice(0, 3) as item}
 					{@const Icon = item.icon}
 					<a class="settings-row link-row settings-nav-row" href={item.href}>
@@ -141,7 +142,7 @@
 
 		<section class="settings-section">
 			<h2>{i18n.t('settings.sectionSafety')}</h2>
-			<div class="settings-card">
+			<div class="settings-card soft">
 				{#each nav.slice(3) as item}
 					{@const Icon = item.icon}
 					<a class="settings-row link-row settings-nav-row" href={item.href}>
@@ -156,7 +157,7 @@
 		{#if showAdmin}
 			<section class="settings-section">
 				<h2>{i18n.t('settings.sectionAdmin')}</h2>
-				<div class="settings-card">
+				<div class="settings-card soft">
 					<a class="settings-row link-row settings-nav-row" href="/admin">
 						<span class="settings-nav-icon"><ShieldCheck size={18} /></span>
 						<span class="label">{i18n.t('settings.navAdmin')}</span>

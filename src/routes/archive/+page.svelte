@@ -5,6 +5,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ChannelAvatar from '$lib/components/ChannelAvatar.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
+	import { lastMessagePreview } from '$lib/chatPreview';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import { formatRelativeTime } from '$lib/time';
 	import type { PageData } from './$types';
@@ -40,7 +41,8 @@
 
 	<div class="list">
 		{#if data.chats.length === 0}
-			<div class="empty">
+			<div class="empty empty-animate">
+				<span class="empty-icon"><ArchiveRestore size={36} /></span>
 				<p>{i18n.t('chats.archiveEmpty')}</p>
 			</div>
 		{:else}
@@ -76,7 +78,9 @@
 								{/if}
 							</div>
 							<div class="row-bottom">
-								<p class="preview">{chat.lastMessage?.body || i18n.t('chats.noMessages')}</p>
+								<p class="preview">
+									{lastMessagePreview(chat, { userId: data.user?.id, t: i18n.t })}
+								</p>
 							</div>
 						</div>
 					</button>

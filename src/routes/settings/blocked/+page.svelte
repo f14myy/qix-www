@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import { confirmDialog } from '$lib/flash.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 
 	type Blocked = {
@@ -25,7 +26,7 @@
 	});
 
 	async function unblock(user: Blocked) {
-		if (!confirm(i18n.t('settings.unblockConfirm', { user: user.username }))) return;
+		if (!(await confirmDialog(i18n.t('settings.unblockConfirm', { user: user.username })))) return;
 		const res = await fetch(`/api/me/blocked/${user.id}`, { method: 'DELETE' });
 		const json = await res.json();
 		if (res.ok) blocked = json.blocked;

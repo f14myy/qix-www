@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Inbox from '@lucide/svelte/icons/inbox';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import { formatRelativeTime } from '$lib/time';
@@ -41,7 +42,8 @@
 
 	<div class="settings-body">
 		{#if data.requests.length === 0}
-			<div class="empty">
+			<div class="empty empty-animate">
+				<span class="empty-icon"><Inbox size={36} /></span>
 				<p>{i18n.t('requests.empty')}</p>
 			</div>
 		{:else}

@@ -8,6 +8,7 @@
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
+	import { confirmDialog, toast } from '$lib/flash.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import { formatLastSeen, isOnlineIso } from '$lib/time';
 	import type { PageData } from './$types';
@@ -54,11 +55,11 @@
 			});
 			const json = await res.json();
 			if (res.status === 202 || json.pending) {
-				alert(i18n.t('requests.sent'));
+				toast(i18n.t('requests.sent'));
 				return;
 			}
 			if (res.ok) await goto(`/chat/${json.chatId}`);
-			else alert(json.error || 'Error');
+			else toast(json.error || i18n.t('common.error'), 'err');
 		} finally {
 			loading = false;
 		}
@@ -67,7 +68,7 @@
 	async function toggleBlock() {
 		const name = data.profile.username;
 		if (blockedByMe) {
-			if (!confirm(i18n.t('settings.unblockConfirm', { user: name }))) return;
+			if (!(await confirmDialog(i18n.t('settings.unblockConfirm', { user: name })))) return;
 			blocking = true;
 			try {
 				const res = await fetch(`/api/me/blocked/${data.profile.id}`, { method: 'DELETE' });
@@ -76,7 +77,7 @@
 				blocking = false;
 			}
 		} else {
-			if (!confirm(i18n.t('settings.blockConfirm', { user: name }))) return;
+			if (!(await confirmDialog(i18n.t('settings.blockConfirm', { user: name })))) return;
 			blocking = true;
 			try {
 				const res = await fetch('/api/me/blocked', {

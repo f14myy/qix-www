@@ -8,6 +8,7 @@
 	import Forward from '@lucide/svelte/icons/forward';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import Lock from '@lucide/svelte/icons/lock';
+	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import Phone from '@lucide/svelte/icons/phone';
 	import Pin from '@lucide/svelte/icons/pin';
 	import Search from '@lucide/svelte/icons/search';
@@ -26,6 +27,7 @@
 		decryptMessages,
 		encryptOutgoing
 	} from '$lib/e2ee/messages';
+	import { toast, promptDialog } from '$lib/flash.svelte';
 	import { haptic, hapticFail, hapticSuccess } from '$lib/haptic';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import {
@@ -81,6 +83,8 @@
 	let gallery = $state<MediaItemDTO[]>([]);
 	let forwardChats = $state<ChatListItem[]>([]);
 	let searchingInChat = $state(false);
+	let messagesReady = $state(false);
+	let showGestureCoach = $state(false);
 
 	type TimelineItem =
 		| { kind: 'sep'; key: string; label: string }
@@ -191,6 +195,7 @@
 		disappearAfterSec = data.disappearAfterSec;
 		e2eeOn = canE2ee;
 		computeFirstUnread(list, data.myLastReadAt);
+		messagesReady = false;
 
 		let cancelled = false;
 		(async () => {
@@ -212,6 +217,7 @@
 				messages = [...list];
 				pinnedMessage = data.pinnedMessage;
 			}
+			if (!cancelled) messagesReady = true;
 		})();
 		return () => {
 			cancelled = true;
@@ -535,6 +541,14 @@
 		fetch('/api/presence', { method: 'POST' });
 		flushQueue();
 
+		try {
+			if (localStorage.getItem('qix-hint-msg-gestures') !== '1') {
+				showGestureCoach = true;
+			}
+		} catch {
+			/* ignore */
+		}
+
 		const jumpId =
 			typeof window !== 'undefined'
 				? new URLSearchParams(window.location.search).get('m')
@@ -827,7 +841,7 @@
 
 	async function reportPeer() {
 		if (!data.peer) return;
-		const reason = prompt(i18n.t('chat.reportPrompt')) ?? '';
+		const reason = (await promptDialog(i18n.t('chat.reportPrompt'))) ?? '';
 		if (!reason.trim()) return;
 		await fetch('/api/reports', {
 			method: 'POST',
@@ -835,7 +849,7 @@
 			body: JSON.stringify({ userId: data.peer.id, reason })
 		});
 		showMenu = false;
-		alert(i18n.t('chat.reportSent'));
+		toast(i18n.t('chat.reportSent'));
 	}
 
 	async function openGallery() {
@@ -944,12 +958,15 @@
 	}
 
 	async function startCall(video: boolean) {
+		showMenu = false;
 		try {
 			haptic(10);
 			await startOutgoingCall(data.chatId, video);
 		} catch (e) {
 			hapticFail();
-			error = e instanceof Error ? e.message : i18n.t('call.failed');
+			const msg = e instanceof Error ? e.message : i18n.t('call.failed');
+			error = msg;
+			toast(msg, 'err');
 		}
 	}
 </script>
@@ -1037,22 +1054,6 @@
 			<button
 				type="button"
 				class="icon-btn"
-				aria-label={i18n.t('call.voice')}
-				onclick={() => startCall(false)}
-			>
-				<Phone size={20} />
-			</button>
-			<button
-				type="button"
-				class="icon-btn"
-				aria-label={i18n.t('call.video')}
-				onclick={() => startCall(true)}
-			>
-				<Video size={20} />
-			</button>
-			<button
-				type="button"
-				class="icon-btn"
 				aria-label={i18n.t('chats.searchMessages')}
 				onclick={() => (showSearch = true)}
 			>
@@ -1098,11 +1099,17 @@
 		{/if}
 
 		<div class="messages" bind:this={listEl} onscroll={onListScroll}>
-			{#if messages.length === 0}
+			{#if !messagesReady}
 				<div class="chat-skeleton" aria-hidden="true">
 					<span class="sk sk-them"></span>
 					<span class="sk sk-me"></span>
 					<span class="sk sk-them short"></span>
+				</div>
+			{:else if messages.length === 0}
+				<div class="empty empty-animate chat-empty">
+					<span class="empty-icon"><MessageCircle size={32} /></span>
+					<strong>{i18n.t('chat.emptyTitle')}</strong>
+					<p>{isChannel ? i18n.t('chat.emptyChannel') : i18n.t('chat.empty')}</p>
 				</div>
 			{/if}
 			{#each timeline as item (item.key)}
@@ -1208,6 +1215,10 @@
 			releaseToCancelLabel={i18n.t('chat.releaseToCancel')}
 			cameraLabel={i18n.t('chat.camera')}
 			attachLabel={i18n.t('chat.attach')}
+			sendLabel={i18n.t('common.send')}
+			voiceLabel={i18n.t('common.voice')}
+			removeLabel={i18n.t('common.remove')}
+			micDeniedLabel={i18n.t('chat.micDenied')}
 			ontyping={isChannel ? undefined : emitTyping}
 			onclearReply={() => (replyTo = null)}
 			onclearEdit={() => (editing = null)}
@@ -1221,7 +1232,27 @@
 	{/if}
 </div>
 
-{#if lightbox}
+	{#if showGestureCoach}
+		<div class="coach-banner" role="status">
+			<p>{i18n.t('chat.coachGestures')}</p>
+			<button
+				type="button"
+				class="btn btn-ghost coach-dismiss"
+				onclick={() => {
+					showGestureCoach = false;
+					try {
+						localStorage.setItem('qix-hint-msg-gestures', '1');
+					} catch {
+						/* ignore */
+					}
+				}}
+			>
+				{i18n.t('chat.coachDismiss')}
+			</button>
+		</div>
+	{/if}
+
+	{#if lightbox}
 	<ImageLightbox
 		urls={lightbox.urls}
 		index={lightbox.index}
@@ -1235,6 +1266,16 @@
 	<div class="menu-backdrop" onclick={() => (showMenu = false)}></div>
 	<div class="msg-sheet">
 		<div class="msg-menu">
+			{#if !isChannel}
+				<button type="button" onclick={() => startCall(false)}>
+					<span class="sheet-row-ico"><Phone size={18} /></span>
+					{i18n.t('call.voice')}
+				</button>
+				<button type="button" onclick={() => startCall(true)}>
+					<span class="sheet-row-ico"><Video size={18} /></span>
+					{i18n.t('call.video')}
+				</button>
+			{/if}
 			<button type="button" onclick={openGallery}>
 				<span class="sheet-row-ico"><ImageIcon size={18} /></span>
 				{i18n.t('chat.gallery')}

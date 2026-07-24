@@ -20,7 +20,7 @@
 			});
 			const data = await res.json();
 			if (!res.ok) {
-				error = data.error || 'Login failed';
+				error = data.error || i18n.t('auth.loginFailed');
 				return;
 			}
 			await goto('/');

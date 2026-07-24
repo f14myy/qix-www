@@ -20,7 +20,7 @@
 			});
 			const data = await res.json();
 			if (!res.ok) {
-				error = data.error || 'Registration failed';
+				error = data.error || i18n.t('auth.registerFailed');
 				return;
 			}
 			if (Array.isArray(data.recoveryCodes)) {
@@ -30,7 +30,7 @@
 					/* ignore */
 				}
 			}
-			await goto('/settings/security?codes=1');
+			await goto('/');
 		} finally {
 			loading = false;
 		}
@@ -65,6 +65,7 @@
 					bind:value={password}
 					required
 				/>
+				<p class="field-hint">{i18n.t('auth.passwordHint')}</p>
 			</div>
 			{#if error}
 				<p class="error">{error}</p>

@@ -4,6 +4,7 @@
 	import Paperclip from '@lucide/svelte/icons/paperclip';
 	import Send from '@lucide/svelte/icons/send';
 	import X from '@lucide/svelte/icons/x';
+	import { toast } from '$lib/flash.svelte';
 	import { haptic } from '$lib/haptic';
 	import { compressMedia } from '$lib/videoCompress';
 	import { getCachedSettings } from '$lib/settings';
@@ -22,6 +23,10 @@
 		releaseToCancelLabel = 'Release to cancel',
 		cameraLabel = 'Camera',
 		attachLabel = 'Attach',
+		sendLabel = 'Send',
+		voiceLabel = 'Voice',
+		removeLabel = 'Remove',
+		micDeniedLabel = 'Microphone permission is required for voice messages',
 		ontyping,
 		onclearReply,
 		onclearEdit,
@@ -39,6 +44,10 @@
 		releaseToCancelLabel?: string;
 		cameraLabel?: string;
 		attachLabel?: string;
+		sendLabel?: string;
+		voiceLabel?: string;
+		removeLabel?: string;
+		micDeniedLabel?: string;
 		ontyping?: () => void;
 		onclearReply?: () => void;
 		onclearEdit?: () => void;
@@ -376,6 +385,7 @@
 			recording = false;
 			stopTracks();
 			clearRecordTimer();
+			toast(micDeniedLabel, 'err');
 		}
 	}
 
@@ -487,7 +497,7 @@
 						<button
 							type="button"
 							class="pending-remove"
-							aria-label="Remove"
+							aria-label={removeLabel}
 							onclick={() => setFiles(files.filter((_, idx) => idx !== i))}
 						>
 							<X size={12} />
@@ -528,7 +538,7 @@
 			{/if}
 			{#if locked}
 				<button type="button" class="rec-cancel" onclick={cancelLocked}>✕</button>
-				<button type="button" class="rec-send" onclick={sendLocked} aria-label="Send">
+				<button type="button" class="rec-send" onclick={sendLocked} aria-label={sendLabel}>
 					<Send size={16} />
 				</button>
 			{/if}
@@ -586,7 +596,7 @@
 				type="button"
 				class="send"
 				class:flash={sendFlash}
-				aria-label="Send"
+				aria-label={sendLabel}
 				disabled={!canSend && !editing}
 				onclick={submit}
 			>
@@ -599,7 +609,7 @@
 				class:recording
 				class:flash={sendFlash}
 				class:cancel-armed={cancelHover}
-				aria-label="Voice"
+				aria-label={voiceLabel}
 				disabled={sending}
 				onpointerdown={onMicDown}
 				onpointermove={onMicMove}
