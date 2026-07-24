@@ -6,6 +6,7 @@
 	import LinkCard from './LinkCard.svelte';
 	import VoicePlayer from './VoicePlayer.svelte';
 	import { haptic } from '$lib/haptic';
+	import { getCachedSettings } from '$lib/settings';
 	import { formatMessageTime } from '$lib/time';
 	import { REACTION_EMOJIS, type MessageDTO } from '$lib/types';
 	import type { Locale } from '$lib/i18n';
@@ -24,6 +25,7 @@
 		ondelete,
 		onreact,
 		onjump,
+		onretry,
 		onopenImage
 	}: {
 		message: MessageDTO;
@@ -39,6 +41,7 @@
 		ondelete: (m: MessageDTO) => void;
 		onreact: (m: MessageDTO, emoji: string) => void;
 		onjump?: (id: string) => void;
+		onretry?: (m: MessageDTO) => void;
 		onopenImage?: (urls: string[], index: number) => void;
 	} = $props();
 
@@ -49,8 +52,13 @@
 	let startX = 0;
 	let startY = 0;
 	let pressMoved = false;
+	let longPressed = false;
+	let lastTapAt = 0;
+	let canShare = $state(false);
+	let moveGuard = 0;
 
 	const deleted = $derived(!!message.deletedAt);
+	const failed = $derived(message.sendStatus === 'failed');
 	const read = $derived(
 		mine &&
 			!!peerLastReadAt &&
@@ -60,8 +68,17 @@
 		message.attachments.filter((a) => a.mime.startsWith('image/')).map((a) => `/api/files/${a.id}`)
 	);
 
+	$effect(() => {
+		canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+	});
+
 	function isImage(mime: string) {
 		return mime.startsWith('image/');
+	}
+
+	function shareText() {
+		if (message.kind === 'voice') return t('chats.voice');
+		return message.body?.trim() || '';
 	}
 
 	function onPointerDown(e: PointerEvent) {
@@ -70,6 +87,8 @@
 		startY = e.clientY;
 		swiping = true;
 		pressMoved = false;
+		longPressed = false;
+		moveGuard = 0;
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 	}
 
@@ -77,6 +96,7 @@
 		if (!swiping) return;
 		const dx = e.clientX - startX;
 		const dy = e.clientY - startY;
+		moveGuard = Math.max(moveGuard, Math.abs(dx), Math.abs(dy));
 		if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
 			swiping = false;
 			swipeX = 0;
@@ -93,20 +113,40 @@
 
 	function onPointerUp() {
 		const shouldReply = swipeX > 56;
+		const releaseX = swipeX;
+		const moved = pressMoved || moveGuard > 8;
+		const wasLong = longPressed;
 		swiping = false;
-		swipeX = 0;
+		requestAnimationFrame(() => {
+			swipeX = 0;
+		});
 		startX = 0;
-		if (shouldReply) {
+
+		if (shouldReply && releaseX > 56) {
 			haptic(10);
 			onreply(message);
+			return;
+		}
+
+		if (!moved && !wasLong && !deleted && !message.id.startsWith('tmp-')) {
+			const now = Date.now();
+			if (now - lastTapAt < 300) {
+				lastTapAt = 0;
+				onreact(message, '👍');
+				haptic(10);
+			} else {
+				lastTapAt = now;
+			}
 		}
 	}
 
 	let pressTimer: ReturnType<typeof setTimeout> | undefined;
 	function onPressStart() {
 		pressMoved = false;
+		longPressed = false;
 		pressTimer = setTimeout(() => {
 			if (!pressMoved) {
+				longPressed = true;
 				menuOpen = true;
 				confirmDelete = false;
 				haptic(18);
@@ -121,6 +161,34 @@
 		menuOpen = false;
 		confirmDelete = false;
 	}
+
+	async function copyMessage() {
+		const text = shareText();
+		if (!text) return;
+		try {
+			await navigator.clipboard.writeText(text);
+			haptic(8);
+		} catch {
+			/* ignore */
+		}
+		closeMenu();
+	}
+
+	async function shareMessage() {
+		const text = shareText();
+		if (!text || !navigator.share) return;
+		try {
+			await navigator.share({ text });
+		} catch {
+			/* cancelled */
+		}
+		closeMenu();
+	}
+
+	function openImage(urls: string[], index: number) {
+		if (moveGuard > 8) return;
+		onopenImage?.(urls, index);
+	}
 </script>
 
 <div
@@ -130,19 +198,21 @@
 	class:highlight
 	class:grouped
 	class:tail
+	class:failed
 	id="msg-{message.id}"
-	style="transform:translateX({swipeX}px)"
 	role="group"
 	onpointerdown={onPointerDown}
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}
 	onpointercancel={onPointerUp}
 >
-	{#if swipeX > 8}
-		<span class="swipe-reply-hint" style="opacity:{Math.min(1, swipeX / 56)}">
-			<Reply size={18} />
-		</span>
-	{/if}
+	<span
+		class="swipe-reply-hint"
+		class:visible={swipeX > 8}
+		style="opacity:{Math.min(1, swipeX / 56)}; transform:translateY(-50%) scale({0.7 + Math.min(0.3, (swipeX / 56) * 0.3)})"
+	>
+		<Reply size={18} />
+	</span>
 
 	<div
 		class="bubble"
@@ -151,6 +221,9 @@
 		class:deleted
 		class:grouped
 		class:tail
+		class:failed
+		class:selecting={menuOpen}
+		style="transform:translateX({swipeX}px)"
 		onpointerdown={onPressStart}
 		onpointerup={onPressEnd}
 		onpointerleave={onPressEnd}
@@ -163,7 +236,10 @@
 				<button
 					type="button"
 					class="reply-quote"
-					onclick={() => onjump?.(message.replyTo!.id)}
+					onclick={() => {
+						if (moveGuard > 8) return;
+						onjump?.(message.replyTo!.id);
+					}}
 				>
 					<span class="reply-bar"></span>
 					<span>
@@ -178,6 +254,8 @@
 
 			{#if message.kind === 'voice' && message.attachments[0]}
 				<VoicePlayer id={message.id} src="/api/files/{message.attachments[0].id}" />
+			{:else if message.kind === 'voice' && message.id.startsWith('tmp-')}
+				<p class="body">{t('chats.voice')}</p>
 			{:else if message.attachments.length}
 				<div class="att-list">
 					{#each message.attachments as att, ai (att.id)}
@@ -187,13 +265,21 @@
 								class="att-image-btn"
 								onclick={() => {
 									const idx = imageUrls.indexOf(`/api/files/${att.id}`);
-									onopenImage?.(imageUrls, idx >= 0 ? idx : ai);
+									openImage(imageUrls, idx >= 0 ? idx : ai);
 								}}
 							>
 								<img class="att-image" src="/api/files/{att.id}" alt={att.filename} />
 							</button>
 						{:else}
-							<a class="att-file" href="/api/files/{att.id}" target="_blank" rel="noopener">
+							<a
+								class="att-file"
+								href="/api/files/{att.id}"
+								target="_blank"
+								rel="noopener"
+								onclick={(e) => {
+									if (moveGuard > 8) e.preventDefault();
+								}}
+							>
 								<FileIcon size={18} />
 								<span>{att.filename}</span>
 							</a>
@@ -206,7 +292,7 @@
 				<p class="body">{message.body}</p>
 			{/if}
 
-			{#if message.linkPreview}
+			{#if message.linkPreview && getCachedSettings().linkPreviews}
 				<LinkCard preview={message.linkPreview} />
 			{/if}
 
@@ -224,6 +310,12 @@
 					{/each}
 				</div>
 			{/if}
+
+			{#if failed}
+				<button type="button" class="retry-chip" onclick={() => onretry?.(message)}>
+					{t('chat.retrySend')}
+				</button>
+			{/if}
 		{/if}
 
 		<span class="time">
@@ -232,8 +324,15 @@
 			{/if}
 			{formatMessageTime(message.createdAt, locale)}
 			{#if mine && !deleted}
-				<span class="receipt" class:read class:pending={message.id.startsWith('tmp-')}>
-					{#if message.id.startsWith('tmp-')}
+				<span
+					class="receipt"
+					class:read
+					class:pending={message.id.startsWith('tmp-') && !failed}
+					class:failed
+				>
+					{#if failed}
+						!
+					{:else if message.id.startsWith('tmp-')}
 						<Check size={14} />
 					{:else if read}
 						<CheckCheck size={14} />
@@ -284,6 +383,12 @@
 						onreply(message);
 					}}>{t('chat.reply')}</button
 				>
+				{#if shareText()}
+					<button type="button" onclick={copyMessage}>{t('chat.copy')}</button>
+					{#if canShare}
+						<button type="button" onclick={shareMessage}>{t('chat.share')}</button>
+					{/if}
+				{/if}
 				{#if mine && message.kind !== 'voice' && !message.id.startsWith('tmp-')}
 					<button
 						type="button"

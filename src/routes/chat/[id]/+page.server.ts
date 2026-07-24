@@ -1,6 +1,12 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { getPeer, getPeerLastReadAt, isChatMember, listMessages } from '$lib/server/chats';
+import {
+	getMyLastReadAt,
+	getPeer,
+	getPeerLastReadAt,
+	isChatMember,
+	listMessages
+} from '$lib/server/chats';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const chatId = params.id;
@@ -12,11 +18,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!peer) error(404, 'Chat not found');
 
 	const peerLastReadAt = getPeerLastReadAt(chatId, locals.user!.id);
+	const myLastReadAt = getMyLastReadAt(chatId, locals.user!.id);
 
 	return {
 		chatId,
 		peer,
 		peerLastReadAt: peerLastReadAt ? peerLastReadAt.toISOString() : null,
+		myLastReadAt: myLastReadAt ? myLastReadAt.toISOString() : null,
 		messages: listMessages(chatId, locals.user!.id, 100)
 	};
 };

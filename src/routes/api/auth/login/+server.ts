@@ -32,6 +32,18 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		return json({ error: 'Invalid username or password' }, { status: 401 });
 	}
 
+	if (user.bannedAt) {
+		const reason = user.bannedReason?.trim();
+		return json(
+			{
+				error: reason
+					? `Account banned: ${reason}`
+					: 'This account has been banned'
+			},
+			{ status: 403 }
+		);
+	}
+
 	await createSession(user.id, cookies);
 
 	return json({ user: { id: user.id, username: user.username } });

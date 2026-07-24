@@ -2,29 +2,32 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Bell from '@lucide/svelte/icons/bell';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import MessageSquare from '@lucide/svelte/icons/message-square';
+	import Palette from '@lucide/svelte/icons/palette';
+	import Shield from '@lucide/svelte/icons/shield';
 	import Smartphone from '@lucide/svelte/icons/smartphone';
-	import { getStoredTheme, setThemePreference, type ThemePreference } from '$lib/theme';
+	import UserRound from '@lucide/svelte/icons/user-round';
+	import Ban from '@lucide/svelte/icons/ban';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
+	import Avatar from '$lib/components/Avatar.svelte';
+	import { isAdmin } from '$lib/admin';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
-	import type { Locale } from '$lib/i18n';
 	import { dismissInstallTip, isStandaloneDisplay, shouldShowInstallTip } from '$lib/pwa';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 	const i18n = useI18n();
-	let theme = $state<ThemePreference>('system');
 	let showInstall = $state(false);
 	let standalone = $state(false);
+	const meTitle = $derived(data.user?.displayName || data.user?.username || '');
+	const showAdmin = $derived(isAdmin(data.user));
 
 	onMount(() => {
-		theme = getStoredTheme();
 		standalone = isStandaloneDisplay();
 		showInstall = shouldShowInstallTip();
 	});
-
-	function setTheme(next: ThemePreference) {
-		theme = next;
-		setThemePreference(next);
-	}
 
 	function hideInstall() {
 		dismissInstallTip();
@@ -35,6 +38,14 @@
 		await fetch('/api/auth/logout', { method: 'POST' });
 		await goto('/login');
 	}
+
+	const nav = [
+		{ href: '/settings/appearance', icon: Palette, label: 'settings.navAppearance' },
+		{ href: '/settings/notifications', icon: Bell, label: 'settings.navNotifications' },
+		{ href: '/settings/chats', icon: MessageSquare, label: 'settings.navChats' },
+		{ href: '/settings/privacy', icon: Shield, label: 'settings.navPrivacy' },
+		{ href: '/settings/blocked', icon: Ban, label: 'settings.navBlocked' }
+	] as const;
 </script>
 
 <div class="screen">
@@ -69,67 +80,74 @@
 		{/if}
 
 		<section class="settings-section">
-			<h2>{i18n.t('settings.account')}</h2>
-			<div class="settings-card">
-				<div class="settings-row">
-					<span class="label">{i18n.t('settings.username')}</span>
-					<span class="value">@{data.user?.username}</span>
+			<h2>{i18n.t('settings.sectionAccount')}</h2>
+			<a class="settings-profile-card" href="/u/{data.user?.username}">
+				<Avatar
+					name={meTitle}
+					size={56}
+					avatarPath={data.user?.avatarPath ?? null}
+					userId={data.user?.id}
+				/>
+				<div class="settings-profile-copy">
+					<strong>{meTitle}</strong>
+					<span>@{data.user?.username}</span>
 				</div>
-				<a class="settings-row link-row" href="/settings/profile">
-					<span class="label">{i18n.t('settings.profile')}</span>
-					<span class="value">→</span>
+				<span class="settings-nav-chevron"><ChevronRight size={18} /></span>
+			</a>
+			<div class="settings-card" style="margin-top:10px">
+				<a class="settings-row link-row settings-nav-row" href="/settings/profile">
+					<span class="settings-nav-icon"><UserRound size={18} /></span>
+					<span class="label">{i18n.t('settings.navProfile')}</span>
+					<span class="settings-nav-chevron"><ChevronRight size={18} /></span>
 				</a>
 			</div>
 		</section>
 
 		<section class="settings-section">
-			<h2>{i18n.t('settings.appearance')}</h2>
+			<h2>{i18n.t('settings.sectionPrefs')}</h2>
 			<div class="settings-card">
-				<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
-					<span class="label">{i18n.t('settings.theme')}</span>
-					<div class="theme-pills">
-						<button
-							type="button"
-							class="theme-pill"
-							class:active={theme === 'system'}
-							onclick={() => setTheme('system')}>{i18n.t('settings.system')}</button
-						>
-						<button
-							type="button"
-							class="theme-pill"
-							class:active={theme === 'light'}
-							onclick={() => setTheme('light')}>{i18n.t('settings.light')}</button
-						>
-						<button
-							type="button"
-							class="theme-pill"
-							class:active={theme === 'dark'}
-							onclick={() => setTheme('dark')}>{i18n.t('settings.dark')}</button
-						>
-					</div>
-				</div>
-				<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
-					<span class="label">{i18n.t('settings.language')}</span>
-					<div class="theme-pills">
-						<button
-							type="button"
-							class="theme-pill"
-							class:active={i18n.locale === 'en'}
-							onclick={() => i18n.setLocale('en' as Locale)}>English</button
-						>
-						<button
-							type="button"
-							class="theme-pill"
-							class:active={i18n.locale === 'ru'}
-							onclick={() => i18n.setLocale('ru' as Locale)}>Русский</button
-						>
-					</div>
-				</div>
+				{#each nav.slice(0, 3) as item}
+					{@const Icon = item.icon}
+					<a class="settings-row link-row settings-nav-row" href={item.href}>
+						<span class="settings-nav-icon"><Icon size={18} /></span>
+						<span class="label">{i18n.t(item.label)}</span>
+						<span class="settings-nav-chevron"><ChevronRight size={18} /></span>
+					</a>
+				{/each}
 			</div>
 		</section>
 
 		<section class="settings-section">
-			<button class="btn btn-block" type="button" onclick={logout}>{i18n.t('settings.logout')}</button>
+			<h2>{i18n.t('settings.sectionSafety')}</h2>
+			<div class="settings-card">
+				{#each nav.slice(3) as item}
+					{@const Icon = item.icon}
+					<a class="settings-row link-row settings-nav-row" href={item.href}>
+						<span class="settings-nav-icon"><Icon size={18} /></span>
+						<span class="label">{i18n.t(item.label)}</span>
+						<span class="settings-nav-chevron"><ChevronRight size={18} /></span>
+					</a>
+				{/each}
+			</div>
+		</section>
+
+		{#if showAdmin}
+			<section class="settings-section">
+				<h2>{i18n.t('settings.sectionAdmin')}</h2>
+				<div class="settings-card">
+					<a class="settings-row link-row settings-nav-row" href="/admin">
+						<span class="settings-nav-icon"><ShieldCheck size={18} /></span>
+						<span class="label">{i18n.t('settings.navAdmin')}</span>
+						<span class="settings-nav-chevron"><ChevronRight size={18} /></span>
+					</a>
+				</div>
+			</section>
+		{/if}
+
+		<section class="settings-section">
+			<button class="btn btn-block btn-danger-outline" type="button" onclick={logout}
+				>{i18n.t('settings.logout')}</button
+			>
 		</section>
 	</div>
 </div>

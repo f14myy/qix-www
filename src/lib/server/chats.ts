@@ -1,4 +1,5 @@
 import { and, desc, eq, gt, ne, sql } from 'drizzle-orm';
+import { normalizeBannerKey, type BadgeDTO } from '$lib/badges';
 import { db } from './db';
 import {
 	attachments,
@@ -10,6 +11,12 @@ import {
 	users
 } from './schema';
 import { createId } from './id';
+import { getUserBadges } from './badges';
+import {
+	canSeeLastSeen,
+	getBlockedIdsForUser,
+	getUserSettings
+} from './settings';
 
 export type AttachmentDTO = {
 	id: string;
@@ -61,6 +68,7 @@ export type ChatListItem = {
 		displayName: string | null;
 		avatarPath: string | null;
 		lastSeenAt: string | null;
+		badges: BadgeDTO[];
 	};
 	unreadCount: number;
 	pinned: boolean;
@@ -82,7 +90,11 @@ export type PublicProfile = {
 	displayName: string | null;
 	bio: string | null;
 	avatarPath: string | null;
+	bannerPath: string | null;
 	lastSeenAt: string | null;
+	createdAt: string;
+	bannerKey: string;
+	badges: BadgeDTO[];
 };
 
 export function isOnline(lastSeenAt: Date | null | undefined, now = Date.now()): boolean {
@@ -154,7 +166,10 @@ export function getPeer(chatId: string, userId: string): PublicProfile | null {
 			displayName: users.displayName,
 			bio: users.bio,
 			avatarPath: users.avatarPath,
-			lastSeenAt: users.lastSeenAt
+			bannerPath: users.bannerPath,
+			lastSeenAt: users.lastSeenAt,
+			createdAt: users.createdAt,
+			bannerKey: users.bannerKey
 		})
 		.from(chatMembers)
 		.innerJoin(users, eq(chatMembers.userId, users.id))
@@ -162,19 +177,42 @@ export function getPeer(chatId: string, userId: string): PublicProfile | null {
 		.get();
 
 	if (!row) return null;
+	const showSeen = canSeeLastSeen(row.id, userId);
 	return {
-		...row,
-		lastSeenAt: row.lastSeenAt ? row.lastSeenAt.toISOString() : null
+		id: row.id,
+		username: row.username,
+		displayName: row.displayName,
+		bio: row.bio,
+		avatarPath: row.avatarPath,
+		bannerPath: row.bannerPath,
+		lastSeenAt: showSeen && row.lastSeenAt ? row.lastSeenAt.toISOString() : null,
+		createdAt: row.createdAt.toISOString(),
+		bannerKey: normalizeBannerKey(row.bannerKey),
+		badges: getUserBadges(row.id)
 	};
 }
 
 export function getPeerLastReadAt(chatId: string, userId: string): Date | null {
 	const peer = getPeer(chatId, userId);
 	if (!peer) return null;
+
+	const peerSettings = getUserSettings(peer.id);
+	const mySettings = getUserSettings(userId);
+	if (!peerSettings.readReceipts || !mySettings.readReceipts) return null;
+
 	const row = db
 		.select({ lastReadAt: chatMembers.lastReadAt })
 		.from(chatMembers)
 		.where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, peer.id)))
+		.get();
+	return row?.lastReadAt ?? null;
+}
+
+export function getMyLastReadAt(chatId: string, userId: string): Date | null {
+	const row = db
+		.select({ lastReadAt: chatMembers.lastReadAt })
+		.from(chatMembers)
+		.where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, userId)))
 		.get();
 	return row?.lastReadAt ?? null;
 }
@@ -267,7 +305,8 @@ export function listChatsForUser(userId: string): ChatListItem[] {
 				username: peer.username,
 				displayName: peer.displayName,
 				avatarPath: peer.avatarPath,
-				lastSeenAt: peer.lastSeenAt
+				lastSeenAt: peer.lastSeenAt,
+				badges: peer.badges
 			},
 			unreadCount: countUnread(m.chatId, userId),
 			pinned: !!m.pinnedAt,
@@ -401,6 +440,9 @@ export function searchUsers(query: string, excludeUserId: string, limit = 20) {
 	const q = query.trim().toLowerCase();
 	if (!q) return [];
 
+	const blocked = getBlockedIdsForUser(excludeUserId);
+	const like = `%${q}%`;
+
 	return db
 		.select({
 			id: users.id,
@@ -412,25 +454,128 @@ export function searchUsers(query: string, excludeUserId: string, limit = 20) {
 		.where(
 			and(
 				ne(users.id, excludeUserId),
-				sql`(${users.username} LIKE ${q + '%'} OR lower(coalesce(${users.displayName}, '')) LIKE ${q + '%'})`
+				sql`(${users.username} LIKE ${like} OR lower(coalesce(${users.displayName}, '')) LIKE ${like})`
 			)
 		)
-		.limit(limit)
+		.limit(limit * 2)
+		.all()
+		.filter((u) => !blocked.has(u.id))
+		.slice(0, limit);
+}
+
+export type MessageSearchHit = {
+	messageId: string;
+	chatId: string;
+	body: string;
+	createdAt: string;
+	peer: {
+		id: string;
+		username: string;
+		displayName: string | null;
+		avatarPath: string | null;
+	};
+};
+
+export function searchMessages(userId: string, query: string, limit = 40): MessageSearchHit[] {
+	const q = query.trim().toLowerCase();
+	if (q.length < 2) return [];
+
+	const like = `%${q}%`;
+	const blocked = getBlockedIdsForUser(userId);
+
+	const rows = db
+		.select({
+			messageId: messages.id,
+			chatId: messages.chatId,
+			body: messages.body,
+			createdAt: messages.createdAt
+		})
+		.from(messages)
+		.innerJoin(chatMembers, eq(chatMembers.chatId, messages.chatId))
+		.where(
+			and(
+				eq(chatMembers.userId, userId),
+				sql`${messages.deletedAt} IS NULL`,
+				sql`${messages.kind} = 'text'`,
+				sql`lower(${messages.body}) LIKE ${like}`
+			)
+		)
+		.orderBy(desc(messages.createdAt))
+		.limit(limit * 3)
 		.all();
+
+	const hits: MessageSearchHit[] = [];
+	for (const row of rows) {
+		const peer = getPeer(row.chatId, userId);
+		if (!peer || blocked.has(peer.id)) continue;
+		hits.push({
+			messageId: row.messageId,
+			chatId: row.chatId,
+			body: row.body,
+			createdAt: row.createdAt.toISOString(),
+			peer: {
+				id: peer.id,
+				username: peer.username,
+				displayName: peer.displayName,
+				avatarPath: peer.avatarPath
+			}
+		});
+		if (hits.length >= limit) break;
+	}
+	return hits;
+}
+
+export type GlobalSearchResult = {
+	chats: ChatListItem[];
+	people: Array<{
+		id: string;
+		username: string;
+		displayName: string | null;
+		avatarPath: string | null;
+	}>;
+	messages: MessageSearchHit[];
+};
+
+export function globalSearch(userId: string, query: string): GlobalSearchResult {
+	const q = query.trim().toLowerCase();
+	if (!q) return { chats: [], people: [], messages: [] };
+
+	const allChats = listChatsForUser(userId);
+	const chats = allChats.filter(
+		(c) =>
+			c.peer.username.includes(q) ||
+			(c.peer.displayName?.toLowerCase().includes(q) ?? false) ||
+			(c.lastMessage && !c.lastMessage.deleted && c.lastMessage.body.toLowerCase().includes(q))
+	);
+
+	const chatPeerIds = new Set(allChats.map((c) => c.peer.id));
+	const people = searchUsers(q, userId, 24).filter((u) => !chatPeerIds.has(u.id));
+	const messages = searchMessages(userId, q, 36);
+
+	return { chats, people, messages };
 }
 
 export function touchPresence(userId: string): void {
 	db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, userId)).run();
 }
 
-export function toPublicProfile(user: typeof users.$inferSelect): PublicProfile {
+export function toPublicProfile(
+	user: typeof users.$inferSelect,
+	viewerId?: string | null
+): PublicProfile {
+	const showSeen =
+		!viewerId || viewerId === user.id || canSeeLastSeen(user.id, viewerId);
 	return {
 		id: user.id,
 		username: user.username,
 		displayName: user.displayName,
 		bio: user.bio,
 		avatarPath: user.avatarPath,
-		lastSeenAt: user.lastSeenAt ? user.lastSeenAt.toISOString() : null
+		bannerPath: user.bannerPath,
+		lastSeenAt: showSeen && user.lastSeenAt ? user.lastSeenAt.toISOString() : null,
+		createdAt: user.createdAt.toISOString(),
+		bannerKey: normalizeBannerKey(user.bannerKey),
+		badges: getUserBadges(user.id)
 	};
 }
 

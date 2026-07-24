@@ -7,10 +7,36 @@ export const users = sqliteTable('users', {
 	displayName: text('display_name'),
 	bio: text('bio'),
 	avatarPath: text('avatar_path'),
+	bannerPath: text('banner_path'),
 	lastSeenAt: integer('last_seen_at', { mode: 'timestamp_ms' }),
 	locale: text('locale'),
+	bannedAt: integer('banned_at', { mode: 'timestamp_ms' }),
+	bannedReason: text('banned_reason'),
+	bannerKey: text('banner_key').notNull().default('default'),
 	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
 });
+
+export const badges = sqliteTable('badges', {
+	id: text('id').primaryKey(),
+	label: text('label').notNull(),
+	color: text('color').notNull(),
+	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+});
+
+export const userBadges = sqliteTable(
+	'user_badges',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		badgeId: text('badge_id')
+			.notNull()
+			.references(() => badges.id, { onDelete: 'cascade' }),
+		sortOrder: integer('sort_order').notNull().default(0),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+	},
+	(t) => [primaryKey({ columns: [t.userId, t.badgeId] })]
+);
 
 export const sessions = sqliteTable('sessions', {
 	id: text('id').primaryKey(),
@@ -93,8 +119,49 @@ export const linkPreviews = sqliteTable('link_previews', {
 	imageUrl: text('image_url')
 });
 
+export const userSettings = sqliteTable('user_settings', {
+	userId: text('user_id')
+		.primaryKey()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	notifyMessages: integer('notify_messages', { mode: 'boolean' }).notNull().default(true),
+	notifyReactions: integer('notify_reactions', { mode: 'boolean' }).notNull().default(true),
+	haptics: integer('haptics', { mode: 'boolean' }).notNull().default(true),
+	sendWithEnter: integer('send_with_enter', { mode: 'boolean' }).notNull().default(true),
+	linkPreviews: integer('link_previews', { mode: 'boolean' }).notNull().default(true),
+	lastSeenVisibility: text('last_seen_visibility').notNull().default('everyone'),
+	readReceipts: integer('read_receipts', { mode: 'boolean' }).notNull().default(true),
+	showTyping: integer('show_typing', { mode: 'boolean' }).notNull().default(true),
+	whoCanMessage: text('who_can_message').notNull().default('everyone'),
+	updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+});
+
+export const blocks = sqliteTable(
+	'blocks',
+	{
+		blockerId: text('blocker_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		blockedId: text('blocked_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+	},
+	(t) => [primaryKey({ columns: [t.blockerId, t.blockedId] })]
+);
+
+export const pushSubscriptions = sqliteTable('push_subscriptions', {
+	endpoint: text('endpoint').primaryKey(),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	p256dh: text('p256dh').notNull(),
+	auth: text('auth').notNull(),
+	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+});
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Chat = typeof chats.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type Attachment = typeof attachments.$inferSelect;
+export type UserSettings = typeof userSettings.$inferSelect;

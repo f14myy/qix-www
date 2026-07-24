@@ -4,12 +4,18 @@ import { touchPresence } from '$lib/server/chats';
 import { publishToUser } from '$lib/server/events';
 import { db } from '$lib/server/db';
 import { chatMembers } from '$lib/server/schema';
+import { canSeeLastSeen, getUserSettings } from '$lib/server/settings';
 import { eq } from 'drizzle-orm';
 
 export const POST: RequestHandler = async ({ locals }) => {
 	if (!locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
 
 	touchPresence(locals.user.id);
+
+	const visibility = getUserSettings(locals.user.id).lastSeenVisibility;
+	if (visibility === 'nobody') {
+		return json({ ok: true });
+	}
 
 	const myChats = db
 		.select({ chatId: chatMembers.chatId })
@@ -32,6 +38,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 
 	const now = new Date().toISOString();
 	for (const peerId of peerIds) {
+		if (!canSeeLastSeen(locals.user.id, peerId, visibility)) continue;
 		publishToUser(peerId, 'presence', {
 			userId: locals.user.id,
 			lastSeenAt: now

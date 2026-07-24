@@ -12,5 +12,5 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	const username = normalizeUsername(params.username);
 	const user = db.select().from(users).where(eq(users.username, username)).get();
 	if (!user) return json({ error: 'Not found' }, { status: 404 });
-	return json({ profile: toPublicProfile(user) });
+	return json({ profile: toPublicProfile(user, locals.user.id) });
 };

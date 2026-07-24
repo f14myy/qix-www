@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { initTheme } from '$lib/theme';
 	import { initLocale } from '$lib/i18n';
+	import { fetchSettings } from '$lib/settings';
 	import { registerServiceWorker } from '$lib/pwa';
 	import '../app.css';
 
@@ -13,6 +14,9 @@
 		const resolved = initTheme();
 		themeColor = resolved === 'dark' ? '#0c1116' : '#1a7a6d';
 		registerServiceWorker();
+		fetchSettings().catch(() => {
+			/* guest / offline */
+		});
 
 		const mq = window.matchMedia('(prefers-color-scheme: dark)');
 		const onChange = () => {
@@ -34,7 +38,7 @@
 	<meta name="apple-mobile-web-app-title" content="Qix" />
 	<link rel="manifest" href="/manifest.webmanifest" />
 	<link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
-	<link rel="apple-touch-icon" href="/icons/icon.svg" />
+	<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 </svelte:head>
 
 <div class="app-shell">

@@ -22,8 +22,64 @@
 						(pref !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 					document.documentElement.dataset.theme = dark ? 'dark' : 'light';
 					document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+					var look = localStorage.getItem('qix-look');
+					if (!look) {
+						var legacy = localStorage.getItem('qix-accent');
+						var map = { teal: 'qix', ocean: 'lagoon', forest: 'meadow', slate: 'graphite', amber: 'ember' };
+						look = map[legacy] || 'qix';
+					}
+					var looks = [
+						'qix',
+						'lagoon',
+						'meadow',
+						'ember',
+						'graphite',
+						'ink',
+						'dusk',
+						'coral',
+						'frost',
+						'sand'
+					];
+					if (looks.indexOf(look) === -1) look = 'qix';
+					document.documentElement.dataset.look = look;
+					var wallpaper = localStorage.getItem('qix-wallpaper') || 'dots';
+					var walls = [
+						'dots',
+						'crosses',
+						'diagonals',
+						'diamonds',
+						'ripples',
+						'grid',
+						'bloom',
+						'chevrons',
+						'stars',
+						'weave',
+						'mist',
+						'none'
+					];
+					if (walls.indexOf(wallpaper) === -1) wallpaper = 'dots';
+					document.documentElement.dataset.wallpaper = wallpaper;
+					var intensity = localStorage.getItem('qix-wallpaper-intensity') || 'normal';
+					if (['soft', 'normal', 'bold'].indexOf(intensity) === -1) intensity = 'normal';
+					document.documentElement.dataset.wpIntensity = intensity;
+					if (localStorage.getItem('qix-reduce-motion') === '1') {
+						document.documentElement.dataset.reduceMotion = '1';
+					}
+					var colors = {
+						qix: { light: '#1a7a6d', dark: '#0c1116' },
+						lagoon: { light: '#1a6f9a', dark: '#0a1016' },
+						meadow: { light: '#3d6b3a', dark: '#0c120c' },
+						ember: { light: '#b86a1a', dark: '#120e0a' },
+						coral: { light: '#c45c4a', dark: '#140c0c' },
+						frost: { light: '#5a8aa8', dark: '#0a1014' },
+						sand: { light: '#9a7b56', dark: '#12100c' },
+						graphite: { light: '#4a5d6e', dark: '#0c1014' },
+						ink: { light: '#2a2a32', dark: '#0a0a0c' },
+						dusk: { light: '#5b4a7a', dark: '#100e16' }
+					};
 					var meta = document.querySelector('meta[name="theme-color"]');
-					if (meta) meta.setAttribute('content', dark ? '#0c1116' : '#1a7a6d');
+					if (meta && colors[look])
+						meta.setAttribute('content', dark ? colors[look].dark : colors[look].light);
 				} catch (e) {}
 			})();
 		</script>

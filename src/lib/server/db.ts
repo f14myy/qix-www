@@ -23,6 +23,8 @@ sqlite.exec(`
 		avatar_path TEXT,
 		last_seen_at INTEGER,
 		locale TEXT,
+		banned_at INTEGER,
+		banned_reason TEXT,
 		created_at INTEGER NOT NULL
 	);
 
@@ -83,10 +85,56 @@ sqlite.exec(`
 		image_url TEXT
 	);
 
+	CREATE TABLE IF NOT EXISTS user_settings (
+		user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+		notify_messages INTEGER NOT NULL DEFAULT 1,
+		notify_reactions INTEGER NOT NULL DEFAULT 1,
+		haptics INTEGER NOT NULL DEFAULT 1,
+		send_with_enter INTEGER NOT NULL DEFAULT 1,
+		link_previews INTEGER NOT NULL DEFAULT 1,
+		last_seen_visibility TEXT NOT NULL DEFAULT 'everyone',
+		read_receipts INTEGER NOT NULL DEFAULT 1,
+		show_typing INTEGER NOT NULL DEFAULT 1,
+		who_can_message TEXT NOT NULL DEFAULT 'everyone',
+		updated_at INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS blocks (
+		blocker_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		blocked_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		created_at INTEGER NOT NULL,
+		PRIMARY KEY (blocker_id, blocked_id)
+	);
+
+	CREATE TABLE IF NOT EXISTS badges (
+		id TEXT PRIMARY KEY,
+		label TEXT NOT NULL,
+		color TEXT NOT NULL,
+		created_at INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS user_badges (
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		badge_id TEXT NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		created_at INTEGER NOT NULL,
+		PRIMARY KEY (user_id, badge_id)
+	);
+
+	CREATE TABLE IF NOT EXISTS push_subscriptions (
+		endpoint TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		p256dh TEXT NOT NULL,
+		auth TEXT NOT NULL,
+		created_at INTEGER NOT NULL
+	);
+
 	CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 	CREATE INDEX IF NOT EXISTS idx_chat_members_user ON chat_members(user_id);
 	CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id, created_at);
 	CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id);
+	CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON blocks(blocked_id);
+	CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
 `);
 
 function ensureColumn(table: string, column: string, ddl: string) {
@@ -108,6 +156,10 @@ ensureColumn('messages', 'kind', "kind TEXT NOT NULL DEFAULT 'text'");
 ensureColumn('messages', 'reply_to_id', 'reply_to_id TEXT');
 ensureColumn('messages', 'edited_at', 'edited_at INTEGER');
 ensureColumn('messages', 'deleted_at', 'deleted_at INTEGER');
+ensureColumn('users', 'banned_at', 'banned_at INTEGER');
+ensureColumn('users', 'banned_reason', 'banned_reason TEXT');
+ensureColumn('users', 'banner_key', "banner_key TEXT NOT NULL DEFAULT 'default'");
+ensureColumn('users', 'banner_path', 'banner_path TEXT');
 
 export const db = drizzle(sqlite, { schema });
 export { uploadsDir };

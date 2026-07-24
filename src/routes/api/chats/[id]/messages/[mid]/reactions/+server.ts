@@ -9,6 +9,7 @@ import {
 	toMessageDTO
 } from '$lib/server/chats';
 import { publishToChat } from '$lib/server/events';
+import { sendPushToUser } from '$lib/server/push';
 import { and, eq } from 'drizzle-orm';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
@@ -38,12 +39,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		)
 		.get();
 
+	let removed = false;
 	if (existing?.emoji === emoji) {
 		db.delete(messageReactions)
 			.where(
 				and(eq(messageReactions.messageId, mid), eq(messageReactions.userId, locals.user.id))
 			)
 			.run();
+		removed = true;
 	} else if (existing) {
 		db.update(messageReactions)
 			.set({ emoji })
@@ -59,5 +62,20 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	const updated = toMessageDTO(getMessageById(mid)!, locals.user.id);
 	publishToChat(chatId, 'reaction', updated);
+
+	if (!removed && msg.senderId !== locals.user.id) {
+		const title = locals.user.displayName || locals.user.username;
+		void sendPushToUser(
+			msg.senderId,
+			{
+				title,
+				body: emoji,
+				href: `/chat/${chatId}`,
+				tag: `qix-react-${mid}`
+			},
+			{ chatId, kind: 'reaction' }
+		);
+	}
+
 	return json({ message: updated });
 };

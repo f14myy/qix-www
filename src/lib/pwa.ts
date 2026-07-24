@@ -1,10 +1,19 @@
+import { subscribeWebPush } from './notify';
+
 /** Register the lightweight service worker when running as an installable PWA. */
 export function registerServiceWorker() {
 	if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 	window.addEventListener('load', () => {
-		navigator.serviceWorker.register('/sw.js').catch(() => {
-			/* ignore — install still works on iOS without SW */
-		});
+		navigator.serviceWorker
+			.register('/sw.js')
+			.then(() => {
+				if (Notification.permission === 'granted') {
+					subscribeWebPush().catch(() => {});
+				}
+			})
+			.catch(() => {
+				/* ignore — install still works on iOS without SW */
+			});
 	});
 }
 

@@ -3,7 +3,8 @@ import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/schema';
 import { normalizeUsername } from '$lib/server/auth';
-import { toPublicProfile } from '$lib/server/chats';
+import { findDmChatId, toPublicProfile } from '$lib/server/chats';
+import { isBlockedBy, isBlockedEither } from '$lib/server/settings';
 import { eq } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -11,8 +12,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const user = db.select().from(users).where(eq(users.username, username)).get();
 	if (!user) error(404, 'Not found');
 
+	const me = locals.user!.id;
+	const isSelf = user.id === me;
+	const blockedByMe = isBlockedBy(me, user.id);
+	const blocked = isBlockedEither(me, user.id);
+
 	return {
-		profile: toPublicProfile(user),
-		isSelf: user.id === locals.user!.id
+		profile: toPublicProfile(user, me),
+		isSelf,
+		blockedByMe,
+		blocked,
+		existingChatId: isSelf || blocked ? null : findDmChatId(me, user.id)
 	};
 };

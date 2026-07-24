@@ -38,6 +38,8 @@ export type MessageDTO = {
 	attachments: AttachmentDTO[];
 	linkPreview: LinkPreviewDTO | null;
 	reactions: ReactionDTO[];
+	/** Client-only: optimistic send state */
+	sendStatus?: 'pending' | 'failed';
 };
 
 export type ChatListItem = {
@@ -48,6 +50,7 @@ export type ChatListItem = {
 		displayName: string | null;
 		avatarPath: string | null;
 		lastSeenAt: string | null;
+		badges: import('$lib/badges').BadgeDTO[];
 	};
 	unreadCount: number;
 	pinned: boolean;
@@ -69,7 +72,11 @@ export type PublicProfile = {
 	displayName: string | null;
 	bio: string | null;
 	avatarPath: string | null;
+	bannerPath: string | null;
 	lastSeenAt: string | null;
+	createdAt: string;
+	bannerKey: string;
+	badges: import('$lib/badges').BadgeDTO[];
 };
 
 export const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'] as const;

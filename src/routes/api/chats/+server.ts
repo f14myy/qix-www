@@ -4,6 +4,7 @@ import { normalizeUsername, validateUsername } from '$lib/server/auth';
 import { createDm, listChatsForUser } from '$lib/server/chats';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/schema';
+import { canStartChat } from '$lib/server/settings';
 import { eq } from 'drizzle-orm';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -27,6 +28,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const peer = db.select().from(users).where(eq(users.username, peerUsername)).get();
 	if (!peer) return json({ error: 'User not found' }, { status: 404 });
+
+	const allowed = canStartChat(locals.user.id, peer.id);
+	if (!allowed.ok) return json({ error: allowed.error }, { status: 403 });
 
 	const chatId = createDm(locals.user.id, peer.id);
 	return json({ chatId, peer: { id: peer.id, username: peer.username } }, { status: 201 });

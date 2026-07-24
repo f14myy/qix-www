@@ -16,7 +16,9 @@
 	const colors = ['#1a7a6d', '#2b6cb0', '#c05621', '#5b4bb7', '#2f855a', '#b83232', '#2c7a7b'];
 	const letter = $derived((name?.[0] || '?').toUpperCase());
 	const bg = $derived(colors[(name?.charCodeAt(0) || 0) % colors.length]);
-	const src = $derived(userId && avatarPath ? `/api/avatars/${userId}` : null);
+	const src = $derived(
+		userId && avatarPath ? `/api/avatars/${userId}?v=${encodeURIComponent(avatarPath)}` : null
+	);
 </script>
 
 <span class="avatar-wrap" style="width:{size}px;height:{size}px">

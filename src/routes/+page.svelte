@@ -8,41 +8,68 @@
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import Pin from '@lucide/svelte/icons/pin';
 	import PinOff from '@lucide/svelte/icons/pin-off';
-	import Plus from '@lucide/svelte/icons/plus';
+	import Search from '@lucide/svelte/icons/search';
 	import Settings from '@lucide/svelte/icons/settings';
+	import X from '@lucide/svelte/icons/x';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import { notifyMessage } from '$lib/notify';
 	import { formatRelativeTime, isOnlineIso } from '$lib/time';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 	const i18n = useI18n();
 	let filter = $state('');
-	let openMenuId = $state<string | null>(null);
-	let swipeId = $state<string | null>(null);
-	let swipeX = $state(0);
-	let swiping = $state(false);
+	let searching = $state(false);
+	let searchChats = $state<PageData['chats']>([]);
+	let searchPeople = $state<
+		Array<{ id: string; username: string; displayName: string | null; avatarPath: string | null }>
+	>([]);
+	let searchMessages = $state<
+		Array<{
+			messageId: string;
+			chatId: string;
+			body: string;
+			createdAt: string;
+			peer: {
+				id: string;
+				username: string;
+				displayName: string | null;
+				avatarPath: string | null;
+			};
+		}>
+	>([]);
+	let searchTimer: ReturnType<typeof setTimeout> | undefined;
+	let openId = $state<string | null>(null);
+	let activeId = $state<string | null>(null);
+	let offsetX = $state(0);
+	let dragging = $state(false);
 	let startX = 0;
 	let startY = 0;
+	let baseX = 0;
+	let axis: 'none' | 'h' | 'v' = 'none';
+	let didSwipe = false;
 	let pullY = $state(0);
 	let pulling = $state(false);
 	let refreshing = $state(false);
 	let listEl: HTMLDivElement | undefined = $state();
 	let presenceMap = $state<Record<string, string>>({});
+	let openingUser = $state(false);
+	let searchInput: HTMLInputElement | undefined = $state();
 
-	const filtered = $derived(
-		data.chats.filter((c) => {
-			const q = filter.trim().toLowerCase();
-			if (!q) return true;
-			return (
-				c.peer.username.includes(q) ||
-				(c.peer.displayName?.toLowerCase().includes(q) ?? false)
-			);
-		})
+	const ACTION_W = 120;
+	const OPEN_AT = 56;
+
+	const q = $derived(filter.trim());
+	const isSearch = $derived(q.length > 0);
+
+	const pinned = $derived(data.chats.filter((c) => c.pinned));
+	const unpinned = $derived(data.chats.filter((c) => !c.pinned));
+
+	const searchHasResults = $derived(
+		searchChats.length > 0 || searchPeople.length > 0 || searchMessages.length > 0
 	);
-
-	const pinned = $derived(filtered.filter((c) => c.pinned));
-	const unpinned = $derived(filtered.filter((c) => !c.pinned));
 
 	function preview(chat: PageData['chats'][number]) {
 		if (!chat.lastMessage) return i18n.t('chats.noMessages');
@@ -75,10 +102,55 @@
 		return isOnlineIso(seen);
 	}
 
+	function snippet(body: string, query: string) {
+		const lower = body.toLowerCase();
+		const i = lower.indexOf(query.toLowerCase());
+		if (i < 0) return body.slice(0, 100);
+		const start = Math.max(0, i - 24);
+		const end = Math.min(body.length, i + query.length + 40);
+		return `${start > 0 ? '…' : ''}${body.slice(start, end)}${end < body.length ? '…' : ''}`;
+	}
+
+	function onFilterInput() {
+		clearTimeout(searchTimer);
+		const next = filter.trim();
+		if (!next) {
+			searchChats = [];
+			searchPeople = [];
+			searchMessages = [];
+			searching = false;
+			return;
+		}
+		searchTimer = setTimeout(() => runSearch(next), 220);
+	}
+
+	async function runSearch(query: string) {
+		searching = true;
+		try {
+			const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+			const json = await res.json();
+			if (!res.ok) return;
+			searchChats = json.chats ?? [];
+			searchPeople = json.people ?? [];
+			searchMessages = json.messages ?? [];
+		} finally {
+			searching = false;
+		}
+	}
+
+	function clearSearch() {
+		filter = '';
+		searchChats = [];
+		searchPeople = [];
+		searchMessages = [];
+		searching = false;
+	}
+
 	async function refresh() {
 		refreshing = true;
 		try {
 			await invalidateAll();
+			if (q) await runSearch(q);
 		} finally {
 			refreshing = false;
 			pullY = 0;
@@ -91,42 +163,111 @@
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify(patch)
 		});
-		openMenuId = null;
-		swipeId = null;
-		swipeX = 0;
+		closeSwipe();
 		await invalidateAll();
 	}
 
+	function closeSwipe() {
+		openId = null;
+		activeId = null;
+		offsetX = 0;
+		dragging = false;
+		axis = 'none';
+		didSwipe = false;
+	}
+
+	function rowOffset(id: string) {
+		if (activeId === id) return offsetX;
+		if (openId === id) return -ACTION_W;
+		return 0;
+	}
+
 	function onRowDown(e: PointerEvent, id: string) {
+		if (e.button !== undefined && e.button !== 0) return;
+		const t = e.target as HTMLElement | null;
+		if (t?.closest('.row-action')) return;
+
+		if (openId && openId !== id) {
+			openId = null;
+		}
+
 		startX = e.clientX;
 		startY = e.clientY;
-		swiping = true;
-		swipeId = id;
+		baseX = openId === id ? -ACTION_W : 0;
+		offsetX = baseX;
+		activeId = id;
+		dragging = true;
+		axis = 'none';
+		didSwipe = false;
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 	}
 
 	function onRowMove(e: PointerEvent) {
-		if (!swiping || !swipeId) return;
+		if (!dragging || !activeId) return;
 		const dx = e.clientX - startX;
 		const dy = e.clientY - startY;
-		if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
-			swiping = false;
-			swipeX = 0;
-			return;
+
+		if (axis === 'none') {
+			if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+			axis = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
+			if (axis === 'v') {
+				dragging = false;
+				if (openId !== activeId) {
+					activeId = null;
+					offsetX = 0;
+				} else {
+					offsetX = -ACTION_W;
+				}
+				try {
+					(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+				} catch {
+					/* already released */
+				}
+				return;
+			}
 		}
-		swipeX = Math.min(0, Math.max(-120, dx));
+
+		if (axis !== 'h') return;
+		didSwipe = true;
+		offsetX = Math.min(0, Math.max(-ACTION_W, baseX + dx));
 	}
 
 	function onRowUp() {
-		if (!swiping) return;
-		swiping = false;
-		if (swipeX < -64) {
-			openMenuId = swipeId;
-			swipeX = -120;
-		} else {
-			swipeX = 0;
-			if (openMenuId !== swipeId) swipeId = null;
+		if (!activeId) return;
+		const id = activeId;
+		const horizontal = axis === 'h';
+		dragging = false;
+		axis = 'none';
+
+		if (horizontal) {
+			if (offsetX <= -OPEN_AT) {
+				openId = id;
+				offsetX = -ACTION_W;
+			} else {
+				openId = null;
+				offsetX = 0;
+				activeId = null;
+			}
+		} else if (openId !== id) {
+			activeId = null;
+			offsetX = 0;
 		}
+	}
+
+	function onRowClick(id: string) {
+		if (didSwipe) {
+			didSwipe = false;
+			return;
+		}
+		if (openId === id) {
+			closeSwipe();
+			return;
+		}
+		if (openId) {
+			closeSwipe();
+			return;
+		}
+		openChat(id);
 	}
 
 	function onListTouchStart(e: TouchEvent) {
@@ -152,8 +293,9 @@
 		else pullY = 0;
 	}
 
-	function openChat(id: string) {
-		const run = () => goto(`/chat/${id}`);
+	function openChat(id: string, messageId?: string) {
+		const href = messageId ? `/chat/${id}?m=${encodeURIComponent(messageId)}` : `/chat/${id}`;
+		const run = () => goto(href);
 		if (typeof document !== 'undefined' && 'startViewTransition' in document) {
 			(document as Document & { startViewTransition: (cb: () => void) => void }).startViewTransition(
 				run
@@ -163,23 +305,88 @@
 		}
 	}
 
+	async function openUser(username: string) {
+		openingUser = true;
+		try {
+			const res = await fetch('/api/chats', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ peerUsername: username })
+			});
+			const json = await res.json();
+			if (res.ok) openChat(json.chatId);
+		} finally {
+			openingUser = false;
+		}
+	}
+
 	onMount(() => {
+		if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('focus')) {
+			queueMicrotask(() => searchInput?.focus());
+			history.replaceState({}, '', '/');
+		}
 		fetch('/api/presence', { method: 'POST' });
-		const beat = setInterval(() => fetch('/api/presence', { method: 'POST' }), 25000);
-		const es = new EventSource('/api/events');
-		es.addEventListener('chat_update', () => invalidateAll());
-		es.addEventListener('presence', (ev) => {
-			try {
-				const d = JSON.parse(ev.data) as { userId: string; lastSeenAt: string };
-				presenceMap = { ...presenceMap, [d.userId]: d.lastSeenAt };
-			} catch {
-				/* ignore */
+
+		let beat: ReturnType<typeof setInterval> | undefined;
+		let es: EventSource | null = null;
+
+		function connect() {
+			es?.close();
+			if (beat) clearInterval(beat);
+			es = new EventSource('/api/events');
+			es.addEventListener('chat_update', (ev) => {
+				try {
+					const d = JSON.parse(ev.data) as { chatId?: string };
+					const chat = data.chats.find((c) => c.id === d.chatId);
+					if (chat && !chat.muted) {
+						notifyMessage({
+							title: chat.peer.displayName || chat.peer.username,
+							body: preview(chat),
+							tag: `chat-${chat.id}`,
+							href: `/chat/${chat.id}`
+						});
+					}
+				} catch {
+					/* ignore */
+				}
+				invalidateAll();
+			});
+			es.addEventListener('presence', (ev) => {
+				try {
+					const d = JSON.parse(ev.data) as { userId: string; lastSeenAt: string };
+					presenceMap = { ...presenceMap, [d.userId]: d.lastSeenAt };
+				} catch {
+					/* ignore */
+				}
+				invalidateAll();
+			});
+			beat = setInterval(() => fetch('/api/presence', { method: 'POST' }), 25000);
+		}
+
+		function disconnect() {
+			es?.close();
+			es = null;
+			if (beat) {
+				clearInterval(beat);
+				beat = undefined;
 			}
-			invalidateAll();
-		});
+		}
+
+		const onVisibility = () => {
+			if (document.hidden) disconnect();
+			else {
+				connect();
+				fetch('/api/presence', { method: 'POST' });
+			}
+		};
+
+		connect();
+		document.addEventListener('visibilitychange', onVisibility);
+
 		return () => {
-			clearInterval(beat);
-			es.close();
+			disconnect();
+			document.removeEventListener('visibilitychange', onVisibility);
+			clearTimeout(searchTimer);
 		};
 	});
 </script>
@@ -189,19 +396,28 @@
 <div class="screen chats-screen">
 	<header class="topbar">
 		<h1 class="brand brand-animate">{i18n.t('chats.title')}</h1>
-		<button type="button" class="icon-btn" aria-label="New chat" onclick={() => goto('/new')}>
-			<Plus size={22} />
-		</button>
 		<button type="button" class="icon-btn" aria-label="Settings" onclick={() => goto('/settings')}>
 			<Settings size={20} />
 		</button>
 	</header>
 
-	{#if data.chats.length > 0}
-		<div class="list-filter">
-			<input type="search" placeholder={i18n.t('chats.filter')} bind:value={filter} />
-		</div>
-	{/if}
+	<div class="list-filter">
+		<span class="list-filter-ico" aria-hidden="true"><Search size={16} /></span>
+		<input
+			bind:this={searchInput}
+			type="search"
+			placeholder={i18n.t('chats.filter')}
+			bind:value={filter}
+			oninput={onFilterInput}
+			autocomplete="off"
+			enterkeyhint="search"
+		/>
+		{#if filter}
+			<button type="button" class="list-filter-clear" aria-label="Clear" onclick={clearSearch}>
+				<X size={16} />
+			</button>
+		{/if}
+	</div>
 
 	<div
 		class="list"
@@ -218,80 +434,144 @@
 			</div>
 		{/if}
 
-		{#if data.chats.length === 0}
+		{#if isSearch}
+			{#if searching && !searchHasResults}
+				<div class="empty empty-animate">
+					<p>{i18n.t('chats.searching')}</p>
+				</div>
+			{:else if !searchHasResults}
+				<div class="empty empty-animate">
+					<p>{i18n.t('chats.emptyFilter', { q })}</p>
+					<p class="search-hint">{i18n.t('chats.searchHint')}</p>
+				</div>
+			{:else}
+				{#if searchChats.length}
+					<div class="list-section-label">{i18n.t('chats.searchChats')}</div>
+					{#each searchChats as chat, i (chat.id)}
+						{@render chatRow(chat, i, false)}
+					{/each}
+				{/if}
+
+				{#if searchPeople.length}
+					<div class="list-section-label">{i18n.t('chats.searchPeople')}</div>
+					{#each searchPeople as user (user.id)}
+						<button
+							class="user-row search-user-row"
+							type="button"
+							disabled={openingUser}
+							onclick={() => openUser(user.username)}
+						>
+							<Avatar
+								name={user.displayName || user.username}
+								size={44}
+								avatarPath={user.avatarPath}
+								userId={user.id}
+							/>
+							<span class="search-user-meta">
+								<span class="name">{user.displayName || user.username}</span>
+								<span class="hint">@{user.username}</span>
+							</span>
+						</button>
+					{/each}
+				{/if}
+
+				{#if searchMessages.length}
+					<div class="list-section-label">{i18n.t('chats.searchMessages')}</div>
+					{#each searchMessages as hit (hit.messageId)}
+						<button
+							class="user-row search-msg-row"
+							type="button"
+							onclick={() => openChat(hit.chatId, hit.messageId)}
+						>
+							<Avatar
+								name={hit.peer.displayName || hit.peer.username}
+								size={44}
+								avatarPath={hit.peer.avatarPath}
+								userId={hit.peer.id}
+							/>
+							<span class="search-user-meta">
+								<span class="name">{hit.peer.displayName || hit.peer.username}</span>
+								<span class="hint msg-snippet">{snippet(hit.body, q)}</span>
+							</span>
+							<span class="time">{formatRelativeTime(hit.createdAt, i18n.locale)}</span>
+						</button>
+					{/each}
+				{/if}
+			{/if}
+		{:else if data.chats.length === 0}
 			<div class="empty empty-animate">
 				<span class="empty-icon"><MessageCircle size={36} /></span>
 				<p>{i18n.t('chats.empty')}</p>
-				<button class="btn" type="button" onclick={() => goto('/new')}>{i18n.t('chats.new')}</button>
-			</div>
-		{:else if filtered.length === 0}
-			<div class="empty empty-animate">
-				<p>{i18n.t('chats.emptyFilter', { q: filter })}</p>
+				<p class="search-hint">{i18n.t('chats.searchHint')}</p>
 			</div>
 		{:else}
 			{#if pinned.length}
 				<div class="list-section-label">{i18n.t('chats.pinnedSection')}</div>
 				{#each pinned as chat, i (chat.id)}
-					{@render chatRow(chat, i)}
+					{@render chatRow(chat, i, true)}
 				{/each}
 			{/if}
 			{#each unpinned as chat, i (chat.id)}
-				{@render chatRow(chat, pinned.length + i)}
+				{@render chatRow(chat, pinned.length + i, true)}
 			{/each}
 		{/if}
 	</div>
 </div>
 
-{#snippet chatRow(chat: PageData['chats'][number], index: number)}
-	{@const open = openMenuId === chat.id || (swipeId === chat.id && swipeX < -40)}
-	{@const tx = swipeId === chat.id ? swipeX : openMenuId === chat.id ? -120 : 0}
+{#snippet chatRow(chat: PageData['chats'][number], index: number, swipeable: boolean)}
+	{@const tx = swipeable ? rowOffset(chat.id) : 0}
 	{@const icon = previewIcon(chat)}
 	<div
 		class="chat-row-wrap"
-		class:menu-open={open}
-		class:swiping={swipeId === chat.id && swiping}
+		class:menu-open={swipeable && (openId === chat.id || (activeId === chat.id && tx < -40))}
+		class:swiping={swipeable && activeId === chat.id && dragging}
 		style="animation-delay:{Math.min(index, 6) * 40}ms; --row-x:{tx}px"
 		role="group"
-		onpointerdown={(e) => onRowDown(e, chat.id)}
-		onpointermove={onRowMove}
-		onpointerup={onRowUp}
-		onpointercancel={onRowUp}
+		onpointerdown={swipeable ? (e) => onRowDown(e, chat.id) : undefined}
+		onpointermove={swipeable ? onRowMove : undefined}
+		onpointerup={swipeable ? onRowUp : undefined}
+		onpointercancel={swipeable ? onRowUp : undefined}
 	>
-		<div class="row-actions-under">
-			<button
-				type="button"
-				class="row-action pin"
-				aria-label={chat.pinned ? i18n.t('actions.unpin') : i18n.t('actions.pin')}
-				onclick={() => setPref(chat.id, { pinned: !chat.pinned })}
-			>
-				{#if chat.pinned}
-					<PinOff size={18} />
-				{:else}
-					<Pin size={18} />
-				{/if}
-			</button>
-			<button
-				type="button"
-				class="row-action mute"
-				aria-label={chat.muted ? i18n.t('actions.unmute') : i18n.t('actions.mute')}
-				onclick={() => setPref(chat.id, { muted: !chat.muted })}
-			>
-				{#if chat.muted}
-					<Bell size={18} />
-				{:else}
-					<BellOff size={18} />
-				{/if}
-			</button>
-		</div>
+		{#if swipeable}
+			<div class="row-actions-under">
+				<button
+					type="button"
+					class="row-action pin"
+					aria-label={chat.pinned ? i18n.t('actions.unpin') : i18n.t('actions.pin')}
+					onclick={(e) => {
+						e.stopPropagation();
+						setPref(chat.id, { pinned: !chat.pinned });
+					}}
+				>
+					{#if chat.pinned}
+						<PinOff size={18} />
+					{:else}
+						<Pin size={18} />
+					{/if}
+				</button>
+				<button
+					type="button"
+					class="row-action mute"
+					aria-label={chat.muted ? i18n.t('actions.unmute') : i18n.t('actions.mute')}
+					onclick={(e) => {
+						e.stopPropagation();
+						setPref(chat.id, { muted: !chat.muted });
+					}}
+				>
+					{#if chat.muted}
+						<Bell size={18} />
+					{:else}
+						<BellOff size={18} />
+					{/if}
+				</button>
+			</div>
+		{/if}
 		<button
 			type="button"
 			class="chat-row"
 			class:muted={chat.muted}
 			class:unread={chat.unreadCount > 0}
-			onclick={() => {
-				if (Math.abs(tx) > 12) return;
-				openChat(chat.id);
-			}}
+			onclick={() => (swipeable ? onRowClick(chat.id) : openChat(chat.id))}
 		>
 			<Avatar
 				name={displayName(chat)}
@@ -305,7 +585,11 @@
 						{#if chat.pinned}
 							<span class="pin-icon"><Pin size={12} /></span>
 						{/if}
-						{displayName(chat)}
+						<NameWithBadges
+							name={displayName(chat)}
+							badges={chat.peer.badges ?? []}
+							size="sm"
+						/>
 					</p>
 					{#if chat.lastMessage}
 						<span class="time">{formatRelativeTime(chat.lastMessage.createdAt, i18n.locale)}</span>

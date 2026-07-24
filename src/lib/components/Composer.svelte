@@ -1,12 +1,16 @@
 <script lang="ts">
+	import Camera from '@lucide/svelte/icons/camera';
 	import Mic from '@lucide/svelte/icons/mic';
 	import Paperclip from '@lucide/svelte/icons/paperclip';
 	import Send from '@lucide/svelte/icons/send';
 	import X from '@lucide/svelte/icons/x';
 	import { haptic } from '$lib/haptic';
+	import { compressImages } from '$lib/imageCompress';
+	import { getCachedSettings } from '$lib/settings';
 	import type { MessageDTO } from '$lib/types';
 
 	let {
+		chatId = '',
 		disabled = false,
 		replyTo = null as MessageDTO | null,
 		editing = null as MessageDTO | null,
@@ -16,11 +20,14 @@
 		recordingLabel = 'Recording…',
 		slideToCancelLabel = 'Slide to cancel',
 		releaseToCancelLabel = 'Release to cancel',
+		cameraLabel = 'Camera',
+		attachLabel = 'Attach',
 		ontyping,
 		onclearReply,
 		onclearEdit,
 		onsend
 	}: {
+		chatId?: string;
 		disabled?: boolean;
 		replyTo?: MessageDTO | null;
 		editing?: MessageDTO | null;
@@ -30,6 +37,8 @@
 		recordingLabel?: string;
 		slideToCancelLabel?: string;
 		releaseToCancelLabel?: string;
+		cameraLabel?: string;
+		attachLabel?: string;
 		ontyping?: () => void;
 		onclearReply?: () => void;
 		onclearEdit?: () => void;
@@ -52,6 +61,7 @@
 	let cancelHover = $state(false);
 	let locked = $state(false);
 	let fileInput: HTMLInputElement | undefined = $state();
+	let cameraInput: HTMLInputElement | undefined = $state();
 	let textareaEl: HTMLTextAreaElement | undefined = $state();
 	let mediaRecorder: MediaRecorder | null = null;
 	let mediaStream: MediaStream | null = null;
@@ -65,6 +75,13 @@
 	let holdStartX = 0;
 	let holdActive = false;
 	let isCoarse = $state(false);
+	let recordMime = 'audio/webm';
+	let draftTimer: ReturnType<typeof setTimeout> | undefined;
+	let draftLoaded = false;
+
+	function draftKey() {
+		return chatId ? `qix-draft-${chatId}` : '';
+	}
 
 	$effect(() => {
 		if (typeof window === 'undefined') return;
@@ -73,6 +90,36 @@
 		const onChange = () => (isCoarse = mq.matches);
 		mq.addEventListener('change', onChange);
 		return () => mq.removeEventListener('change', onChange);
+	});
+
+	$effect(() => {
+		if (!chatId || typeof window === 'undefined') return;
+		draftLoaded = false;
+		try {
+			const saved = localStorage.getItem(draftKey());
+			body = saved ?? '';
+		} catch {
+			body = '';
+		}
+		draftLoaded = true;
+		queueMicrotask(autosize);
+	});
+
+	$effect(() => {
+		if (!draftLoaded || !chatId || editing) return;
+		const value = body;
+		clearTimeout(draftTimer);
+		draftTimer = setTimeout(() => {
+			try {
+				const key = draftKey();
+				if (!key) return;
+				if (value.trim()) localStorage.setItem(key, value);
+				else localStorage.removeItem(key);
+			} catch {
+				/* ignore */
+			}
+		}, 250);
+		return () => clearTimeout(draftTimer);
 	});
 
 	$effect(() => {
@@ -117,6 +164,15 @@
 		}));
 	}
 
+	function clearDraft() {
+		if (!chatId) return;
+		try {
+			localStorage.removeItem(draftKey());
+		} catch {
+			/* ignore */
+		}
+	}
+
 	async function submit() {
 		if (recording) return;
 		if (!canSend && !editing) return;
@@ -132,6 +188,7 @@
 			});
 			body = '';
 			setFiles([]);
+			clearDraft();
 			sendFlash = true;
 			setTimeout(() => (sendFlash = false), 280);
 			queueMicrotask(autosize);
@@ -142,8 +199,8 @@
 
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key !== 'Enter') return;
-		// On touch devices Enter inserts a newline; desktop: Enter sends, Shift+Enter newline
 		if (isCoarse) return;
+		if (!getCachedSettings().sendWithEnter) return;
 		if (!e.shiftKey) {
 			e.preventDefault();
 			submit();
@@ -155,10 +212,27 @@
 		autosize();
 	}
 
-	function onFiles(e: Event) {
+	async function onFiles(e: Event) {
 		const input = e.currentTarget as HTMLInputElement;
-		setFiles([...files, ...Array.from(input.files ?? [])].slice(0, 5));
+		const incoming = Array.from(input.files ?? []);
 		input.value = '';
+		const compressed = await compressImages(incoming);
+		setFiles([...files, ...compressed].slice(0, 5));
+	}
+
+	function pickRecorderMime(): { mime: string; ext: string } {
+		const candidates = [
+			{ mime: 'audio/mp4', ext: '.m4a' },
+			{ mime: 'audio/mp4;codecs=mp4a.40.2', ext: '.m4a' },
+			{ mime: 'audio/webm;codecs=opus', ext: '.webm' },
+			{ mime: 'audio/webm', ext: '.webm' }
+		];
+		for (const c of candidates) {
+			if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(c.mime)) {
+				return c;
+			}
+		}
+		return { mime: '', ext: '.webm' };
 	}
 
 	function stopTracks() {
@@ -234,7 +308,11 @@
 			locked = false;
 			recordMs = 0;
 			startWaveform(mediaStream);
-			mediaRecorder = new MediaRecorder(mediaStream);
+			const picked = pickRecorderMime();
+			recordMime = picked.mime || 'audio/webm';
+			mediaRecorder = picked.mime
+				? new MediaRecorder(mediaStream, { mimeType: picked.mime })
+				: new MediaRecorder(mediaStream);
 			mediaRecorder.ondataavailable = (ev) => {
 				if (ev.data.size) chunks.push(ev.data);
 			};
@@ -248,8 +326,10 @@
 					chunks = [];
 					return;
 				}
-				const blob = new Blob(chunks, { type: 'audio/webm' });
-				const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+				const type = chunks[0]?.type || recordMime || 'audio/webm';
+				const ext = type.includes('mp4') || type.includes('m4a') ? '.m4a' : '.webm';
+				const blob = new Blob(chunks, { type });
+				const file = new File([blob], `voice-${Date.now()}${ext}`, { type });
 				sending = true;
 				haptic(12);
 				try {
@@ -426,16 +506,42 @@
 	{/if}
 
 	<div class="composer">
-		<input bind:this={fileInput} type="file" multiple accept="image/*,audio/*,video/*,.pdf,.zip,.txt" hidden onchange={onFiles} />
+		<input
+			bind:this={fileInput}
+			type="file"
+			multiple
+			accept="image/*,audio/*,video/*,.pdf,.zip,.txt"
+			hidden
+			onchange={onFiles}
+		/>
+		<input
+			bind:this={cameraInput}
+			type="file"
+			accept="image/*"
+			capture="environment"
+			hidden
+			onchange={onFiles}
+		/>
 		<button
 			type="button"
 			class="icon-btn composer-attach"
-			aria-label="Attach"
+			aria-label={attachLabel}
 			onclick={() => fileInput?.click()}
 			disabled={sending || recording || !!editing}
 		>
 			<Paperclip size={20} />
 		</button>
+		{#if isCoarse}
+			<button
+				type="button"
+				class="icon-btn composer-attach composer-camera"
+				aria-label={cameraLabel}
+				onclick={() => cameraInput?.click()}
+				disabled={sending || recording || !!editing}
+			>
+				<Camera size={20} />
+			</button>
+		{/if}
 		<textarea
 			bind:this={textareaEl}
 			rows="1"
