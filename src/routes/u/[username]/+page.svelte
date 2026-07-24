@@ -53,6 +53,10 @@
 				body: JSON.stringify({ peerUsername: data.profile.username })
 			});
 			const json = await res.json();
+			if (res.status === 202 || json.pending) {
+				alert(i18n.t('requests.sent'));
+				return;
+			}
 			if (res.ok) await goto(`/chat/${json.chatId}`);
 			else alert(json.error || 'Error');
 		} finally {

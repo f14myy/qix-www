@@ -12,6 +12,7 @@
 	import Ban from '@lucide/svelte/icons/ban';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import KeyRound from '@lucide/svelte/icons/key-round';
+	import Link2 from '@lucide/svelte/icons/link-2';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { isAdmin } from '$lib/admin';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
@@ -39,8 +40,8 @@
 		let endpoint = '';
 		try {
 			if ('serviceWorker' in navigator) {
-				const reg = await navigator.serviceWorker.ready;
-				const sub = await reg.pushManager.getSubscription();
+				const reg = await navigator.serviceWorker.getRegistration();
+				const sub = await reg?.pushManager.getSubscription();
 				endpoint = sub?.endpoint ?? '';
 			}
 		} catch {
@@ -51,7 +52,7 @@
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ endpoint })
 		});
-		await goto('/login');
+		await goto('/login', { invalidateAll: true });
 	}
 
 	const nav = [
@@ -59,6 +60,7 @@
 		{ href: '/settings/notifications', icon: Bell, label: 'settings.navNotifications' },
 		{ href: '/settings/chats', icon: MessageSquare, label: 'settings.navChats' },
 		{ href: '/settings/privacy', icon: Shield, label: 'settings.navPrivacy' },
+		{ href: '/settings/invite', icon: Link2, label: 'settings.navInvite' },
 		{ href: '/settings/blocked', icon: Ban, label: 'settings.navBlocked' }
 	] as const;
 </script>

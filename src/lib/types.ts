@@ -3,6 +3,7 @@ export type AttachmentDTO = {
 	filename: string;
 	mime: string;
 	size: number;
+	e2eeMeta: string | null;
 };
 
 export type LinkPreviewDTO = {
@@ -23,6 +24,8 @@ export type ReplyPreviewDTO = {
 	senderId: string;
 	body: string;
 	deleted: boolean;
+	kind: string;
+	thumbUrl: string | null;
 };
 
 export type MessageDTO = {
@@ -34,6 +37,8 @@ export type MessageDTO = {
 	createdAt: string;
 	editedAt: string | null;
 	deletedAt: string | null;
+	expiresAt: string | null;
+	forwardedFromId: string | null;
 	replyTo: ReplyPreviewDTO | null;
 	attachments: AttachmentDTO[];
 	linkPreview: LinkPreviewDTO | null;
@@ -44,6 +49,7 @@ export type MessageDTO = {
 
 export type ChatListItem = {
 	id: string;
+	kind: 'dm' | 'channel';
 	peer: {
 		id: string;
 		username: string;
@@ -51,10 +57,16 @@ export type ChatListItem = {
 		avatarPath: string | null;
 		lastSeenAt: string | null;
 		badges: import('$lib/badges').BadgeDTO[];
-	};
+	} | null;
+	channel: {
+		key: string;
+		title: string;
+		posting: 'admin' | 'none' | 'members';
+	} | null;
 	unreadCount: number;
 	pinned: boolean;
 	muted: boolean;
+	archived: boolean;
 	lastMessage: {
 		id: string;
 		body: string;
@@ -77,6 +89,17 @@ export type PublicProfile = {
 	createdAt: string;
 	bannerKey: string;
 	badges: import('$lib/badges').BadgeDTO[];
+	inviteCode: string | null;
+	e2eePublicKey: string | null;
+};
+
+export type MediaItemDTO = {
+	attachmentId: string;
+	messageId: string;
+	mime: string;
+	filename: string;
+	createdAt: string;
+	kind: 'image' | 'video' | 'file';
 };
 
 export const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'] as const;

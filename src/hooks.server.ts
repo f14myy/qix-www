@@ -7,8 +7,16 @@ import {
 	touchSession
 } from '$lib/server/auth';
 import { isUserBanned } from '$lib/server/admin';
+import { ensureBuiltInChannels, ensureUserInBuiltInChannels } from '$lib/server/channels';
+
+let channelsReady = false;
 
 export const handle: Handle = async ({ event, resolve }) => {
+	if (!channelsReady) {
+		ensureBuiltInChannels();
+		channelsReady = true;
+	}
+
 	const sessionId = event.cookies.get(SESSION_COOKIE);
 	const user = getUserFromSession(sessionId);
 
@@ -21,6 +29,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	event.locals.user = user ? toPublicUser(user) : null;
 	event.locals.sessionId = user && sessionId ? sessionId : null;
-	if (sessionId && user) touchSession(sessionId);
+	if (sessionId && user) {
+		touchSession(sessionId);
+		ensureUserInBuiltInChannels(user.id);
+	}
 	return resolve(event);
 };

@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import Archive from '@lucide/svelte/icons/archive';
 	import BellOff from '@lucide/svelte/icons/bell-off';
 	import Bell from '@lucide/svelte/icons/bell';
+	import Inbox from '@lucide/svelte/icons/inbox';
 	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import Mic from '@lucide/svelte/icons/mic';
 	import ImageIcon from '@lucide/svelte/icons/image';
@@ -12,9 +14,11 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import X from '@lucide/svelte/icons/x';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import ChannelAvatar from '$lib/components/ChannelAvatar.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import { notifyMessage } from '$lib/notify';
+	import { listQueued } from '$lib/sendQueue';
 	import { formatRelativeTime, isOnlineIso } from '$lib/time';
 	import type { PageData } from './$types';
 
@@ -37,7 +41,8 @@
 				username: string;
 				displayName: string | null;
 				avatarPath: string | null;
-			};
+			} | null;
+			channel: { key: string; title: string } | null;
 		}>
 	>([]);
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -57,8 +62,11 @@
 	let presenceMap = $state<Record<string, string>>({});
 	let openingUser = $state(false);
 	let searchInput: HTMLInputElement | undefined = $state();
+	let drafts = $state<Record<string, string>>({});
+	let failedChats = $state<Set<string>>(new Set());
+	let requestCount = $state(0);
 
-	const ACTION_W = 120;
+	const ACTION_W = 180;
 	const OPEN_AT = 56;
 
 	const q = $derived(filter.trim());
@@ -71,12 +79,52 @@
 		searchChats.length > 0 || searchPeople.length > 0 || searchMessages.length > 0
 	);
 
+	function loadLocalHints() {
+		const nextDrafts: Record<string, string> = {};
+		try {
+			for (let i = 0; i < localStorage.length; i++) {
+				const key = localStorage.key(i);
+				if (!key?.startsWith('qix-draft-')) continue;
+				const chatId = key.slice('qix-draft-'.length);
+				const val = localStorage.getItem(key)?.trim();
+				if (val) nextDrafts[chatId] = val;
+			}
+		} catch {
+			/* ignore */
+		}
+		drafts = nextDrafts;
+		listQueued()
+			.then((items) => {
+				failedChats = new Set(items.map((i) => i.chatId));
+			})
+			.catch(() => {
+				failedChats = new Set();
+			});
+		fetch('/api/requests')
+			.then((r) => r.json())
+			.then((j) => {
+				requestCount = Array.isArray(j.requests) ? j.requests.length : 0;
+			})
+			.catch(() => {
+				requestCount = 0;
+			});
+	}
+
 	function preview(chat: PageData['chats'][number]) {
+		const draft = drafts[chat.id];
+		if (draft) return `${i18n.t('chats.draft')}: ${draft}`;
+		if (failedChats.has(chat.id)) return i18n.t('chats.sendFailed');
 		if (!chat.lastMessage) return i18n.t('chats.noMessages');
-		if (chat.lastMessage.deleted) return i18n.t('chats.deleted');
+		if (chat.lastMessage.deleted) return '';
+		if (chat.lastMessage.body?.startsWith('e2ee:1:')) {
+			const mine = chat.lastMessage.senderId === data.user?.id;
+			const prefix = mine ? i18n.t('chat.youPrefix') : '';
+			return `${prefix}${i18n.t('e2ee.preview')}`;
+		}
 		const mine = chat.lastMessage.senderId === data.user?.id;
 		const prefix = mine ? i18n.t('chat.youPrefix') : '';
 		if (chat.lastMessage.kind === 'voice') return `${prefix}${i18n.t('chats.voice')}`;
+		if (chat.lastMessage.kind === 'video') return `${prefix}${i18n.t('chat.video')}`;
 		if (chat.lastMessage.hasAttachment && !chat.lastMessage.body) {
 			return `${prefix}${i18n.t('chat.photo')}`;
 		}
@@ -87,17 +135,23 @@
 	}
 
 	function previewIcon(chat: PageData['chats'][number]) {
+		if (drafts[chat.id] || failedChats.has(chat.id)) return null;
 		if (!chat.lastMessage || chat.lastMessage.deleted) return null;
 		if (chat.lastMessage.kind === 'voice') return 'voice';
+		if (chat.lastMessage.kind === 'video') return 'image';
 		if (chat.lastMessage.hasAttachment && !chat.lastMessage.body) return 'image';
 		return null;
 	}
 
 	function displayName(chat: PageData['chats'][number]) {
-		return chat.peer.displayName || chat.peer.username;
+		if (chat.kind === 'channel' && chat.channel) {
+			return i18n.t(`channel.${chat.channel.key}.title`);
+		}
+		return chat.peer?.displayName || chat.peer?.username || '';
 	}
 
 	function peerOnline(chat: PageData['chats'][number]) {
+		if (!chat.peer) return false;
 		const seen = presenceMap[chat.peer.id] ?? chat.peer.lastSeenAt;
 		return isOnlineIso(seen);
 	}
@@ -150,6 +204,7 @@
 		refreshing = true;
 		try {
 			await invalidateAll();
+			loadLocalHints();
 			if (q) await runSearch(q);
 		} finally {
 			refreshing = false;
@@ -157,7 +212,7 @@
 		}
 	}
 
-	async function setPref(chatId: string, patch: { pinned?: boolean; muted?: boolean }) {
+	async function setPref(chatId: string, patch: { pinned?: boolean; muted?: boolean; archived?: boolean }) {
 		await fetch(`/api/chats/${chatId}/prefs`, {
 			method: 'PATCH',
 			headers: { 'content-type': 'application/json' },
@@ -314,13 +369,19 @@
 				body: JSON.stringify({ peerUsername: username })
 			});
 			const json = await res.json();
-			if (res.ok) openChat(json.chatId);
+			if (res.status === 202 || json.pending) {
+				alert(i18n.t('requests.sent'));
+				return;
+			}
+			if (res.ok && json.chatId) openChat(json.chatId);
+			else alert(json.error || 'Error');
 		} finally {
 			openingUser = false;
 		}
 	}
 
 	onMount(() => {
+		loadLocalHints();
 		if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('focus')) {
 			queueMicrotask(() => searchInput?.focus());
 			history.replaceState({}, '', '/');
@@ -340,7 +401,7 @@
 					const chat = data.chats.find((c) => c.id === d.chatId);
 					if (chat && !chat.muted) {
 						notifyMessage({
-							title: chat.peer.displayName || chat.peer.username,
+							title: displayName(chat),
 							body: preview(chat),
 							tag: `chat-${chat.id}`,
 							href: `/chat/${chat.id}`
@@ -350,6 +411,7 @@
 					/* ignore */
 				}
 				invalidateAll();
+				loadLocalHints();
 			});
 			es.addEventListener('presence', (ev) => {
 				try {
@@ -359,6 +421,9 @@
 					/* ignore */
 				}
 				invalidateAll();
+			});
+			es.addEventListener('message_request', () => {
+				loadLocalHints();
 			});
 			beat = setInterval(() => fetch('/api/presence', { method: 'POST' }), 25000);
 		}
@@ -377,6 +442,7 @@
 			else {
 				connect();
 				fetch('/api/presence', { method: 'POST' });
+				loadLocalHints();
 			}
 		};
 
@@ -396,9 +462,20 @@
 <div class="screen chats-screen">
 	<header class="topbar">
 		<h1 class="brand brand-animate">{i18n.t('chats.title')}</h1>
-		<button type="button" class="icon-btn" aria-label="Settings" onclick={() => goto('/settings')}>
-			<Settings size={20} />
-		</button>
+		<div class="topbar-actions">
+			<a class="icon-btn" href="/requests" aria-label={i18n.t('requests.title')}>
+				<Inbox size={20} />
+				{#if requestCount > 0}
+					<span class="top-badge">{requestCount > 9 ? '9+' : requestCount}</span>
+				{/if}
+			</a>
+			<a class="icon-btn" href="/archive" aria-label={i18n.t('chats.archive')}>
+				<Archive size={20} />
+			</a>
+			<button type="button" class="icon-btn" aria-label="Settings" onclick={() => goto('/settings')}>
+				<Settings size={20} />
+			</button>
+		</div>
 	</header>
 
 	<div class="list-filter">
@@ -483,16 +560,24 @@
 							type="button"
 							onclick={() => openChat(hit.chatId, hit.messageId)}
 						>
-							<Avatar
-								name={hit.peer.displayName || hit.peer.username}
-								size={44}
-								avatarPath={hit.peer.avatarPath}
-								userId={hit.peer.id}
-							/>
-							<span class="search-user-meta">
-								<span class="name">{hit.peer.displayName || hit.peer.username}</span>
-								<span class="hint msg-snippet">{snippet(hit.body, q)}</span>
-							</span>
+							{#if hit.channel}
+								<ChannelAvatar channelKey={hit.channel.key} size={44} />
+								<span class="search-user-meta">
+									<span class="name">{i18n.t(`channel.${hit.channel.key}.title`)}</span>
+									<span class="hint msg-snippet">{snippet(hit.body, q)}</span>
+								</span>
+							{:else if hit.peer}
+								<Avatar
+									name={hit.peer.displayName || hit.peer.username}
+									size={44}
+									avatarPath={hit.peer.avatarPath}
+									userId={hit.peer.id}
+								/>
+								<span class="search-user-meta">
+									<span class="name">{hit.peer.displayName || hit.peer.username}</span>
+									<span class="hint msg-snippet">{snippet(hit.body, q)}</span>
+								</span>
+							{/if}
 							<span class="time">{formatRelativeTime(hit.createdAt, i18n.locale)}</span>
 						</button>
 					{/each}
@@ -564,6 +649,17 @@
 						<BellOff size={18} />
 					{/if}
 				</button>
+				<button
+					type="button"
+					class="row-action archive"
+					aria-label={i18n.t('chat.archive')}
+					onclick={(e) => {
+						e.stopPropagation();
+						setPref(chat.id, { archived: true });
+					}}
+				>
+					<Archive size={18} />
+				</button>
 			</div>
 		{/if}
 		<button
@@ -573,30 +669,38 @@
 			class:unread={chat.unreadCount > 0}
 			onclick={() => (swipeable ? onRowClick(chat.id) : openChat(chat.id))}
 		>
-			<Avatar
-				name={displayName(chat)}
-				avatarPath={chat.peer.avatarPath}
-				userId={chat.peer.id}
-				online={peerOnline(chat)}
-			/>
+			{#if chat.kind === 'channel' && chat.channel}
+				<ChannelAvatar channelKey={chat.channel.key} size={48} />
+			{:else if chat.peer}
+				<Avatar
+					name={displayName(chat)}
+					avatarPath={chat.peer.avatarPath}
+					userId={chat.peer.id}
+					online={peerOnline(chat)}
+				/>
+			{/if}
 			<div class="meta">
 				<div class="row-top">
 					<p class="name">
 						{#if chat.pinned}
 							<span class="pin-icon"><Pin size={12} /></span>
 						{/if}
-						<NameWithBadges
-							name={displayName(chat)}
-							badges={chat.peer.badges ?? []}
-							size="sm"
-						/>
+						{#if chat.kind === 'channel'}
+							{displayName(chat)}
+						{:else}
+							<NameWithBadges
+								name={displayName(chat)}
+								badges={chat.peer?.badges ?? []}
+								size="sm"
+							/>
+						{/if}
 					</p>
 					{#if chat.lastMessage}
 						<span class="time">{formatRelativeTime(chat.lastMessage.createdAt, i18n.locale)}</span>
 					{/if}
 				</div>
 				<div class="row-bottom">
-					<p class="preview">
+					<p class="preview" class:draft={!!drafts[chat.id]} class:failed-send={failedChats.has(chat.id)}>
 						{#if icon === 'voice'}
 							<span class="preview-ico"><Mic size={14} /></span>
 						{:else if icon === 'image'}
@@ -604,7 +708,9 @@
 						{/if}
 						{preview(chat)}
 					</p>
-					{#if chat.unreadCount > 0}
+					{#if failedChats.has(chat.id)}
+						<span class="unread-badge fail">!</span>
+					{:else if chat.unreadCount > 0}
 						<span class="unread-badge pop" class:quiet={chat.muted}
 							>{chat.unreadCount > 99 ? '99+' : chat.unreadCount}</span
 						>

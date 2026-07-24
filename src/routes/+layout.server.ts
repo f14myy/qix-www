@@ -4,8 +4,9 @@ import type { LayoutServerLoad } from './$types';
 export const load: LayoutServerLoad = async ({ locals, url }) => {
 	const path = url.pathname;
 	const isAuthPage = path === '/login' || path === '/register' || path === '/recover';
+	const isPublicInvite = path.startsWith('/invite/');
 
-	if (!locals.user && !isAuthPage) {
+	if (!locals.user && !isAuthPage && !isPublicInvite) {
 		redirect(303, '/login');
 	}
 

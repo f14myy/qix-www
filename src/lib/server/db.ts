@@ -139,6 +139,24 @@ sqlite.exec(`
 		created_at INTEGER NOT NULL
 	);
 
+	CREATE TABLE IF NOT EXISTS message_requests (
+		id TEXT PRIMARY KEY,
+		from_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		to_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		note TEXT NOT NULL DEFAULT '',
+		status TEXT NOT NULL DEFAULT 'pending',
+		created_at INTEGER NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS user_reports (
+		id TEXT PRIMARY KEY,
+		reporter_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		reported_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		reason TEXT NOT NULL DEFAULT '',
+		created_at INTEGER NOT NULL,
+		resolved_at INTEGER
+	);
+
 	CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 	CREATE INDEX IF NOT EXISTS idx_chat_members_user ON chat_members(user_id);
 	CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id, created_at);
@@ -179,6 +197,18 @@ ensureColumn('user_settings', 'last_seen_reciprocity', 'last_seen_reciprocity IN
 ensureColumn('user_settings', 'confirm_message_delete', 'confirm_message_delete INTEGER NOT NULL DEFAULT 1');
 ensureColumn('user_settings', 'auto_play_voice', 'auto_play_voice INTEGER NOT NULL DEFAULT 1');
 ensureColumn('user_settings', 'notify_sound', 'notify_sound INTEGER NOT NULL DEFAULT 1');
+ensureColumn('chat_members', 'archived_at', 'archived_at INTEGER');
+ensureColumn('chats', 'pinned_message_id', 'pinned_message_id TEXT');
+ensureColumn('chats', 'disappear_after_sec', 'disappear_after_sec INTEGER NOT NULL DEFAULT 0');
+ensureColumn('messages', 'forwarded_from_id', 'forwarded_from_id TEXT');
+ensureColumn('messages', 'expires_at', 'expires_at INTEGER');
+ensureColumn('users', 'invite_code', 'invite_code TEXT');
+ensureColumn('users', 'e2ee_public_key', 'e2ee_public_key TEXT');
+ensureColumn('attachments', 'e2ee_meta', 'e2ee_meta TEXT');
+ensureColumn('chats', 'kind', "kind TEXT NOT NULL DEFAULT 'dm'");
+ensureColumn('chats', 'channel_key', 'channel_key TEXT');
+ensureColumn('chats', 'title', 'title TEXT');
+ensureColumn('chats', 'posting', "posting TEXT NOT NULL DEFAULT 'members'");
 
 export const db = drizzle(sqlite, { schema });
 export { uploadsDir };

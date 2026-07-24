@@ -13,6 +13,8 @@ export const users = sqliteTable('users', {
 	bannedAt: integer('banned_at', { mode: 'timestamp_ms' }),
 	bannedReason: text('banned_reason'),
 	bannerKey: text('banner_key').notNull().default('default'),
+	inviteCode: text('invite_code'),
+	e2eePublicKey: text('e2ee_public_key'),
 	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
 });
 
@@ -60,7 +62,13 @@ export const recoveryCodes = sqliteTable('recovery_codes', {
 
 export const chats = sqliteTable('chats', {
 	id: text('id').primaryKey(),
-	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+	pinnedMessageId: text('pinned_message_id'),
+	disappearAfterSec: integer('disappear_after_sec').notNull().default(0),
+	kind: text('kind').notNull().default('dm'),
+	channelKey: text('channel_key'),
+	title: text('title'),
+	posting: text('posting').notNull().default('members')
 });
 
 export const chatMembers = sqliteTable(
@@ -74,6 +82,7 @@ export const chatMembers = sqliteTable(
 			.references(() => users.id, { onDelete: 'cascade' }),
 		lastReadAt: integer('last_read_at', { mode: 'timestamp_ms' }),
 		pinnedAt: integer('pinned_at', { mode: 'timestamp_ms' }),
+		archivedAt: integer('archived_at', { mode: 'timestamp_ms' }),
 		muted: integer('muted', { mode: 'boolean' }).notNull().default(false)
 	},
 	(t) => [primaryKey({ columns: [t.chatId, t.userId] })]
@@ -90,8 +99,10 @@ export const messages = sqliteTable('messages', {
 	body: text('body').notNull().default(''),
 	kind: text('kind').notNull().default('text'),
 	replyToId: text('reply_to_id'),
+	forwardedFromId: text('forwarded_from_id'),
 	editedAt: integer('edited_at', { mode: 'timestamp_ms' }),
 	deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
+	expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
 	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
 });
 
@@ -103,7 +114,8 @@ export const attachments = sqliteTable('attachments', {
 	filename: text('filename').notNull(),
 	mime: text('mime').notNull(),
 	size: integer('size').notNull(),
-	path: text('path').notNull()
+	path: text('path').notNull(),
+	e2eeMeta: text('e2ee_meta')
 });
 
 export const messageReactions = sqliteTable(
@@ -174,6 +186,32 @@ export const pushSubscriptions = sqliteTable('push_subscriptions', {
 	p256dh: text('p256dh').notNull(),
 	auth: text('auth').notNull(),
 	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+});
+
+export const messageRequests = sqliteTable('message_requests', {
+	id: text('id').primaryKey(),
+	fromUserId: text('from_user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	toUserId: text('to_user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	note: text('note').notNull().default(''),
+	status: text('status').notNull().default('pending'),
+	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+});
+
+export const userReports = sqliteTable('user_reports', {
+	id: text('id').primaryKey(),
+	reporterId: text('reporter_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	reportedId: text('reported_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	reason: text('reason').notNull().default(''),
+	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+	resolvedAt: integer('resolved_at', { mode: 'timestamp_ms' })
 });
 
 export type User = typeof users.$inferSelect;

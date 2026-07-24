@@ -4,6 +4,7 @@
 	import Ban from '@lucide/svelte/icons/ban';
 	import BadgeCheck from '@lucide/svelte/icons/badge-check';
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+	import Flag from '@lucide/svelte/icons/flag';
 	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import MessageSquare from '@lucide/svelte/icons/message-square';
 	import ShieldOff from '@lucide/svelte/icons/shield-off';
@@ -25,7 +26,8 @@
 	const more = [
 		{ href: '/admin/badges', icon: BadgeCheck, label: 'admin.navBadges' },
 		{ href: '/admin/bans', icon: Ban, label: 'admin.navBans' },
-		{ href: '/admin/blocks', icon: ShieldOff, label: 'admin.navBlocks' }
+		{ href: '/admin/blocks', icon: ShieldOff, label: 'admin.navBlocks' },
+		{ href: '/admin/reports', icon: Flag, label: 'admin.navReports' }
 	] as const;
 
 	function active(href: string, exact: boolean) {

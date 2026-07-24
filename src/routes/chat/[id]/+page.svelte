@@ -3,12 +3,29 @@
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Copy from '@lucide/svelte/icons/copy';
+	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+	import Forward from '@lucide/svelte/icons/forward';
+	import ImageIcon from '@lucide/svelte/icons/image';
+	import Lock from '@lucide/svelte/icons/lock';
+	import Phone from '@lucide/svelte/icons/phone';
+	import Pin from '@lucide/svelte/icons/pin';
+	import Search from '@lucide/svelte/icons/search';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Video from '@lucide/svelte/icons/video';
+	import X from '@lucide/svelte/icons/x';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import ChannelAvatar from '$lib/components/ChannelAvatar.svelte';
 	import ChatBubble from '$lib/components/ChatBubble.svelte';
 	import Composer from '$lib/components/Composer.svelte';
 	import DateSeparator from '$lib/components/DateSeparator.svelte';
 	import ImageLightbox from '$lib/components/ImageLightbox.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
+	import { startOutgoingCall } from '$lib/calls/store.svelte';
+	import {
+		decryptMessages,
+		encryptOutgoing
+	} from '$lib/e2ee/messages';
 	import { haptic, hapticFail, hapticSuccess } from '$lib/haptic';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import {
@@ -19,7 +36,7 @@
 		serializeFiles
 	} from '$lib/sendQueue';
 	import { dayKey, formatDayLabel, isOnlineIso, formatLastSeen } from '$lib/time';
-	import type { MessageDTO } from '$lib/types';
+	import type { ChatListItem, MediaItemDTO, MessageDTO } from '$lib/types';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -48,6 +65,22 @@
 	let loadingOlder = $state(false);
 	let pendingNewCount = $state(0);
 	let firstUnreadId = $state<string | null>(null);
+	let e2eeOn = $state(false);
+	let peerE2eeKey = $state<string | null>(null);
+	let pinnedMessage = $state<MessageDTO | null>(null);
+	let disappearAfterSec = $state(0);
+	let selectMode = $state(false);
+	let selectedIds = $state<Set<string>>(new Set());
+	let showMenu = $state(false);
+	let showSearch = $state(false);
+	let showGallery = $state(false);
+	let showForward = $state(false);
+	let forwardIds = $state<string[]>([]);
+	let searchQ = $state('');
+	let searchHits = $state<MessageDTO[]>([]);
+	let gallery = $state<MediaItemDTO[]>([]);
+	let forwardChats = $state<ChatListItem[]>([]);
+	let searchingInChat = $state(false);
 
 	type TimelineItem =
 		| { kind: 'sep'; key: string; label: string }
@@ -64,8 +97,9 @@
 	const timeline = $derived.by(() => {
 		const items: TimelineItem[] = [];
 		let lastDay = '';
-		for (let i = 0; i < messages.length; i++) {
-			const message = messages[i];
+		const visible = messages.filter((m) => !m.deletedAt);
+		for (let i = 0; i < visible.length; i++) {
+			const message = visible[i]!;
 			const key = dayKey(message.createdAt);
 			if (key !== lastDay) {
 				items.push({
@@ -75,8 +109,8 @@
 				});
 				lastDay = key;
 			}
-			const prev = messages[i - 1];
-			const next = messages[i + 1];
+			const prev = visible[i - 1];
+			const next = visible[i + 1];
 			const samePrev =
 				!!prev &&
 				prev.senderId === message.senderId &&
@@ -100,30 +134,106 @@
 		return items;
 	});
 
-	const peerTitle = $derived(data.peer.displayName || data.peer.username);
-	const online = $derived(typing || isOnlineIso(peerSeen));
+	const isChannel = $derived(data.kind === 'channel' && !!data.channel);
+	const canPost = $derived(!isChannel || !!data.channel?.canPost);
+	const peerTitle = $derived(
+		isChannel
+			? i18n.t(`channel.${data.channel!.key}.title`)
+			: data.peer!.displayName || data.peer!.username
+	);
+	const online = $derived(!isChannel && (typing || isOnlineIso(peerSeen)));
 	const statusText = $derived(
-		typing
-			? i18n.t('chat.typing')
-			: isOnlineIso(peerSeen)
-				? i18n.t('chat.online')
-				: peerSeen
-					? i18n.t('chat.lastSeen', { when: formatLastSeen(peerSeen, i18n.locale) })
-					: ''
+		isChannel
+			? i18n.t(`channel.${data.channel!.key}.subtitle`)
+			: typing
+				? i18n.t('chat.typing')
+				: isOnlineIso(peerSeen)
+					? i18n.t('chat.online')
+					: peerSeen
+						? i18n.t('chat.lastSeen', { when: formatLastSeen(peerSeen, i18n.locale) })
+						: ''
 	);
 
 	const showJumpUnread = $derived(
 		!!firstUnreadId && !atBottom && messages.some((m) => m.id === firstUnreadId)
 	);
 
+	const e2eePeerKey = $derived(peerE2eeKey || (!isChannel && data.peer?.e2eePublicKey ? data.peer.e2eePublicKey : null));
+	const canE2ee = $derived(!!e2eePeerKey && !!data.user && !isChannel);
+
 	$effect(() => {
-		messages = [...data.messages];
+		peerE2eeKey = data.peer?.e2eePublicKey ?? null;
+	});
+
+	$effect(() => {
+		if (isChannel || !data.peer?.id) return;
+		let cancelled = false;
+		fetch(`/api/users/${data.peer.id}/e2ee`)
+			.then((r) => r.json())
+			.then((j) => {
+				if (cancelled || !j.publicKey) return;
+				peerE2eeKey = JSON.stringify(j.publicKey);
+			})
+			.catch(() => {
+				/* ignore */
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	$effect(() => {
+		const list = data.messages;
 		peerLastReadAt = data.peerLastReadAt;
 		myLastReadAt = data.myLastReadAt;
-		peerSeen = data.peer.lastSeenAt;
-		hasMore = data.messages.length >= 100;
-		computeFirstUnread(data.messages, data.myLastReadAt);
+		peerSeen = data.peer?.lastSeenAt ?? null;
+		hasMore = list.length >= 100;
+		disappearAfterSec = data.disappearAfterSec;
+		e2eeOn = canE2ee;
+		computeFirstUnread(list, data.myLastReadAt);
+
+		let cancelled = false;
+		(async () => {
+			if (data.user && canE2ee && e2eePeerKey) {
+				const dec = await decryptMessages(data.user.id, data.peer!.id, e2eePeerKey, list);
+				if (!cancelled) messages = dec;
+				if (data.pinnedMessage && !cancelled) {
+					const [pin] = await decryptMessages(
+						data.user.id,
+						data.peer!.id,
+						e2eePeerKey,
+						[data.pinnedMessage]
+					);
+					pinnedMessage = pin ?? null;
+				} else if (!cancelled) {
+					pinnedMessage = data.pinnedMessage;
+				}
+			} else if (!cancelled) {
+				messages = [...list];
+				pinnedMessage = data.pinnedMessage;
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
 	});
+
+	async function decryptIncoming(msg: MessageDTO): Promise<MessageDTO> {
+		if (!data.user || !canE2ee || !e2eePeerKey || !data.peer) return msg;
+		const [dec] = await decryptMessages(data.user.id, data.peer.id, e2eePeerKey, [msg]);
+		return dec ?? msg;
+	}
+
+	const selectedCount = $derived(selectedIds.size);
+	const pinnedPreview = $derived(
+		pinnedMessage
+			? pinnedMessage.kind === 'voice'
+				? i18n.t('chats.voice')
+				: pinnedMessage.kind === 'video'
+					? i18n.t('chat.video')
+					: pinnedMessage.body || i18n.t('chat.photo')
+			: ''
+	);
 
 	function computeFirstUnread(list: MessageDTO[], readAt: string | null) {
 		if (!readAt || !data.user) {
@@ -167,7 +277,11 @@
 			if (!older.length) return;
 			const existing = new Set(messages.map((m) => m.id));
 			const unique = older.filter((m) => !existing.has(m.id));
-			messages = [...unique, ...messages];
+			const revealed =
+				data.user && canE2ee && e2eePeerKey && data.peer
+					? await decryptMessages(data.user.id, data.peer.id, e2eePeerKey, unique)
+					: unique;
+			messages = [...revealed, ...messages];
 			requestAnimationFrame(() => {
 				if (!listEl) return;
 				listEl.scrollTop = prevTop + (listEl.scrollHeight - prevHeight);
@@ -199,16 +313,17 @@
 		stickyLabel = label;
 	}
 
-	function upsert(msg: MessageDTO, opts?: { forceScroll?: boolean }) {
+	async function upsert(msg: MessageDTO, opts?: { forceScroll?: boolean }) {
+		const revealed = await decryptIncoming(msg);
 		const wasNear = listEl ? nearBottom(listEl) : true;
-		const idx = messages.findIndex((m) => m.id === msg.id);
-		if (idx === -1) messages = [...messages, msg];
+		const idx = messages.findIndex((m) => m.id === revealed.id);
+		if (idx === -1) messages = [...messages, revealed];
 		else {
 			const next = [...messages];
-			next[idx] = msg;
+			next[idx] = revealed;
 			messages = next;
 		}
-		const mine = msg.senderId === data.user?.id;
+		const mine = revealed.senderId === data.user?.id;
 		if (opts?.forceScroll || wasNear || mine) {
 			scrollToBottom(true);
 		} else {
@@ -243,14 +358,38 @@
 		tmpId: string;
 		body: string;
 		files: File[];
-		kind?: 'text' | 'voice';
+		kind?: 'text' | 'voice' | 'video';
 		replyToId?: string | null;
 	}) {
+		let body = payload.body;
+		let files = payload.files;
+		let e2eeFileMetas: string[] | null = null;
+
+		if (canE2ee && e2eePeerKey && data.user && data.peer) {
+			try {
+				const enc = await encryptOutgoing({
+					myUserId: data.user.id,
+					peerUserId: data.peer.id,
+					peerPublicKeyJson: e2eePeerKey,
+					body: payload.body,
+					files: payload.files
+				});
+				body = enc.body;
+				files = enc.files;
+				e2eeFileMetas = enc.e2eeFileMetas;
+			} catch {
+				error = i18n.t('e2ee.encryptFailed');
+				markFailed(payload.tmpId);
+				return false;
+			}
+		}
+
 		const form = new FormData();
-		form.set('body', payload.body);
+		form.set('body', body);
 		if (payload.kind) form.set('kind', payload.kind);
 		if (payload.replyToId) form.set('replyToId', payload.replyToId);
-		for (const file of payload.files) form.append('files', file);
+		if (e2eeFileMetas) form.set('e2eeFileMetas', JSON.stringify(e2eeFileMetas));
+		for (const file of files) form.append('files', file);
 
 		try {
 			const res = await fetch(`/api/chats/${data.chatId}/messages`, {
@@ -274,7 +413,7 @@
 			}
 			await removeQueued(payload.tmpId);
 			messages = messages.filter((m) => m.id !== payload.tmpId);
-			upsert(json.message as MessageDTO, { forceScroll: true });
+			await upsert(json.message as MessageDTO, { forceScroll: true });
 			hapticSuccess();
 			replyTo = null;
 			return true;
@@ -304,7 +443,7 @@
 			tmpId: message.id,
 			body: message.body,
 			files,
-			kind: (message.kind as 'text' | 'voice') || 'text',
+			kind: (message.kind as 'text' | 'voice' | 'video') || 'text',
 			replyToId: message.replyTo?.id ?? null
 		});
 	}
@@ -323,6 +462,8 @@
 					createdAt: new Date(item.createdAt).toISOString(),
 					editedAt: null,
 					deletedAt: null,
+					expiresAt: null,
+					forwardedFromId: null,
 					replyTo: null,
 					attachments: [],
 					linkPreview: null,
@@ -338,7 +479,7 @@
 				tmpId: item.tmpId,
 				body: item.body,
 				files,
-				kind: item.kind,
+				kind: item.kind as 'text' | 'voice' | 'video',
 				replyToId: item.replyToId
 			});
 		}
@@ -348,7 +489,7 @@
 		tmpId: string,
 		payload: {
 			body: string;
-			kind?: 'text' | 'voice';
+			kind?: 'text' | 'voice' | 'video';
 			replyToId?: string | null;
 		}
 	): MessageDTO {
@@ -361,6 +502,8 @@
 			createdAt: new Date().toISOString(),
 			editedAt: null,
 			deletedAt: null,
+			expiresAt: null,
+			forwardedFromId: null,
 			replyTo: payload.replyToId
 				? (() => {
 						const src = messages.find((m) => m.id === payload.replyToId);
@@ -369,7 +512,12 @@
 									id: src.id,
 									senderId: src.senderId,
 									body: src.body,
-									deleted: !!src.deletedAt
+									deleted: !!src.deletedAt,
+									kind: src.kind,
+									thumbUrl:
+										src.attachments.find((a) => a.mime.startsWith('image/')) != null
+											? `/api/files/${src.attachments.find((a) => a.mime.startsWith('image/'))!.id}`
+											: null
 								}
 							: null;
 					})()
@@ -413,7 +561,7 @@
 								30_000
 						)
 				);
-				upsert(msg);
+				void upsert(msg);
 				if (msg.senderId !== data.user?.id) {
 					fetch(`/api/chats/${data.chatId}/read`, { method: 'POST' });
 				}
@@ -431,21 +579,21 @@
 			es.addEventListener('message', onChatMessage);
 			es.addEventListener('message_update', (ev) => {
 				try {
-					upsert(JSON.parse(ev.data) as MessageDTO);
+					void upsert(JSON.parse(ev.data) as MessageDTO);
 				} catch {
 					/* ignore */
 				}
 			});
 			es.addEventListener('message_delete', (ev) => {
 				try {
-					upsert(JSON.parse(ev.data) as MessageDTO);
+					void upsert(JSON.parse(ev.data) as MessageDTO);
 				} catch {
 					/* ignore */
 				}
 			});
 			es.addEventListener('reaction', (ev) => {
 				try {
-					upsert(JSON.parse(ev.data) as MessageDTO);
+					void upsert(JSON.parse(ev.data) as MessageDTO);
 				} catch {
 					/* ignore */
 				}
@@ -469,12 +617,30 @@
 					/* ignore */
 				}
 			});
+			es.addEventListener('chat_meta', (ev) => {
+				try {
+					const d = JSON.parse(ev.data) as {
+						pinnedMessageId?: string | null;
+						disappearAfterSec?: number;
+					};
+					if (typeof d.disappearAfterSec === 'number') disappearAfterSec = d.disappearAfterSec;
+					if ('pinnedMessageId' in d) {
+						if (!d.pinnedMessageId) pinnedMessage = null;
+						else {
+							const found = messages.find((m) => m.id === d.pinnedMessageId);
+							if (found) pinnedMessage = found;
+						}
+					}
+				} catch {
+					/* ignore */
+				}
+			});
 
 			presenceEs = new EventSource('/api/events');
 			presenceEs.addEventListener('presence', (ev) => {
 				try {
 					const d = JSON.parse(ev.data) as { userId: string; lastSeenAt: string };
-					if (d.userId === data.peer.id) peerSeen = d.lastSeenAt;
+					if (data.peer && d.userId === data.peer.id) peerSeen = d.lastSeenAt;
 				} catch {
 					/* ignore */
 				}
@@ -538,16 +704,33 @@
 	async function send(payload: {
 		body: string;
 		files: File[];
-		kind?: 'text' | 'voice';
+		kind?: 'text' | 'voice' | 'video';
 		replyToId?: string | null;
 		editId?: string | null;
 	}) {
 		error = '';
 		if (payload.editId) {
+			let text = payload.body;
+			if (canE2ee && e2eePeerKey && data.user && data.peer) {
+				try {
+					const enc = await encryptOutgoing({
+						myUserId: data.user.id,
+						peerUserId: data.peer.id,
+						peerPublicKeyJson: e2eePeerKey,
+						body: payload.body,
+						files: []
+					});
+					text = enc.body;
+				} catch {
+					error = i18n.t('e2ee.encryptFailed');
+					hapticFail();
+					return;
+				}
+			}
 			const res = await fetch(`/api/chats/${data.chatId}/messages/${payload.editId}`, {
 				method: 'PATCH',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ body: payload.body })
+				body: JSON.stringify({ body: text })
 			});
 			const json = await res.json();
 			if (!res.ok) {
@@ -555,7 +738,7 @@
 				hapticFail();
 				return;
 			}
-			upsert(json.message, { forceScroll: true });
+			await upsert(json.message, { forceScroll: true });
 			editing = null;
 			hapticSuccess();
 			return;
@@ -563,7 +746,7 @@
 
 		const tmpId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 		const optimistic = buildOptimistic(tmpId, payload);
-		upsert(optimistic, { forceScroll: true });
+		await upsert(optimistic, { forceScroll: true });
 
 		await postMessage({
 			tmpId,
@@ -582,7 +765,7 @@
 			body: JSON.stringify({ emoji })
 		});
 		const json = await res.json();
-		if (res.ok) upsert(json.message);
+		if (res.ok) void upsert(json.message);
 	}
 
 	async function remove(message: MessageDTO) {
@@ -590,10 +773,166 @@
 			method: 'DELETE'
 		});
 		const json = await res.json();
-		if (res.ok) upsert(json.message);
+		if (res.ok) void upsert(json.message);
+	}
+
+	function enterSelect(m: MessageDTO) {
+		selectMode = true;
+		selectedIds = new Set([m.id]);
+		showMenu = false;
+	}
+
+	function toggleSelect(m: MessageDTO) {
+		const next = new Set(selectedIds);
+		if (next.has(m.id)) next.delete(m.id);
+		else next.add(m.id);
+		selectedIds = next;
+		if (next.size === 0) selectMode = false;
+	}
+
+	function exitSelect() {
+		selectMode = false;
+		selectedIds = new Set();
+	}
+
+	async function pinMessage(m: MessageDTO | null) {
+		const id = m?.id ?? null;
+		await fetch(`/api/chats/${data.chatId}/meta`, {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ pinnedMessageId: id })
+		});
+		pinnedMessage = m;
+		showMenu = false;
+	}
+
+	async function setDisappear(sec: number) {
+		await fetch(`/api/chats/${data.chatId}/meta`, {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ disappearAfterSec: sec })
+		});
+		disappearAfterSec = sec;
+		showMenu = false;
+	}
+
+	async function archiveChat() {
+		await fetch(`/api/chats/${data.chatId}/prefs`, {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ archived: true })
+		});
+		goto('/');
+	}
+
+	async function reportPeer() {
+		if (!data.peer) return;
+		const reason = prompt(i18n.t('chat.reportPrompt')) ?? '';
+		if (!reason.trim()) return;
+		await fetch('/api/reports', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ userId: data.peer.id, reason })
+		});
+		showMenu = false;
+		alert(i18n.t('chat.reportSent'));
+	}
+
+	async function openGallery() {
+		showGallery = true;
+		showMenu = false;
+		const res = await fetch(`/api/chats/${data.chatId}/media`);
+		const json = await res.json();
+		if (res.ok) gallery = json.media ?? [];
+	}
+
+	let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+	async function runInChatSearch() {
+		const q = searchQ.trim();
+		if (q.length < 2) {
+			searchHits = [];
+			return;
+		}
+		searchingInChat = true;
+		try {
+			const res = await fetch(`/api/chats/${data.chatId}/media?q=${encodeURIComponent(q)}`);
+			const json = await res.json();
+			if (res.ok) searchHits = json.messages ?? [];
+		} finally {
+			searchingInChat = false;
+		}
+	}
+
+	function onSearchInput() {
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(runInChatSearch, 220);
+	}
+
+	async function openForward(ids: string[]) {
+		forwardIds = ids;
+		showForward = true;
+		exitSelect();
+		const res = await fetch('/api/chats');
+		const json = await res.json();
+		if (res.ok)
+			forwardChats = (json.chats as ChatListItem[]).filter((c) => {
+				if (c.id === data.chatId) return false;
+				if (c.kind === 'channel' && c.channel?.posting === 'admin' && !data.isAdmin) return false;
+				return true;
+			});
+	}
+
+	async function doForward(targetChatId: string) {
+		const res = await fetch(`/api/chats/${data.chatId}/forward`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ targetChatId, messageIds: forwardIds })
+		});
+		showForward = false;
+		forwardIds = [];
+		if (res.ok) {
+			hapticSuccess();
+			goto(`/chat/${targetChatId}`);
+		} else {
+			hapticFail();
+		}
+	}
+
+	async function bulkDelete() {
+		const ids = [...selectedIds];
+		const res = await fetch(`/api/chats/${data.chatId}/messages/bulk`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ messageIds: ids })
+		});
+		const json = await res.json();
+		if (res.ok) {
+			for (const m of json.messages as MessageDTO[]) void upsert(m);
+		}
+		exitSelect();
+	}
+
+	async function bulkCopy() {
+		const texts = messages
+			.filter((m) => selectedIds.has(m.id) && m.body)
+			.map((m) => m.body)
+			.join('\n');
+		if (!texts) return;
+		try {
+			await navigator.clipboard.writeText(texts);
+			haptic(8);
+		} catch {
+			/* ignore */
+		}
+		exitSelect();
 	}
 
 	function goBack() {
+		if (selectMode) {
+			exitSelect();
+			return;
+		}
 		const run = () => goto('/');
 		if (typeof document !== 'undefined' && 'startViewTransition' in document) {
 			(document as Document & { startViewTransition: (cb: () => void) => void }).startViewTransition(
@@ -601,6 +940,16 @@
 			);
 		} else {
 			run();
+		}
+	}
+
+	async function startCall(video: boolean) {
+		try {
+			haptic(10);
+			await startOutgoingCall(data.chatId, video);
+		} catch (e) {
+			hapticFail();
+			error = e instanceof Error ? e.message : i18n.t('call.failed');
 		}
 	}
 </script>
@@ -616,32 +965,128 @@
 		<button type="button" class="icon-btn back-btn" aria-label={i18n.t('back')} onclick={goBack}>
 			<ArrowLeft size={22} />
 		</button>
-		<a class="peer-link" href="/u/{data.peer.username}">
-			<Avatar
-				name={peerTitle}
-				size={34}
-				avatarPath={data.peer.avatarPath}
-				userId={data.peer.id}
-			/>
-			<div class="peer-meta">
-				<h1 class="peer-title">
-					<NameWithBadges name={peerTitle} badges={data.peer.badges} size="sm" />
-				</h1>
-				{#if statusText}
-					<span class="peer-status" class:online>
-						{#if typing}
-							<span class="typing-label">{i18n.t('chat.typing')}</span>
-							<span class="typing-dots" aria-hidden="true"
-								><i></i><i></i><i></i></span
-							>
-						{:else}
-							{statusText}
-						{/if}
-					</span>
-				{/if}
+		{#if selectMode}
+			<div class="peer-meta select-meta">
+				<h1 class="peer-title">{i18n.t('chat.selected', { n: selectedCount })}</h1>
 			</div>
-		</a>
+			<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={exitSelect}>
+				<X size={20} />
+			</button>
+		{:else if isChannel}
+			<div class="peer-link channel-head">
+				<ChannelAvatar channelKey={data.channel!.key} size={34} />
+				<div class="peer-meta">
+					<h1 class="peer-title">{peerTitle}</h1>
+					{#if statusText}
+						<span class="peer-status">{statusText}</span>
+					{/if}
+				</div>
+			</div>
+			<button
+				type="button"
+				class="icon-btn"
+				aria-label={i18n.t('chats.searchMessages')}
+				onclick={() => (showSearch = true)}
+			>
+				<Search size={20} />
+			</button>
+			<button
+				type="button"
+				class="icon-btn"
+				aria-label={i18n.t('chat.more')}
+				onclick={() => (showMenu = true)}
+			>
+				<Ellipsis size={20} />
+			</button>
+		{:else}
+			<a class="peer-link" href="/u/{data.peer!.username}">
+				<Avatar
+					name={peerTitle}
+					size={34}
+					avatarPath={data.peer!.avatarPath}
+					userId={data.peer!.id}
+				/>
+				<div class="peer-meta">
+					<h1 class="peer-title">
+						<NameWithBadges name={peerTitle} badges={data.peer!.badges} size="sm" />
+					</h1>
+					{#if statusText}
+						<span class="peer-status" class:online>
+							{#if canE2ee}
+								<span class="e2ee-status" title={i18n.t('e2ee.active')}
+									><Lock size={11} /></span
+								>
+							{/if}
+							{#if typing}
+								<span class="typing-label">{i18n.t('chat.typing')}</span>
+								<span class="typing-dots" aria-hidden="true"
+									><i></i><i></i><i></i></span
+								>
+							{:else}
+								{statusText}
+							{/if}
+						</span>
+					{:else if canE2ee}
+						<span class="peer-status e2ee-only">
+							<span class="e2ee-status" title={i18n.t('e2ee.active')}><Lock size={11} /></span>
+							{i18n.t('e2ee.active')}
+						</span>
+					{/if}
+				</div>
+			</a>
+			<button
+				type="button"
+				class="icon-btn"
+				aria-label={i18n.t('call.voice')}
+				onclick={() => startCall(false)}
+			>
+				<Phone size={20} />
+			</button>
+			<button
+				type="button"
+				class="icon-btn"
+				aria-label={i18n.t('call.video')}
+				onclick={() => startCall(true)}
+			>
+				<Video size={20} />
+			</button>
+			<button
+				type="button"
+				class="icon-btn"
+				aria-label={i18n.t('chats.searchMessages')}
+				onclick={() => (showSearch = true)}
+			>
+				<Search size={20} />
+			</button>
+			<button
+				type="button"
+				class="icon-btn"
+				aria-label={i18n.t('chat.more')}
+				onclick={() => (showMenu = true)}
+			>
+				<Ellipsis size={20} />
+			</button>
+		{/if}
 	</header>
+
+	{#if pinnedMessage && !selectMode}
+		<button type="button" class="pin-banner" onclick={() => jumpTo(pinnedMessage!.id)}>
+			<span class="pin-banner-ico"><Pin size={14} /></span>
+			<span class="pin-banner-text">{pinnedPreview}</span>
+			<span
+				class="pin-banner-clear"
+				role="button"
+				tabindex="0"
+				onclick={(e) => {
+					e.stopPropagation();
+					pinMessage(null);
+				}}
+				onkeydown={(e) => e.key === 'Enter' && pinMessage(null)}
+			>
+				<X size={14} />
+			</span>
+		</button>
+	{/if}
 
 	<div class="messages-wrap">
 		{#if stickyLabel}
@@ -675,6 +1120,15 @@
 						highlight={highlightId === item.message.id}
 						grouped={item.grouped}
 						tail={item.tail}
+						{selectMode}
+						selected={selectedIds.has(item.message.id)}
+						e2ee={canE2ee && data.user && data.peer && e2eePeerKey
+							? {
+									myUserId: data.user.id,
+									peerUserId: data.peer.id,
+									peerPublicKey: e2eePeerKey
+								}
+							: null}
 						onreply={(m) => {
 							replyTo = m;
 							editing = null;
@@ -688,6 +1142,10 @@
 						onjump={jumpTo}
 						onretry={retrySend}
 						onopenImage={(urls, index) => (lightbox = { urls, index })}
+						onforward={(m) => openForward([m.id])}
+						onpin={pinMessage}
+						ontoggleSelect={toggleSelect}
+						onenterSelect={enterSelect}
 					/>
 				{/if}
 			{/each}
@@ -720,23 +1178,47 @@
 		<p class="error" style="padding:4px 12px;background:var(--bg-elevated)">{error}</p>
 	{/if}
 
-	<Composer
-		chatId={data.chatId}
-		{replyTo}
-		{editing}
-		placeholder={i18n.t('chat.message')}
-		replyingLabel={i18n.t('chat.replying')}
-		editingLabel={i18n.t('chat.editing')}
-		recordingLabel={i18n.t('chat.recording')}
-		slideToCancelLabel={i18n.t('chat.slideToCancel')}
-		releaseToCancelLabel={i18n.t('chat.releaseToCancel')}
-		cameraLabel={i18n.t('chat.camera')}
-		attachLabel={i18n.t('chat.attach')}
-		ontyping={emitTyping}
-		onclearReply={() => (replyTo = null)}
-		onclearEdit={() => (editing = null)}
-		onsend={send}
-	/>
+	{#if selectMode}
+		<div class="select-bar">
+			<button type="button" class="icon-btn" onclick={bulkCopy} aria-label={i18n.t('chat.copy')}>
+				<Copy size={20} />
+			</button>
+			<button
+				type="button"
+				class="icon-btn"
+				onclick={() => openForward([...selectedIds])}
+				aria-label={i18n.t('chat.forward')}
+			>
+				<Forward size={20} />
+			</button>
+			<button type="button" class="icon-btn danger" onclick={bulkDelete} aria-label={i18n.t('chat.delete')}>
+				<Trash2 size={20} />
+			</button>
+		</div>
+	{:else if canPost}
+		<Composer
+			chatId={data.chatId}
+			{replyTo}
+			{editing}
+			placeholder={isChannel ? i18n.t('channel.postPlaceholder') : i18n.t('chat.message')}
+			replyingLabel={i18n.t('chat.replying')}
+			editingLabel={i18n.t('chat.editing')}
+			recordingLabel={i18n.t('chat.recording')}
+			slideToCancelLabel={i18n.t('chat.slideToCancel')}
+			releaseToCancelLabel={i18n.t('chat.releaseToCancel')}
+			cameraLabel={i18n.t('chat.camera')}
+			attachLabel={i18n.t('chat.attach')}
+			ontyping={isChannel ? undefined : emitTyping}
+			onclearReply={() => (replyTo = null)}
+			onclearEdit={() => (editing = null)}
+			onsend={send}
+		/>
+		{#if isChannel}
+			<p class="channel-format-hint">{i18n.t('channel.formatHint')}</p>
+		{/if}
+	{:else}
+		<p class="channel-readonly">{i18n.t('channel.readonly')}</p>
+	{/if}
 </div>
 
 {#if lightbox}
@@ -745,4 +1227,151 @@
 		index={lightbox.index}
 		onclose={() => (lightbox = null)}
 	/>
+{/if}
+
+{#if showMenu}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="menu-backdrop" onclick={() => (showMenu = false)}></div>
+	<div class="msg-sheet">
+		<div class="msg-menu">
+			<button type="button" onclick={openGallery}>
+				<span class="sheet-row-ico"><ImageIcon size={18} /></span>
+				{i18n.t('chat.gallery')}
+			</button>
+			<button type="button" onclick={() => { showSearch = true; showMenu = false; }}>
+				<span class="sheet-row-ico"><Search size={18} /></span>
+				{i18n.t('chat.searchIn')}
+			</button>
+			<button type="button" onclick={archiveChat}>{i18n.t('chat.archive')}</button>
+			{#if !isChannel}
+				<p class="sheet-section">{i18n.t('chat.disappear')}</p>
+				<button type="button" class:active={disappearAfterSec === 0} onclick={() => setDisappear(0)}>
+					{i18n.t('chat.disappearOff')}
+				</button>
+				<button type="button" class:active={disappearAfterSec === 86400} onclick={() => setDisappear(86400)}>
+					{i18n.t('chat.disappear24h')}
+				</button>
+				<button type="button" class:active={disappearAfterSec === 604800} onclick={() => setDisappear(604800)}>
+					{i18n.t('chat.disappear7d')}
+				</button>
+				<button type="button" class="danger" onclick={reportPeer}>{i18n.t('chat.report')}</button>
+			{/if}
+		</div>
+	</div>
+{/if}
+
+{#if showSearch}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="menu-backdrop" onclick={() => (showSearch = false)}></div>
+	<div class="chat-overlay-sheet">
+		<div class="overlay-head">
+			<input
+				type="search"
+				placeholder={i18n.t('chat.searchIn')}
+				bind:value={searchQ}
+				oninput={onSearchInput}
+			/>
+			<button type="button" class="icon-btn" onclick={() => (showSearch = false)}><X size={18} /></button>
+		</div>
+		<div class="overlay-body">
+			{#if searchingInChat}
+				<p class="overlay-empty">{i18n.t('chats.searching')}</p>
+			{:else if searchQ.trim().length >= 2 && !searchHits.length}
+				<p class="overlay-empty">{i18n.t('chats.emptyFilter', { q: searchQ })}</p>
+			{:else}
+				{#each searchHits as hit (hit.id)}
+					<button
+						type="button"
+						class="overlay-hit"
+						onclick={() => {
+							showSearch = false;
+							jumpTo(hit.id);
+						}}
+					>
+						<span>{hit.body.slice(0, 120)}</span>
+					</button>
+				{/each}
+			{/if}
+		</div>
+	</div>
+{/if}
+
+{#if showGallery}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="menu-backdrop" onclick={() => (showGallery = false)}></div>
+	<div class="chat-overlay-sheet gallery-sheet">
+		<div class="overlay-head">
+			<strong>{i18n.t('chat.gallery')}</strong>
+			<button type="button" class="icon-btn" onclick={() => (showGallery = false)}><X size={18} /></button>
+		</div>
+		<div class="gallery-grid">
+			{#each gallery as item (item.attachmentId)}
+				{#if item.kind === 'image'}
+					<button
+						type="button"
+						class="gallery-cell"
+						onclick={() => {
+							showGallery = false;
+							jumpTo(item.messageId);
+						}}
+					>
+						<img src="/api/files/{item.attachmentId}" alt={item.filename} />
+					</button>
+				{:else if item.kind === 'video'}
+					<button
+						type="button"
+						class="gallery-cell"
+						aria-label={item.filename}
+						onclick={() => {
+							showGallery = false;
+							jumpTo(item.messageId);
+						}}
+					>
+						<video src="/api/files/{item.attachmentId}" muted playsinline></video>
+					</button>
+				{:else}
+					<a class="gallery-file" href="/api/files/{item.attachmentId}" target="_blank" rel="noopener">
+						{item.filename}
+					</a>
+				{/if}
+			{:else}
+				<p class="overlay-empty">{i18n.t('chat.galleryEmpty')}</p>
+			{/each}
+		</div>
+	</div>
+{/if}
+
+{#if showForward}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="menu-backdrop" onclick={() => (showForward = false)}></div>
+	<div class="chat-overlay-sheet">
+		<div class="overlay-head">
+			<strong>{i18n.t('chat.forwardTo')}</strong>
+			<button type="button" class="icon-btn" onclick={() => (showForward = false)}><X size={18} /></button>
+		</div>
+		<div class="overlay-body">
+			{#each forwardChats as chat (chat.id)}
+				<button type="button" class="overlay-hit forward-row" onclick={() => doForward(chat.id)}>
+					{#if chat.kind === 'channel' && chat.channel}
+						<ChannelAvatar channelKey={chat.channel.key} size={36} />
+						<span>{i18n.t(`channel.${chat.channel.key}.title`)}</span>
+					{:else if chat.peer}
+						<Avatar
+							name={chat.peer.displayName || chat.peer.username}
+							size={36}
+							avatarPath={chat.peer.avatarPath}
+							userId={chat.peer.id}
+						/>
+						<span>{chat.peer.displayName || chat.peer.username}</span>
+					{/if}
+				</button>
+			{:else}
+				<p class="overlay-empty">{i18n.t('chat.forwardEmpty')}</p>
+			{/each}
+		</div>
+	</div>
 {/if}

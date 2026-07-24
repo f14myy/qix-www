@@ -5,7 +5,7 @@
 	import Send from '@lucide/svelte/icons/send';
 	import X from '@lucide/svelte/icons/x';
 	import { haptic } from '$lib/haptic';
-	import { compressImages } from '$lib/imageCompress';
+	import { compressMedia } from '$lib/videoCompress';
 	import { getCachedSettings } from '$lib/settings';
 	import type { MessageDTO } from '$lib/types';
 
@@ -45,7 +45,7 @@
 		onsend: (payload: {
 			body: string;
 			files: File[];
-			kind?: 'text' | 'voice';
+			kind?: 'text' | 'voice' | 'video';
 			replyToId?: string | null;
 			editId?: string | null;
 		}) => void | Promise<void>;
@@ -160,8 +160,29 @@
 		files = next;
 		previews = next.map((file) => ({
 			file,
-			url: file.type.startsWith('image/') ? URL.createObjectURL(file) : ''
+			url:
+				file.type.startsWith('image/') || file.type.startsWith('video/')
+					? URL.createObjectURL(file)
+					: ''
 		}));
+	}
+
+	function replyPreviewText() {
+		if (!replyTo) return '…';
+		if (replyTo.kind === 'voice') return '🎤';
+		if (replyTo.kind === 'video') return '🎬';
+		if (replyTo.attachments?.some((a) => a.mime.startsWith('image/'))) return '🖼';
+		return replyTo.body?.slice(0, 80) || '…';
+	}
+
+	function replyThumb(): string | null {
+		if (!replyTo) return null;
+		const img = replyTo.attachments?.find((a) => a.mime.startsWith('image/'));
+		if (img) return `/api/files/${img.id}`;
+		const vid = replyTo.attachments?.find((a) => a.mime.startsWith('video/'));
+		if (vid) return `/api/files/${vid.id}`;
+		if (replyTo.kind === 'voice' && replyTo.attachments?.[0]) return null;
+		return null;
 	}
 
 	function clearDraft() {
@@ -179,10 +200,12 @@
 		sending = true;
 		haptic(8);
 		try {
+			const onlyVideo =
+				files.length > 0 && files.every((f) => f.type.startsWith('video/')) && !body.trim();
 			await onsend({
 				body: body.trim(),
 				files: [...files],
-				kind: 'text',
+				kind: onlyVideo ? 'video' : 'text',
 				replyToId: replyTo?.id ?? null,
 				editId: editing?.id ?? null
 			});
@@ -216,7 +239,7 @@
 		const input = e.currentTarget as HTMLInputElement;
 		const incoming = Array.from(input.files ?? []);
 		input.value = '';
-		const compressed = await compressImages(incoming);
+		const compressed = await compressMedia(incoming);
 		setFiles([...files, ...compressed].slice(0, 5));
 	}
 
@@ -426,9 +449,12 @@
 	{#if replyTo}
 		<div class="composer-banner">
 			<span class="composer-banner-bar"></span>
+			{#if replyThumb()}
+				<img class="composer-banner-thumb" src={replyThumb()} alt="" />
+			{/if}
 			<div class="composer-banner-text">
 				<strong>{replyingLabel}</strong>
-				<span>{replyTo.body?.slice(0, 80) || '…'}</span>
+				<span>{replyPreviewText()}</span>
 			</div>
 			<button type="button" class="icon-btn" style="width:32px;height:32px" onclick={onclearReply}>
 				<X size={16} />
@@ -453,7 +479,11 @@
 			{#each previews as item, i (item.file.name + i)}
 				{#if item.url}
 					<span class="pending-thumb">
-						<img src={item.url} alt="" />
+						{#if item.file.type.startsWith('video/')}
+							<video src={item.url} muted playsinline></video>
+						{:else}
+							<img src={item.url} alt="" />
+						{/if}
 						<button
 							type="button"
 							class="pending-remove"

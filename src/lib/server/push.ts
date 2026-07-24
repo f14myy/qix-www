@@ -92,14 +92,14 @@ function isChatMuted(chatId: string, userId: string): boolean {
 export async function sendPushToUser(
 	userId: string,
 	payload: PushPayload,
-	opts?: { chatId?: string; kind?: 'message' | 'reaction' }
+	opts?: { chatId?: string; kind?: 'message' | 'reaction' | 'call' }
 ): Promise<void> {
 	if (!ensureConfigured()) return;
 
 	const settings = getUserSettings(userId);
 	if (opts?.kind === 'reaction' && !settings.notifyReactions) return;
-	if (opts?.kind !== 'reaction' && !settings.notifyMessages) return;
-	if (opts?.chatId && isChatMuted(opts.chatId, userId)) return;
+	if (opts?.kind !== 'reaction' && opts?.kind !== 'call' && !settings.notifyMessages) return;
+	if (opts?.kind !== 'call' && opts?.chatId && isChatMuted(opts.chatId, userId)) return;
 
 	const subs = db
 		.select()

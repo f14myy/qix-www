@@ -5,7 +5,7 @@ export type QueuedSend = {
 	tmpId: string;
 	chatId: string;
 	body: string;
-	kind: 'text' | 'voice';
+	kind: 'text' | 'voice' | 'video';
 	replyToId: string | null;
 	files: { name: string; type: string; buffer: ArrayBuffer }[];
 	createdAt: number;

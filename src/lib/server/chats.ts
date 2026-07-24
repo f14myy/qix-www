@@ -1,5 +1,14 @@
 import { and, desc, eq, gt, ne, sql } from 'drizzle-orm';
 import { normalizeBannerKey, type BadgeDTO } from '$lib/badges';
+import type {
+	AttachmentDTO,
+	ChatListItem,
+	LinkPreviewDTO,
+	MessageDTO,
+	PublicProfile,
+	ReactionDTO,
+	ReplyPreviewDTO
+} from '$lib/types';
 import { db } from './db';
 import {
 	attachments,
@@ -12,90 +21,23 @@ import {
 } from './schema';
 import { createId } from './id';
 import { getUserBadges } from './badges';
+import { getChannelByChatId, ensureUserInBuiltInChannels } from './channels';
 import {
 	canSeeLastSeen,
 	getBlockedIdsForUser,
 	getUserSettings
 } from './settings';
 
-export type AttachmentDTO = {
-	id: string;
-	filename: string;
-	mime: string;
-	size: number;
+export type {
+	AttachmentDTO,
+	ChatListItem,
+	LinkPreviewDTO,
+	MessageDTO,
+	PublicProfile,
+	ReactionDTO,
+	ReplyPreviewDTO
 };
-
-export type LinkPreviewDTO = {
-	url: string;
-	title: string | null;
-	description: string | null;
-	imageUrl: string | null;
-};
-
-export type ReactionDTO = {
-	emoji: string;
-	count: number;
-	me: boolean;
-};
-
-export type ReplyPreviewDTO = {
-	id: string;
-	senderId: string;
-	body: string;
-	deleted: boolean;
-};
-
-export type MessageDTO = {
-	id: string;
-	chatId: string;
-	senderId: string;
-	body: string;
-	kind: string;
-	createdAt: string;
-	editedAt: string | null;
-	deletedAt: string | null;
-	replyTo: ReplyPreviewDTO | null;
-	attachments: AttachmentDTO[];
-	linkPreview: LinkPreviewDTO | null;
-	reactions: ReactionDTO[];
-};
-
-export type ChatListItem = {
-	id: string;
-	peer: {
-		id: string;
-		username: string;
-		displayName: string | null;
-		avatarPath: string | null;
-		lastSeenAt: string | null;
-		badges: BadgeDTO[];
-	};
-	unreadCount: number;
-	pinned: boolean;
-	muted: boolean;
-	lastMessage: {
-		id: string;
-		body: string;
-		createdAt: string;
-		senderId: string;
-		hasAttachment: boolean;
-		kind: string;
-		deleted: boolean;
-	} | null;
-};
-
-export type PublicProfile = {
-	id: string;
-	username: string;
-	displayName: string | null;
-	bio: string | null;
-	avatarPath: string | null;
-	bannerPath: string | null;
-	lastSeenAt: string | null;
-	createdAt: string;
-	bannerKey: string;
-	badges: BadgeDTO[];
-};
+export { REACTION_EMOJIS } from '$lib/types';
 
 export function isOnline(lastSeenAt: Date | null | undefined, now = Date.now()): boolean {
 	if (!lastSeenAt) return false;
@@ -169,7 +111,9 @@ export function getPeer(chatId: string, userId: string): PublicProfile | null {
 			bannerPath: users.bannerPath,
 			lastSeenAt: users.lastSeenAt,
 			createdAt: users.createdAt,
-			bannerKey: users.bannerKey
+			bannerKey: users.bannerKey,
+			inviteCode: users.inviteCode,
+			e2eePublicKey: users.e2eePublicKey
 		})
 		.from(chatMembers)
 		.innerJoin(users, eq(chatMembers.userId, users.id))
@@ -188,7 +132,9 @@ export function getPeer(chatId: string, userId: string): PublicProfile | null {
 		lastSeenAt: showSeen && row.lastSeenAt ? row.lastSeenAt.toISOString() : null,
 		createdAt: row.createdAt.toISOString(),
 		bannerKey: normalizeBannerKey(row.bannerKey),
-		badges: getUserBadges(row.id)
+		badges: getUserBadges(row.id),
+		inviteCode: row.inviteCode ?? null,
+		e2eePublicKey: row.e2eePublicKey ?? null
 	};
 }
 
@@ -227,11 +173,16 @@ export function markChatRead(chatId: string, userId: string): void {
 export function setChatPrefs(
 	chatId: string,
 	userId: string,
-	prefs: { pinned?: boolean; muted?: boolean }
+	prefs: { pinned?: boolean; muted?: boolean; archived?: boolean }
 ): void {
-	const patch: { pinnedAt?: Date | null; muted?: boolean } = {};
+	const patch: {
+		pinnedAt?: Date | null;
+		muted?: boolean;
+		archivedAt?: Date | null;
+	} = {};
 	if (prefs.pinned !== undefined) patch.pinnedAt = prefs.pinned ? new Date() : null;
 	if (prefs.muted !== undefined) patch.muted = prefs.muted;
+	if (prefs.archived !== undefined) patch.archivedAt = prefs.archived ? new Date() : null;
 	db.update(chatMembers)
 		.set(patch)
 		.where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, userId)))
@@ -262,22 +213,27 @@ function countUnread(chatId: string, userId: string): number {
 	return Number(row?.count ?? 0);
 }
 
-export function listChatsForUser(userId: string): ChatListItem[] {
+export function listChatsForUser(userId: string, opts?: { archived?: boolean }): ChatListItem[] {
+	ensureUserInBuiltInChannels(userId);
+	const wantArchived = !!opts?.archived;
 	const memberships = db
 		.select({
 			chatId: chatMembers.chatId,
 			pinnedAt: chatMembers.pinnedAt,
-			muted: chatMembers.muted
+			muted: chatMembers.muted,
+			archivedAt: chatMembers.archivedAt
 		})
 		.from(chatMembers)
 		.where(eq(chatMembers.userId, userId))
-		.all();
+		.all()
+		.filter((m) => (wantArchived ? !!m.archivedAt : !m.archivedAt));
 
 	const items: ChatListItem[] = [];
 
 	for (const m of memberships) {
-		const peer = getPeer(m.chatId, userId);
-		if (!peer) continue;
+		const channel = getChannelByChatId(m.chatId);
+		const peer = channel ? null : getPeer(m.chatId, userId);
+		if (!channel && !peer) continue;
 
 		const last = db
 			.select()
@@ -300,17 +256,24 @@ export function listChatsForUser(userId: string): ChatListItem[] {
 
 		items.push({
 			id: m.chatId,
-			peer: {
-				id: peer.id,
-				username: peer.username,
-				displayName: peer.displayName,
-				avatarPath: peer.avatarPath,
-				lastSeenAt: peer.lastSeenAt,
-				badges: peer.badges
-			},
+			kind: channel ? 'channel' : 'dm',
+			peer: peer
+				? {
+						id: peer.id,
+						username: peer.username,
+						displayName: peer.displayName,
+						avatarPath: peer.avatarPath,
+						lastSeenAt: peer.lastSeenAt,
+						badges: peer.badges
+					}
+				: null,
+			channel: channel
+				? { key: channel.key, title: channel.title, posting: channel.posting }
+				: null,
 			unreadCount: countUnread(m.chatId, userId),
 			pinned: !!m.pinnedAt,
 			muted: !!m.muted,
+			archived: !!m.archivedAt,
 			lastMessage: last
 				? {
 						id: last.id,
@@ -326,6 +289,9 @@ export function listChatsForUser(userId: string): ChatListItem[] {
 	}
 
 	items.sort((a, b) => {
+		const aChannel = a.kind === 'channel' ? 1 : 0;
+		const bChannel = b.kind === 'channel' ? 1 : 0;
+		if (aChannel !== bChannel) return bChannel - aChannel;
 		if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
 		const aTime = a.lastMessage?.createdAt ?? '';
 		const bTime = b.lastMessage?.createdAt ?? '';
@@ -367,11 +333,23 @@ function getReply(replyToId: string | null): ReplyPreviewDTO | null {
 	if (!replyToId) return null;
 	const row = db.select().from(messages).where(eq(messages.id, replyToId)).get();
 	if (!row) return null;
+	let thumbUrl: string | null = null;
+	const att = db
+		.select()
+		.from(attachments)
+		.where(eq(attachments.messageId, row.id))
+		.limit(1)
+		.get();
+	if (att && (att.mime.startsWith('image/') || att.mime.startsWith('video/') || row.kind === 'voice')) {
+		thumbUrl = `/api/files/${att.id}`;
+	}
 	return {
 		id: row.id,
 		senderId: row.senderId,
 		body: row.deletedAt ? '' : row.body.slice(0, 120),
-		deleted: !!row.deletedAt
+		deleted: !!row.deletedAt,
+		kind: row.kind,
+		thumbUrl: row.deletedAt ? null : thumbUrl
 	};
 }
 
@@ -381,11 +359,19 @@ export function getMessageAttachments(messageId: string): AttachmentDTO[] {
 			id: attachments.id,
 			filename: attachments.filename,
 			mime: attachments.mime,
-			size: attachments.size
+			size: attachments.size,
+			e2eeMeta: attachments.e2eeMeta
 		})
 		.from(attachments)
 		.where(eq(attachments.messageId, messageId))
-		.all();
+		.all()
+		.map((a) => ({
+			id: a.id,
+			filename: a.filename,
+			mime: a.mime,
+			size: a.size,
+			e2eeMeta: a.e2eeMeta ?? null
+		}));
 }
 
 export function toMessageDTO(
@@ -393,6 +379,14 @@ export function toMessageDTO(
 	viewerId?: string
 ): MessageDTO {
 	const deleted = !!row.deletedAt;
+	const expired = row.expiresAt && row.expiresAt.getTime() < Date.now();
+	if (expired && !deleted) {
+		db.update(messages)
+			.set({ deletedAt: new Date(), body: '' })
+			.where(eq(messages.id, row.id))
+			.run();
+		return toMessageDTO({ ...row, deletedAt: new Date(), body: '' }, viewerId);
+	}
 	return {
 		id: row.id,
 		chatId: row.chatId,
@@ -402,6 +396,8 @@ export function toMessageDTO(
 		createdAt: row.createdAt.toISOString(),
 		editedAt: row.editedAt ? row.editedAt.toISOString() : null,
 		deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+		expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+		forwardedFromId: row.forwardedFromId ?? null,
 		replyTo: deleted ? null : getReply(row.replyToId),
 		attachments: deleted ? [] : getMessageAttachments(row.id),
 		linkPreview: deleted ? null : getLinkPreview(row.id),
@@ -473,7 +469,8 @@ export type MessageSearchHit = {
 		username: string;
 		displayName: string | null;
 		avatarPath: string | null;
-	};
+	} | null;
+	channel: { key: string; title: string } | null;
 };
 
 export function searchMessages(userId: string, query: string, limit = 40): MessageSearchHit[] {
@@ -506,20 +503,33 @@ export function searchMessages(userId: string, query: string, limit = 40): Messa
 
 	const hits: MessageSearchHit[] = [];
 	for (const row of rows) {
-		const peer = getPeer(row.chatId, userId);
-		if (!peer || blocked.has(peer.id)) continue;
-		hits.push({
-			messageId: row.messageId,
-			chatId: row.chatId,
-			body: row.body,
-			createdAt: row.createdAt.toISOString(),
-			peer: {
-				id: peer.id,
-				username: peer.username,
-				displayName: peer.displayName,
-				avatarPath: peer.avatarPath
-			}
-		});
+		const channel = getChannelByChatId(row.chatId);
+		if (channel) {
+			hits.push({
+				messageId: row.messageId,
+				chatId: row.chatId,
+				body: row.body,
+				createdAt: row.createdAt.toISOString(),
+				peer: null,
+				channel: { key: channel.key, title: channel.title }
+			});
+		} else {
+			const peer = getPeer(row.chatId, userId);
+			if (!peer || blocked.has(peer.id)) continue;
+			hits.push({
+				messageId: row.messageId,
+				chatId: row.chatId,
+				body: row.body,
+				createdAt: row.createdAt.toISOString(),
+				peer: {
+					id: peer.id,
+					username: peer.username,
+					displayName: peer.displayName,
+					avatarPath: peer.avatarPath
+				},
+				channel: null
+			});
+		}
 		if (hits.length >= limit) break;
 	}
 	return hits;
@@ -541,14 +551,23 @@ export function globalSearch(userId: string, query: string): GlobalSearchResult 
 	if (!q) return { chats: [], people: [], messages: [] };
 
 	const allChats = listChatsForUser(userId);
-	const chats = allChats.filter(
-		(c) =>
+	const chats = allChats.filter((c) => {
+		if (c.kind === 'channel' && c.channel) {
+			return (
+				c.channel.key.includes(q) ||
+				c.channel.title.toLowerCase().includes(q) ||
+				(c.lastMessage && !c.lastMessage.deleted && c.lastMessage.body.toLowerCase().includes(q))
+			);
+		}
+		if (!c.peer) return false;
+		return (
 			c.peer.username.includes(q) ||
 			(c.peer.displayName?.toLowerCase().includes(q) ?? false) ||
 			(c.lastMessage && !c.lastMessage.deleted && c.lastMessage.body.toLowerCase().includes(q))
-	);
+		);
+	});
 
-	const chatPeerIds = new Set(allChats.map((c) => c.peer.id));
+	const chatPeerIds = new Set(allChats.filter((c) => c.peer).map((c) => c.peer!.id));
 	const people = searchUsers(q, userId, 24).filter((u) => !chatPeerIds.has(u.id));
 	const messages = searchMessages(userId, q, 36);
 
@@ -575,8 +594,8 @@ export function toPublicProfile(
 		lastSeenAt: showSeen && user.lastSeenAt ? user.lastSeenAt.toISOString() : null,
 		createdAt: user.createdAt.toISOString(),
 		bannerKey: normalizeBannerKey(user.bannerKey),
-		badges: getUserBadges(user.id)
+		badges: getUserBadges(user.id),
+		inviteCode: user.inviteCode ?? null,
+		e2eePublicKey: user.e2eePublicKey ?? null
 	};
 }
-
-export const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'] as const;

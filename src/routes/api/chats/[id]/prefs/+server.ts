@@ -13,10 +13,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	const body = await request.json().catch(() => null);
 	const pinned = (body as { pinned?: unknown })?.pinned;
 	const muted = (body as { muted?: unknown })?.muted;
+	const archived = (body as { archived?: unknown })?.archived;
 
 	setChatPrefs(chatId, locals.user.id, {
 		pinned: typeof pinned === 'boolean' ? pinned : undefined,
-		muted: typeof muted === 'boolean' ? muted : undefined
+		muted: typeof muted === 'boolean' ? muted : undefined,
+		archived: typeof archived === 'boolean' ? archived : undefined
 	});
 
 	return json({ ok: true });
