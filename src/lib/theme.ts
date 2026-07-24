@@ -11,7 +11,17 @@ export type LookId =
 	| 'dusk'
 	| 'coral'
 	| 'frost'
-	| 'sand';
+	| 'sand'
+	| 'noir'
+	| 'rose'
+	| 'citrus'
+	| 'arctic'
+	| 'plum'
+	| 'volt'
+	| 'clay'
+	| 'midnight'
+	| 'matcha'
+	| 'berry';
 
 /** Chat wallpaper pattern layered on top of look’s --bg-chat. */
 export type WallpaperId =
@@ -26,14 +36,28 @@ export type WallpaperId =
 	| 'stars'
 	| 'weave'
 	| 'mist'
+	| 'hex'
+	| 'waves'
+	| 'confetti'
+	| 'scanlines'
+	| 'tiles'
+	| 'orbit'
+	| 'topo'
+	| 'noise'
+	| 'petals'
+	| 'stripes'
 	| 'none';
 
 export type WallpaperIntensity = 'soft' | 'normal' | 'bold';
+
+/** Bubble corner style personalization. */
+export type BubbleStyle = 'default' | 'soft' | 'pill' | 'sharp';
 
 const MODE_KEY = 'qix-theme';
 const LOOK_KEY = 'qix-look';
 const WALLPAPER_KEY = 'qix-wallpaper';
 const INTENSITY_KEY = 'qix-wallpaper-intensity';
+const BUBBLE_KEY = 'qix-bubble';
 const REDUCE_MOTION_KEY = 'qix-reduce-motion';
 const LEGACY_ACCENT_KEY = 'qix-accent';
 
@@ -47,7 +71,17 @@ const LOOK_IDS: LookId[] = [
 	'dusk',
 	'coral',
 	'frost',
-	'sand'
+	'sand',
+	'noir',
+	'rose',
+	'citrus',
+	'arctic',
+	'plum',
+	'volt',
+	'clay',
+	'midnight',
+	'matcha',
+	'berry'
 ];
 
 const WALLPAPER_IDS: WallpaperId[] = [
@@ -62,10 +96,21 @@ const WALLPAPER_IDS: WallpaperId[] = [
 	'stars',
 	'weave',
 	'mist',
+	'hex',
+	'waves',
+	'confetti',
+	'scanlines',
+	'tiles',
+	'orbit',
+	'topo',
+	'noise',
+	'petals',
+	'stripes',
 	'none'
 ];
 
 const INTENSITY_IDS: WallpaperIntensity[] = ['soft', 'normal', 'bold'];
+const BUBBLE_IDS: BubbleStyle[] = ['default', 'soft', 'pill', 'sharp'];
 
 /** Map old accent ids → new looks. */
 const LEGACY_ACCENT_MAP: Record<string, LookId> = {
@@ -86,7 +131,17 @@ export const LOOKS: { id: LookId; labelKey: string; swatch: string }[] = [
 	{ id: 'sand', labelKey: 'look.sand', swatch: '#9a7b56' },
 	{ id: 'graphite', labelKey: 'look.graphite', swatch: '#4a5d6e' },
 	{ id: 'ink', labelKey: 'look.ink', swatch: '#1c1c22' },
-	{ id: 'dusk', labelKey: 'look.dusk', swatch: '#5b4a7a' }
+	{ id: 'dusk', labelKey: 'look.dusk', swatch: '#5b4a7a' },
+	{ id: 'noir', labelKey: 'look.noir', swatch: '#111111' },
+	{ id: 'rose', labelKey: 'look.rose', swatch: '#b85a72' },
+	{ id: 'citrus', labelKey: 'look.citrus', swatch: '#8a9a2a' },
+	{ id: 'arctic', labelKey: 'look.arctic', swatch: '#4a8a9a' },
+	{ id: 'plum', labelKey: 'look.plum', swatch: '#7a3a5a' },
+	{ id: 'volt', labelKey: 'look.volt', swatch: '#2a9a6a' },
+	{ id: 'clay', labelKey: 'look.clay', swatch: '#a86a4a' },
+	{ id: 'midnight', labelKey: 'look.midnight', swatch: '#2a3a6a' },
+	{ id: 'matcha', labelKey: 'look.matcha', swatch: '#5a8a4a' },
+	{ id: 'berry', labelKey: 'look.berry', swatch: '#a83a5a' }
 ];
 
 export const WALLPAPERS: { id: WallpaperId; labelKey: string }[] = [
@@ -101,7 +156,24 @@ export const WALLPAPERS: { id: WallpaperId; labelKey: string }[] = [
 	{ id: 'stars', labelKey: 'wallpaper.stars' },
 	{ id: 'weave', labelKey: 'wallpaper.weave' },
 	{ id: 'mist', labelKey: 'wallpaper.mist' },
+	{ id: 'hex', labelKey: 'wallpaper.hex' },
+	{ id: 'waves', labelKey: 'wallpaper.waves' },
+	{ id: 'confetti', labelKey: 'wallpaper.confetti' },
+	{ id: 'scanlines', labelKey: 'wallpaper.scanlines' },
+	{ id: 'tiles', labelKey: 'wallpaper.tiles' },
+	{ id: 'orbit', labelKey: 'wallpaper.orbit' },
+	{ id: 'topo', labelKey: 'wallpaper.topo' },
+	{ id: 'noise', labelKey: 'wallpaper.noise' },
+	{ id: 'petals', labelKey: 'wallpaper.petals' },
+	{ id: 'stripes', labelKey: 'wallpaper.stripes' },
 	{ id: 'none', labelKey: 'wallpaper.none' }
+];
+
+export const BUBBLES: { id: BubbleStyle; labelKey: string }[] = [
+	{ id: 'default', labelKey: 'bubble.default' },
+	{ id: 'soft', labelKey: 'bubble.soft' },
+	{ id: 'pill', labelKey: 'bubble.pill' },
+	{ id: 'sharp', labelKey: 'bubble.sharp' }
 ];
 
 const STATUS_BAR: Record<LookId, { light: string; dark: string }> = {
@@ -114,7 +186,17 @@ const STATUS_BAR: Record<LookId, { light: string; dark: string }> = {
 	sand: { light: '#9a7b56', dark: '#12100c' },
 	graphite: { light: '#4a5d6e', dark: '#0c1014' },
 	ink: { light: '#2a2a32', dark: '#0a0a0c' },
-	dusk: { light: '#5b4a7a', dark: '#100e16' }
+	dusk: { light: '#5b4a7a', dark: '#100e16' },
+	noir: { light: '#1a1a1a', dark: '#050505' },
+	rose: { light: '#b85a72', dark: '#140a10' },
+	citrus: { light: '#8a9a2a', dark: '#101208' },
+	arctic: { light: '#4a8a9a', dark: '#0a1216' },
+	plum: { light: '#7a3a5a', dark: '#120810' },
+	volt: { light: '#2a9a6a', dark: '#06120c' },
+	clay: { light: '#a86a4a', dark: '#140e0a' },
+	midnight: { light: '#2a3a6a', dark: '#080a14' },
+	matcha: { light: '#5a8a4a', dark: '#0a1208' },
+	berry: { light: '#a83a5a', dark: '#14080c' }
 };
 
 function emitThemeEvent() {
@@ -132,6 +214,10 @@ function isWallpaper(v: string | null): v is WallpaperId {
 
 function isIntensity(v: string | null): v is WallpaperIntensity {
 	return !!v && (INTENSITY_IDS as string[]).includes(v);
+}
+
+function isBubble(v: string | null): v is BubbleStyle {
+	return !!v && (BUBBLE_IDS as string[]).includes(v);
 }
 
 export function getStoredTheme(): ThemePreference {
@@ -162,6 +248,13 @@ export function getStoredIntensity(): WallpaperIntensity {
 	const v = localStorage.getItem(INTENSITY_KEY);
 	if (isIntensity(v)) return v;
 	return 'normal';
+}
+
+export function getStoredBubble(): BubbleStyle {
+	if (typeof localStorage === 'undefined') return 'default';
+	const v = localStorage.getItem(BUBBLE_KEY);
+	if (isBubble(v)) return v;
+	return 'default';
 }
 
 export function getStoredReduceMotion(): boolean {
@@ -203,6 +296,11 @@ export function applyIntensity(intensity: WallpaperIntensity) {
 	document.documentElement.dataset.wpIntensity = intensity;
 }
 
+export function applyBubble(style: BubbleStyle) {
+	if (style === 'default') document.documentElement.removeAttribute('data-bubble');
+	else document.documentElement.dataset.bubble = style;
+}
+
 export function applyReduceMotion(on: boolean) {
 	if (on) document.documentElement.dataset.reduceMotion = '1';
 	else document.documentElement.removeAttribute('data-reduce-motion');
@@ -215,6 +313,7 @@ export function applyTheme(pref: ThemePreference): 'light' | 'dark' {
 	applyLook(getStoredLook(), resolved);
 	applyWallpaper(getStoredWallpaper());
 	applyIntensity(getStoredIntensity());
+	applyBubble(getStoredBubble());
 	applyReduceMotion(getStoredReduceMotion());
 	return resolved;
 }
@@ -237,6 +336,11 @@ export function setWallpaperPreference(wallpaper: WallpaperId) {
 export function setIntensityPreference(intensity: WallpaperIntensity) {
 	localStorage.setItem(INTENSITY_KEY, intensity);
 	applyIntensity(intensity);
+}
+
+export function setBubblePreference(style: BubbleStyle) {
+	localStorage.setItem(BUBBLE_KEY, style);
+	applyBubble(style);
 }
 
 export function setReduceMotionPreference(on: boolean) {

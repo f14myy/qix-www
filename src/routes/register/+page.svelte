@@ -30,6 +30,11 @@
 					/* ignore */
 				}
 			}
+			try {
+				sessionStorage.setItem('qix-onboarding-pending', '1');
+			} catch {
+				/* ignore */
+			}
 			await goto('/');
 		} finally {
 			loading = false;

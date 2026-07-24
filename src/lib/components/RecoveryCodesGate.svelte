@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import { toast } from '$lib/flash.svelte';
+	import { shouldForceOnboarding } from '$lib/onboarding';
 
 	const i18n = useI18n();
 	let codes = $state<string[] | null>(null);
@@ -49,7 +50,7 @@
 			/* ignore */
 		}
 		codes = null;
-		await goto('/');
+		await goto(shouldForceOnboarding() ? '/onboarding' : '/');
 	}
 </script>
 

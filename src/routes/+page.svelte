@@ -12,14 +12,18 @@
 	import PinOff from '@lucide/svelte/icons/pin-off';
 	import Search from '@lucide/svelte/icons/search';
 	import Settings from '@lucide/svelte/icons/settings';
+	import Hand from '@lucide/svelte/icons/hand';
 	import X from '@lucide/svelte/icons/x';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ChannelAvatar from '$lib/components/ChannelAvatar.svelte';
+	import CoachTip from '$lib/components/CoachTip.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
 	import { lastMessagePreview } from '$lib/chatPreview';
+	import { dismissCoach, markCoachShown, shouldShowCoach } from '$lib/coach';
 	import { toast } from '$lib/flash.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import { notifyMessage } from '$lib/notify';
+	import { shouldForceOnboarding } from '$lib/onboarding';
 	import { listQueued } from '$lib/sendQueue';
 	import { formatRelativeTime, isOnlineIso } from '$lib/time';
 	import type { PageData } from './$types';
@@ -28,6 +32,9 @@
 	const i18n = useI18n();
 	let filter = $state('');
 	let searching = $state(false);
+	let showSwipeHint = $state(false);
+	let showSearchHint = $state(false);
+	let showChannelsHint = $state(false);
 	let searchChats = $state<PageData['chats']>([]);
 	let searchPeople = $state<
 		Array<{ id: string; username: string; displayName: string | null; avatarPath: string | null }>
@@ -67,7 +74,6 @@
 	let drafts = $state<Record<string, string>>({});
 	let failedChats = $state<Set<string>>(new Set());
 	let requestCount = $state(0);
-	let showSwipeHint = $state(false);
 
 	const ACTION_W = 180;
 	const OPEN_AT = 56;
@@ -369,10 +375,21 @@
 	}
 
 	onMount(() => {
+		if (shouldForceOnboarding()) {
+			void goto('/onboarding');
+			return;
+		}
 		loadLocalHints();
 		try {
-			if (localStorage.getItem('qix-hint-swipe-list') !== '1' && data.chats.length > 0) {
+			if (shouldShowCoach('qix-hint-search')) {
+				showSearchHint = true;
+				markCoachShown('qix-hint-search');
+			} else if (shouldShowCoach('qix-hint-channels') && data.chats.some((c) => c.kind === 'channel')) {
+				showChannelsHint = true;
+				markCoachShown('qix-hint-channels');
+			} else if (shouldShowCoach('qix-hint-swipe-list') && data.chats.length > 0) {
 				showSwipeHint = true;
+				markCoachShown('qix-hint-swipe-list');
 			}
 		} catch {
 			/* ignore */
@@ -478,24 +495,49 @@
 		</div>
 	</header>
 
-	{#if showSwipeHint}
-		<div class="coach-banner list-coach" role="status">
+	{#if showSearchHint}
+		<CoachTip
+			class="list-coach"
+			actionLabel={i18n.t('coach.gotIt')}
+			ondismiss={() => {
+				showSearchHint = false;
+				dismissCoach('qix-hint-search');
+			}}
+		>
+			{#snippet icon()}
+				<Search size={20} />
+			{/snippet}
+			<p>{i18n.t('coach.search')}</p>
+		</CoachTip>
+	{:else if showChannelsHint}
+		<CoachTip
+			class="list-coach"
+			tone="soft"
+			actionLabel={i18n.t('coach.gotIt')}
+			ondismiss={() => {
+				showChannelsHint = false;
+				dismissCoach('qix-hint-channels');
+			}}
+		>
+			{#snippet icon()}
+				<Bell size={20} />
+			{/snippet}
+			<p>{i18n.t('coach.channels')}</p>
+		</CoachTip>
+	{:else if showSwipeHint}
+		<CoachTip
+			class="list-coach"
+			actionLabel={i18n.t('chats.swipeHintDismiss')}
+			ondismiss={() => {
+				showSwipeHint = false;
+				dismissCoach('qix-hint-swipe-list');
+			}}
+		>
+			{#snippet icon()}
+				<Hand size={20} />
+			{/snippet}
 			<p>{i18n.t('chats.swipeHint')}</p>
-			<button
-				type="button"
-				class="btn btn-ghost coach-dismiss"
-				onclick={() => {
-					showSwipeHint = false;
-					try {
-						localStorage.setItem('qix-hint-swipe-list', '1');
-					} catch {
-						/* ignore */
-					}
-				}}
-			>
-				{i18n.t('chats.swipeHintDismiss')}
-			</button>
-		</div>
+		</CoachTip>
 	{/if}
 
 	<div class="list-filter">

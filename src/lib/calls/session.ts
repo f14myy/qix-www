@@ -24,6 +24,9 @@ export type CallPhase =
 	| 'active'
 	| 'ended';
 
+/** Stable keys mapped in the UI via i18n (`call.*`). */
+export type CallErrorCode = 'permission' | 'connectionLost' | 'acceptFailed' | 'failed';
+
 type SignalMsg = {
 	callId: string;
 	fromUserId: string;
@@ -40,6 +43,19 @@ async function postSignal(callId: string, body: Record<string, unknown>) {
 	});
 }
 
+function isPermissionError(e: unknown) {
+	if (!(e instanceof Error)) return false;
+	const name = e.name || '';
+	const msg = e.message.toLowerCase();
+	return (
+		name === 'NotAllowedError' ||
+		name === 'PermissionDeniedError' ||
+		msg.includes('permission') ||
+		msg.includes('denied') ||
+		msg.includes('not allowed')
+	);
+}
+
 export class CallSession {
 	call: CallDTO;
 	phase: CallPhase;
@@ -47,12 +63,16 @@ export class CallSession {
 	remoteStream: MediaStream | null = null;
 	muted = false;
 	cameraOff = false;
-	error = '';
+	error: CallErrorCode | '' = '';
+	reconnecting = false;
+	connectedAt: number | null = null;
 	private pc: RTCPeerConnection | null = null;
 	private pendingIce: RTCIceCandidateInit[] = [];
 	private makingOffer = false;
 	private disposed = false;
 	private onChange: () => void;
+	private disconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	private iceRestarted = false;
 
 	constructor(call: CallDTO, phase: CallPhase, onChange: () => void) {
 		this.call = call;
@@ -64,6 +84,29 @@ export class CallSession {
 		if (!this.disposed) this.onChange();
 	}
 
+	private markActive() {
+		if (this.phase === 'active' && this.connectedAt) {
+			this.reconnecting = false;
+			this.error = '';
+			this.clearDisconnectTimer();
+			this.notify();
+			return;
+		}
+		this.phase = 'active';
+		this.reconnecting = false;
+		this.error = '';
+		this.connectedAt ??= Date.now();
+		this.clearDisconnectTimer();
+		this.notify();
+	}
+
+	private clearDisconnectTimer() {
+		if (this.disconnectTimer) {
+			clearTimeout(this.disconnectTimer);
+			this.disconnectTimer = null;
+		}
+	}
+
 	async startMedia() {
 		const constraints: MediaStreamConstraints = {
 			audio: true,
@@ -71,7 +114,18 @@ export class CallSession {
 				? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
 				: false
 		};
-		this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+		try {
+			this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+		} catch (e) {
+			if (isPermissionError(e)) {
+				this.error = 'permission';
+				this.notify();
+				throw Object.assign(new Error('permission'), { code: 'permission' as const });
+			}
+			this.error = 'failed';
+			this.notify();
+			throw e;
+		}
 		this.notify();
 	}
 
@@ -90,17 +144,37 @@ export class CallSession {
 			for (const track of ev.streams[0]?.getTracks() ?? [ev.track]) {
 				this.remoteStream.addTrack(track);
 			}
-			this.phase = 'active';
-			this.notify();
+			this.markActive();
 		};
 		this.pc.onconnectionstatechange = () => {
 			const s = this.pc?.connectionState;
-			if (s === 'failed' || s === 'disconnected') {
-				this.error = 'Connection lost';
-				this.notify();
-			}
 			if (s === 'connected') {
-				this.phase = 'active';
+				this.markActive();
+				return;
+			}
+			if (s === 'disconnected') {
+				this.reconnecting = true;
+				this.notify();
+				this.clearDisconnectTimer();
+				this.disconnectTimer = setTimeout(() => {
+					if (this.disposed || this.pc?.connectionState === 'connected') return;
+					this.error = 'connectionLost';
+					this.reconnecting = false;
+					this.notify();
+				}, 4000);
+				return;
+			}
+			if (s === 'failed') {
+				this.clearDisconnectTimer();
+				if (!this.iceRestarted && this.call.role === 'caller') {
+					this.iceRestarted = true;
+					this.reconnecting = true;
+					this.notify();
+					void this.tryIceRestart();
+					return;
+				}
+				this.error = 'connectionLost';
+				this.reconnecting = false;
 				this.notify();
 			}
 		};
@@ -110,6 +184,20 @@ export class CallSession {
 			}
 		}
 		return this.pc;
+	}
+
+	private async tryIceRestart() {
+		try {
+			const pc = this.ensurePc();
+			pc.restartIce();
+			const offer = await pc.createOffer({ iceRestart: true });
+			await pc.setLocalDescription(offer);
+			await postSignal(this.call.id, { type: 'offer', sdp: pc.localDescription });
+		} catch {
+			this.error = 'connectionLost';
+			this.reconnecting = false;
+			this.notify();
+		}
 	}
 
 	async prepareAsCaller() {
@@ -137,7 +225,11 @@ export class CallSession {
 			body: JSON.stringify({ action: 'accept' })
 		});
 		const json = await res.json().catch(() => ({}));
-		if (!res.ok) throw new Error((json as { error?: string }).error || 'Accept failed');
+		if (!res.ok) {
+			this.error = 'acceptFailed';
+			this.notify();
+			throw new Error((json as { error?: string }).error || 'Accept failed');
+		}
 		this.notify();
 	}
 
@@ -209,8 +301,7 @@ export class CallSession {
 				}
 			}
 			this.pendingIce = [];
-			this.phase = 'active';
-			this.notify();
+			this.markActive();
 			return;
 		}
 
@@ -246,6 +337,7 @@ export class CallSession {
 
 	dispose() {
 		this.disposed = true;
+		this.clearDisconnectTimer();
 		this.pc?.close();
 		this.pc = null;
 		this.localStream?.getTracks().forEach((t) => t.stop());

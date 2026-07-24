@@ -4,18 +4,22 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Check from '@lucide/svelte/icons/check';
 	import {
+		BUBBLES,
 		LOOKS,
 		WALLPAPERS,
+		getStoredBubble,
 		getStoredIntensity,
 		getStoredLook,
 		getStoredReduceMotion,
 		getStoredTheme,
 		getStoredWallpaper,
+		setBubblePreference,
 		setIntensityPreference,
 		setLookPreference,
 		setReduceMotionPreference,
 		setThemePreference,
 		setWallpaperPreference,
+		type BubbleStyle,
 		type LookId,
 		type ThemePreference,
 		type WallpaperId,
@@ -31,6 +35,7 @@
 	let look = $state<LookId>('qix');
 	let wallpaper = $state<WallpaperId>('dots');
 	let intensity = $state<WallpaperIntensity>('normal');
+	let bubble = $state<BubbleStyle>('default');
 	let reduceMotion = $state(false);
 	let settings = $state<ClientSettings | null>(null);
 	let tab = $state<'look' | 'wallpaper' | 'more'>('look');
@@ -41,6 +46,7 @@
 		look = getStoredLook();
 		wallpaper = getStoredWallpaper();
 		intensity = getStoredIntensity();
+		bubble = getStoredBubble();
 		reduceMotion = getStoredReduceMotion();
 		settings = await fetchSettings();
 	});
@@ -75,6 +81,12 @@
 		bump();
 	}
 
+	function setBubble(next: BubbleStyle) {
+		bubble = next;
+		setBubblePreference(next);
+		bump();
+	}
+
 	function toggleReduceMotion() {
 		reduceMotion = !reduceMotion;
 		setReduceMotionPreference(reduceMotion);
@@ -102,7 +114,6 @@
 	</header>
 
 	<div class="settings-body appearance-body">
-		<!-- Live preview -->
 		<section class="settings-section appearance-preview-section">
 			<div
 				class="appearance-live"
@@ -110,6 +121,7 @@
 				data-look-preview={look}
 				data-wallpaper-preview={wallpaper}
 				data-wp-intensity={intensity}
+				data-bubble-preview={bubble}
 			>
 				<div class="appearance-live-bar">
 					<span class="appearance-live-dot"></span>
@@ -124,11 +136,12 @@
 					<span>{i18n.t(wallLabel)}</span>
 					<span>·</span>
 					<span>{i18n.t(`intensity.${intensity}`)}</span>
+					<span>·</span>
+					<span>{i18n.t(`bubble.${bubble}`)}</span>
 				</div>
 			</div>
 		</section>
 
-		<!-- Tabs -->
 		<section class="settings-section appearance-tabs-wrap">
 			<div class="appearance-tabs" role="tablist">
 				<button
@@ -190,7 +203,7 @@
 
 			<section class="settings-section">
 				<h2>{i18n.t('settings.mode')}</h2>
-				<div class="settings-card">
+				<div class="settings-card soft">
 					<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
 						<div class="theme-pills">
 							<button
@@ -243,7 +256,7 @@
 			<section class="settings-section">
 				<h2>{i18n.t('appearance.intensity')}</h2>
 				<p class="settings-section-hint">{i18n.t('appearance.intensityHint')}</p>
-				<div class="settings-card">
+				<div class="settings-card soft">
 					<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
 						<div class="theme-pills">
 							<button
@@ -270,8 +283,34 @@
 			</section>
 		{:else}
 			<section class="settings-section">
+				<h2>{i18n.t('appearance.bubbles')}</h2>
+				<p class="settings-section-hint">{i18n.t('appearance.bubblesHint')}</p>
+				<div class="bubble-rail" role="list">
+					{#each BUBBLES as item}
+						<button
+							type="button"
+							class="bubble-style-card"
+							class:active={bubble === item.id}
+							data-bubble-preview={item.id}
+							data-look-preview={look}
+							onclick={() => setBubble(item.id)}
+						>
+							<span class="bubble-style-preview" aria-hidden="true">
+								<span class="bubble-style-them"></span>
+								<span class="bubble-style-me"></span>
+							</span>
+							<span class="bubble-style-label">{i18n.t(item.labelKey)}</span>
+							{#if bubble === item.id}
+								<span class="look-check"><Check size={14} /></span>
+							{/if}
+						</button>
+					{/each}
+				</div>
+			</section>
+
+			<section class="settings-section">
 				<h2>{i18n.t('settings.language')}</h2>
-				<div class="settings-card">
+				<div class="settings-card soft">
 					<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
 						<div class="theme-pills">
 							<button
@@ -292,7 +331,7 @@
 			</section>
 
 			<section class="settings-section">
-				<div class="settings-card">
+				<div class="settings-card soft">
 					{#if settings}
 						<label class="settings-row toggle-row">
 							<span class="toggle-copy">

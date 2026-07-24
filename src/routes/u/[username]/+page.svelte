@@ -172,23 +172,14 @@
 					<span class="profile-meta-label">{i18n.t('profile.joined')}</span>
 					<span class="profile-meta-value">{joined}</span>
 				</div>
-				<div class="profile-meta-row">
-					<span class="profile-meta-label">{i18n.t('profile.username')}</span>
-					<span class="profile-meta-value">@{data.profile.username}</span>
-				</div>
 			</div>
 
 			{#if blockedByMe}
 				<p class="blocked-banner">{i18n.t('settings.blockedBanner')}</p>
 			{/if}
 
-			<div class="profile-actions">
-				{#if data.isSelf}
-					<a class="btn btn-block" href="/settings/profile">
-						<Pencil size={18} />
-						{i18n.t('settings.profile')}
-					</a>
-				{:else}
+			{#if !data.isSelf}
+				<div class="profile-actions">
 					{#if !blockedByMe && !data.blocked}
 						<button class="btn btn-block" type="button" disabled={loading} onclick={openChat}>
 							<MessageCircle size={18} />
@@ -204,8 +195,8 @@
 						<Ban size={18} />
 						{blockedByMe ? i18n.t('settings.unblock') : i18n.t('settings.block')}
 					</button>
-				{/if}
-			</div>
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>

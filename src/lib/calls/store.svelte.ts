@@ -1,3 +1,4 @@
+import { haptic } from '$lib/haptic';
 import { CallSession, type CallDTO, type CallPeer, type CallPhase } from './session';
 
 type InvitePayload = {
@@ -13,9 +14,30 @@ let iceServersCache: RTCIceServer[] = [
 	{ urls: 'stun:stun.l.google.com:19302' },
 	{ urls: 'stun:stun1.l.google.com:19302' }
 ];
+let ringVibrate: ReturnType<typeof setInterval> | null = null;
 
 function bump() {
 	tick += 1;
+}
+
+function stopRingVibrate() {
+	if (ringVibrate) {
+		clearInterval(ringVibrate);
+		ringVibrate = null;
+	}
+	try {
+		navigator.vibrate?.(0);
+	} catch {
+		/* ignore */
+	}
+}
+
+function startRingVibrate() {
+	stopRingVibrate();
+	haptic([180, 120, 180, 520]);
+	ringVibrate = setInterval(() => {
+		haptic([180, 120, 180, 520]);
+	}, 1600);
 }
 
 export function getCallTick() {
@@ -33,9 +55,18 @@ export function getCallPhase(): CallPhase {
 }
 
 function setSession(next: CallSession | null) {
+	if (!next) stopRingVibrate();
 	session?.dispose();
 	session = next;
 	bump();
+}
+
+export function mapCallStartError(raw: string): 'busy' | 'already' | 'permission' | 'failed' {
+	const m = raw.toLowerCase();
+	if (m.includes('busy')) return 'busy';
+	if (m.includes('already')) return 'already';
+	if (m === 'permission' || m.includes('permission') || m.includes('denied')) return 'permission';
+	return 'failed';
 }
 
 export async function startOutgoingCall(chatId: string, video: boolean) {
@@ -57,7 +88,7 @@ export async function startOutgoingCall(chatId: string, video: boolean) {
 		await s.prepareAsCaller();
 	} catch (e) {
 		await hangupCall();
-		throw e instanceof Error ? e : new Error('Microphone/camera permission denied');
+		throw e instanceof Error ? e : new Error('permission');
 	}
 	return s;
 }
@@ -84,6 +115,7 @@ export async function handleIncomingInvite(invite: InvitePayload) {
 	};
 	const s = new CallSession(call, 'incoming', bump);
 	setSession(s);
+	startRingVibrate();
 
 	// refresh ice servers from server
 	try {
@@ -100,28 +132,33 @@ export async function handleIncomingInvite(invite: InvitePayload) {
 
 export async function acceptCall() {
 	if (!session || session.phase !== 'incoming') return;
+	stopRingVibrate();
 	await session.acceptIncoming();
 }
 
 export async function rejectCall() {
 	if (!session) return;
+	stopRingVibrate();
 	await session.rejectIncoming();
 	setSession(null);
 }
 
 export async function hangupCall() {
 	if (!session) return;
+	stopRingVibrate();
 	await session.hangup();
 	setSession(null);
 }
 
 export async function onCallAccepted(callId: string) {
 	if (!session || session.call.id !== callId) return;
+	stopRingVibrate();
 	await session.onAccepted();
 }
 
 export function onCallEnded(callId: string) {
 	if (!session || session.call.id !== callId) return;
+	stopRingVibrate();
 	session.phase = 'ended';
 	session.dispose();
 	setSession(null);
@@ -129,6 +166,7 @@ export function onCallEnded(callId: string) {
 
 export function onCallRejected(callId: string) {
 	if (!session || session.call.id !== callId) return;
+	stopRingVibrate();
 	session.phase = 'ended';
 	session.dispose();
 	setSession(null);
@@ -162,6 +200,7 @@ export async function resumeActiveCall() {
 				: 'connecting';
 		const s = new CallSession(call, phase, bump);
 		setSession(s);
+		if (phase === 'incoming') startRingVibrate();
 		if (phase === 'outgoing' || phase === 'connecting') {
 			await s.startMedia();
 			if (call.role === 'caller' && call.status === 'active') await s.onAccepted();

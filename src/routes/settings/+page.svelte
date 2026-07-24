@@ -17,18 +17,29 @@
 	import { isAdmin } from '$lib/admin';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import { dismissInstallTip, isStandaloneDisplay, shouldShowInstallTip } from '$lib/pwa';
+	import CoachTip from '$lib/components/CoachTip.svelte';
+	import { dismissCoach, markCoachShown, shouldShowCoach } from '$lib/coach';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 	const i18n = useI18n();
 	let showInstall = $state(false);
 	let standalone = $state(false);
+	let showSettingsCoach = $state(false);
 	const meTitle = $derived(data.user?.displayName || data.user?.username || '');
 	const showAdmin = $derived(isAdmin(data.user));
 
 	onMount(() => {
 		standalone = isStandaloneDisplay();
 		showInstall = shouldShowInstallTip();
+		try {
+			if (shouldShowCoach('qix-hint-settings')) {
+				showSettingsCoach = true;
+				markCoachShown('qix-hint-settings');
+			}
+		} catch {
+			/* ignore */
+		}
 	});
 
 	function hideInstall() {
@@ -74,6 +85,21 @@
 	</header>
 
 	<div class="settings-body">
+		{#if showSettingsCoach}
+			<CoachTip
+				class="list-coach"
+				actionLabel={i18n.t('coach.gotIt')}
+				ondismiss={() => {
+					showSettingsCoach = false;
+					dismissCoach('qix-hint-settings');
+				}}
+			>
+				{#snippet icon()}
+					<Palette size={20} />
+				{/snippet}
+				<p>{i18n.t('coach.settings')}</p>
+			</CoachTip>
+		{/if}
 		{#if standalone}
 			<section class="settings-section install-section">
 				<div class="install-tip installed">

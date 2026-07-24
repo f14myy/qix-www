@@ -14,15 +14,19 @@
 	import Search from '@lucide/svelte/icons/search';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Video from '@lucide/svelte/icons/video';
+	import Pointer from '@lucide/svelte/icons/pointer';
+	import Sparkles from '@lucide/svelte/icons/sparkles';
 	import X from '@lucide/svelte/icons/x';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ChannelAvatar from '$lib/components/ChannelAvatar.svelte';
 	import ChatBubble from '$lib/components/ChatBubble.svelte';
+	import CoachTip from '$lib/components/CoachTip.svelte';
 	import Composer from '$lib/components/Composer.svelte';
 	import DateSeparator from '$lib/components/DateSeparator.svelte';
 	import ImageLightbox from '$lib/components/ImageLightbox.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
-	import { startOutgoingCall } from '$lib/calls/store.svelte';
+	import { mapCallStartError, startOutgoingCall } from '$lib/calls/store.svelte';
+	import { dismissCoach, markCoachShown, shouldShowCoach } from '$lib/coach';
 	import {
 		decryptMessages,
 		encryptOutgoing
@@ -85,6 +89,7 @@
 	let searchingInChat = $state(false);
 	let messagesReady = $state(false);
 	let showGestureCoach = $state(false);
+	let showFormatCoach = $state(false);
 
 	type TimelineItem =
 		| { kind: 'sep'; key: string; label: string }
@@ -542,8 +547,12 @@
 		flushQueue();
 
 		try {
-			if (localStorage.getItem('qix-hint-msg-gestures') !== '1') {
+			if (shouldShowCoach('qix-hint-msg-gestures')) {
 				showGestureCoach = true;
+				markCoachShown('qix-hint-msg-gestures');
+			} else if (canPost && shouldShowCoach('qix-hint-format')) {
+				showFormatCoach = true;
+				markCoachShown('qix-hint-format');
 			}
 		} catch {
 			/* ignore */
@@ -964,7 +973,17 @@
 			await startOutgoingCall(data.chatId, video);
 		} catch (e) {
 			hapticFail();
-			const msg = e instanceof Error ? e.message : i18n.t('call.failed');
+			const raw = e instanceof Error ? e.message : '';
+			const kind = mapCallStartError(raw);
+			const key =
+				kind === 'busy'
+					? 'call.busy'
+					: kind === 'already'
+						? 'call.already'
+						: kind === 'permission'
+							? 'call.permission'
+							: 'call.failed';
+			const msg = i18n.t(key);
 			error = msg;
 			toast(msg, 'err');
 		}
@@ -1069,6 +1088,35 @@
 			</button>
 		{/if}
 	</header>
+
+	{#if showGestureCoach}
+		<CoachTip
+			actionLabel={i18n.t('chat.coachDismiss')}
+			ondismiss={() => {
+				showGestureCoach = false;
+				dismissCoach('qix-hint-msg-gestures');
+			}}
+		>
+			{#snippet icon()}
+				<Pointer size={20} />
+			{/snippet}
+			<p>{i18n.t('chat.coachGestures')}</p>
+		</CoachTip>
+	{:else if showFormatCoach}
+		<CoachTip
+			tone="soft"
+			actionLabel={i18n.t('coach.gotIt')}
+			ondismiss={() => {
+				showFormatCoach = false;
+				dismissCoach('qix-hint-format');
+			}}
+		>
+			{#snippet icon()}
+				<Sparkles size={20} />
+			{/snippet}
+			<p>{i18n.t('coach.format')}</p>
+		</CoachTip>
+	{/if}
 
 	{#if pinnedMessage && !selectMode}
 		<button type="button" class="pin-banner" onclick={() => jumpTo(pinnedMessage!.id)}>
@@ -1232,27 +1280,7 @@
 	{/if}
 </div>
 
-	{#if showGestureCoach}
-		<div class="coach-banner" role="status">
-			<p>{i18n.t('chat.coachGestures')}</p>
-			<button
-				type="button"
-				class="btn btn-ghost coach-dismiss"
-				onclick={() => {
-					showGestureCoach = false;
-					try {
-						localStorage.setItem('qix-hint-msg-gestures', '1');
-					} catch {
-						/* ignore */
-					}
-				}}
-			>
-				{i18n.t('chat.coachDismiss')}
-			</button>
-		</div>
-	{/if}
-
-	{#if lightbox}
+{#if lightbox}
 	<ImageLightbox
 		urls={lightbox.urls}
 		index={lightbox.index}

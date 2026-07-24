@@ -38,7 +38,17 @@
 						'dusk',
 						'coral',
 						'frost',
-						'sand'
+						'sand',
+						'noir',
+						'rose',
+						'citrus',
+						'arctic',
+						'plum',
+						'volt',
+						'clay',
+						'midnight',
+						'matcha',
+						'berry'
 					];
 					if (looks.indexOf(look) === -1) look = 'qix';
 					document.documentElement.dataset.look = look;
@@ -55,6 +65,16 @@
 						'stars',
 						'weave',
 						'mist',
+						'hex',
+						'waves',
+						'confetti',
+						'scanlines',
+						'tiles',
+						'orbit',
+						'topo',
+						'noise',
+						'petals',
+						'stripes',
 						'none'
 					];
 					if (walls.indexOf(wallpaper) === -1) wallpaper = 'dots';
@@ -62,6 +82,9 @@
 					var intensity = localStorage.getItem('qix-wallpaper-intensity') || 'normal';
 					if (['soft', 'normal', 'bold'].indexOf(intensity) === -1) intensity = 'normal';
 					document.documentElement.dataset.wpIntensity = intensity;
+					var bubble = localStorage.getItem('qix-bubble') || 'default';
+					if (['default', 'soft', 'pill', 'sharp'].indexOf(bubble) === -1) bubble = 'default';
+					if (bubble !== 'default') document.documentElement.dataset.bubble = bubble;
 					if (localStorage.getItem('qix-reduce-motion') === '1') {
 						document.documentElement.dataset.reduceMotion = '1';
 					}
@@ -75,7 +98,17 @@
 						sand: { light: '#9a7b56', dark: '#12100c' },
 						graphite: { light: '#4a5d6e', dark: '#0c1014' },
 						ink: { light: '#2a2a32', dark: '#0a0a0c' },
-						dusk: { light: '#5b4a7a', dark: '#100e16' }
+						dusk: { light: '#5b4a7a', dark: '#100e16' },
+						noir: { light: '#1a1a1a', dark: '#050505' },
+						rose: { light: '#b85a72', dark: '#140a10' },
+						citrus: { light: '#8a9a2a', dark: '#101208' },
+						arctic: { light: '#4a8a9a', dark: '#0a1216' },
+						plum: { light: '#7a3a5a', dark: '#120810' },
+						volt: { light: '#2a9a6a', dark: '#06120c' },
+						clay: { light: '#a86a4a', dark: '#140e0a' },
+						midnight: { light: '#2a3a6a', dark: '#080a14' },
+						matcha: { light: '#5a8a4a', dark: '#0a1208' },
+						berry: { light: '#a83a5a', dark: '#14080c' }
 					};
 					var meta = document.querySelector('meta[name="theme-color"]');
 					if (meta && colors[look])
