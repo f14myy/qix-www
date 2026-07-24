@@ -80,6 +80,7 @@ export function notifyMessage(opts: { title: string; body: string; tag?: string;
 	if (Notification.permission !== 'granted') return;
 
 	try {
+		if (s.notifySound) playNotifySound();
 		const n = new Notification(opts.title, {
 			body: opts.body,
 			tag: opts.tag ?? 'qix-message',
@@ -90,6 +91,27 @@ export function notifyMessage(opts: { title: string; body: string; tag?: string;
 			if (opts.href) window.location.href = opts.href;
 			n.close();
 		};
+	} catch {
+		/* ignore */
+	}
+}
+
+function playNotifySound() {
+	try {
+		const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+		if (!Ctx) return;
+		const ctx = new Ctx();
+		const osc = ctx.createOscillator();
+		const gain = ctx.createGain();
+		osc.type = 'sine';
+		osc.frequency.value = 880;
+		gain.gain.value = 0.04;
+		osc.connect(gain);
+		gain.connect(ctx.destination);
+		osc.start();
+		gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+		osc.stop(ctx.currentTime + 0.2);
+		osc.onended = () => ctx.close().catch(() => {});
 	} catch {
 		/* ignore */
 	}

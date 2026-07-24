@@ -36,11 +36,26 @@
 
 	const moreActive = $derived(more.some((t) => active(t.href, false)));
 
+	let lastPath = page.url.pathname;
 	$effect(() => {
-		page.url.pathname;
-		moreOpen = false;
+		const path = page.url.pathname;
+		if (path !== lastPath) {
+			lastPath = path;
+			moreOpen = false;
+		}
 	});
+
+	function toggleMore(e: MouseEvent) {
+		e.stopPropagation();
+		moreOpen = !moreOpen;
+	}
+
+	function closeMore() {
+		moreOpen = false;
+	}
 </script>
+
+<svelte:window onclick={closeMore} />
 
 <div class="screen admin-screen">
 	<header class="topbar">
@@ -67,21 +82,20 @@
 				class:active={moreActive || moreOpen}
 				aria-expanded={moreOpen}
 				aria-haspopup="menu"
-				onclick={() => (moreOpen = !moreOpen)}
+				onclick={toggleMore}
 			>
 				<Ellipsis size={16} />
 				<span>{i18n.t('admin.navMore')}</span>
 			</button>
 			{#if moreOpen}
-				<div class="admin-more-menu" role="menu">
+				<div class="admin-more-menu">
 					{#each more as tab}
 						{@const Icon = tab.icon}
 						<a
 							class="admin-more-item"
 							class:active={active(tab.href, false)}
 							href={tab.href}
-							role="menuitem"
-							onclick={() => (moreOpen = false)}
+							onclick={closeMore}
 						>
 							<Icon size={16} />
 							{i18n.t(tab.label)}

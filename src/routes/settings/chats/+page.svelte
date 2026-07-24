@@ -12,7 +12,9 @@
 		settings = await fetchSettings();
 	});
 
-	async function toggle(key: 'sendWithEnter' | 'linkPreviews') {
+	async function toggle(
+		key: 'sendWithEnter' | 'linkPreviews' | 'confirmMessageDelete' | 'autoPlayVoice'
+	) {
 		if (!settings) return;
 		settings = await patchSettings({ [key]: !settings[key] });
 	}
@@ -52,6 +54,30 @@
 							class="switch"
 							checked={settings.linkPreviews}
 							onchange={() => toggle('linkPreviews')}
+						/>
+					</label>
+					<label class="settings-row toggle-row">
+						<span class="toggle-copy">
+							<span class="label">{i18n.t('settings.confirmMessageDelete')}</span>
+							<span class="hint">{i18n.t('settings.confirmMessageDeleteHint')}</span>
+						</span>
+						<input
+							type="checkbox"
+							class="switch"
+							checked={settings.confirmMessageDelete}
+							onchange={() => toggle('confirmMessageDelete')}
+						/>
+					</label>
+					<label class="settings-row toggle-row">
+						<span class="toggle-copy">
+							<span class="label">{i18n.t('settings.autoPlayVoice')}</span>
+							<span class="hint">{i18n.t('settings.autoPlayVoiceHint')}</span>
+						</span>
+						<input
+							type="checkbox"
+							class="switch"
+							checked={settings.autoPlayVoice}
+							onchange={() => toggle('autoPlayVoice')}
 						/>
 					</label>
 				</div>

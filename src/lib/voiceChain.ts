@@ -1,3 +1,5 @@
+import { getCachedSettings } from './settings';
+
 type VoiceControls = {
 	id: string;
 	play: () => void;
@@ -27,6 +29,10 @@ export function voiceStarted(id: string) {
 /** When a voice ends, auto-play the next registered one. */
 export function voiceEnded(id: string) {
 	if (activeId !== id) return;
+	if (!getCachedSettings().autoPlayVoice) {
+		activeId = null;
+		return;
+	}
 	const i = chain.findIndex((e) => e.id === id);
 	const next = i >= 0 ? chain[i + 1] : undefined;
 	if (next) {

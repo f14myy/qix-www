@@ -3,7 +3,8 @@ import {
 	deleteSession,
 	getUserFromSession,
 	SESSION_COOKIE,
-	toPublicUser
+	toPublicUser,
+	touchSession
 } from '$lib/server/auth';
 import { isUserBanned } from '$lib/server/admin';
 
@@ -20,5 +21,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	event.locals.user = user ? toPublicUser(user) : null;
 	event.locals.sessionId = user && sessionId ? sessionId : null;
+	if (sessionId && user) touchSession(sessionId);
 	return resolve(event);
 };

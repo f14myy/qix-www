@@ -4,11 +4,12 @@ import { blocks, chatMembers, userSettings, users } from './schema';
 import {
 	DEFAULT_SETTINGS,
 	type LastSeenVisibility,
+	type ProfileVisibility,
 	type UserSettingsDTO,
 	type WhoCanMessage
 } from '../settingsTypes';
 
-export type { LastSeenVisibility, UserSettingsDTO, WhoCanMessage };
+export type { LastSeenVisibility, ProfileVisibility, UserSettingsDTO, WhoCanMessage };
 export { DEFAULT_SETTINGS };
 
 function parseLastSeen(v: string | null | undefined): LastSeenVisibility {
@@ -17,7 +18,12 @@ function parseLastSeen(v: string | null | undefined): LastSeenVisibility {
 }
 
 function parseWhoCan(v: string | null | undefined): WhoCanMessage {
-	if (v === 'chats' || v === 'everyone') return v;
+	if (v === 'chats' || v === 'everyone' || v === 'nobody') return v;
+	return 'everyone';
+}
+
+function parseProfileVis(v: string | null | undefined): ProfileVisibility {
+	if (v === 'chats' || v === 'nobody' || v === 'everyone') return v;
 	return 'everyone';
 }
 
@@ -38,21 +44,32 @@ function findDmBetween(userA: string, userB: string): string | null {
 	return row?.chatId ?? null;
 }
 
+function rowToDto(existing: typeof userSettings.$inferSelect): UserSettingsDTO {
+	return {
+		notifyMessages: !!existing.notifyMessages,
+		notifyReactions: !!existing.notifyReactions,
+		notifySound: existing.notifySound === undefined ? true : !!existing.notifySound,
+		haptics: !!existing.haptics,
+		sendWithEnter: !!existing.sendWithEnter,
+		linkPreviews: !!existing.linkPreviews,
+		confirmMessageDelete:
+			existing.confirmMessageDelete === undefined ? true : !!existing.confirmMessageDelete,
+		autoPlayVoice: existing.autoPlayVoice === undefined ? true : !!existing.autoPlayVoice,
+		lastSeenVisibility: parseLastSeen(existing.lastSeenVisibility),
+		lastSeenReciprocity:
+			existing.lastSeenReciprocity === undefined ? true : !!existing.lastSeenReciprocity,
+		readReceipts: !!existing.readReceipts,
+		showTyping: !!existing.showTyping,
+		whoCanMessage: parseWhoCan(existing.whoCanMessage),
+		profileVisibility: parseProfileVis(
+			(existing as { profileVisibility?: string }).profileVisibility
+		)
+	};
+}
+
 export function ensureUserSettings(userId: string): UserSettingsDTO {
 	const existing = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get();
-	if (existing) {
-		return {
-			notifyMessages: !!existing.notifyMessages,
-			notifyReactions: !!existing.notifyReactions,
-			haptics: !!existing.haptics,
-			sendWithEnter: !!existing.sendWithEnter,
-			linkPreviews: !!existing.linkPreviews,
-			lastSeenVisibility: parseLastSeen(existing.lastSeenVisibility),
-			readReceipts: !!existing.readReceipts,
-			showTyping: !!existing.showTyping,
-			whoCanMessage: parseWhoCan(existing.whoCanMessage)
-		};
-	}
+	if (existing) return rowToDto(existing);
 
 	const now = new Date();
 	db.insert(userSettings)
@@ -78,13 +95,20 @@ export function updateUserSettings(
 
 	if (patch.notifyMessages !== undefined) next.notifyMessages = patch.notifyMessages;
 	if (patch.notifyReactions !== undefined) next.notifyReactions = patch.notifyReactions;
+	if (patch.notifySound !== undefined) next.notifySound = patch.notifySound;
 	if (patch.haptics !== undefined) next.haptics = patch.haptics;
 	if (patch.sendWithEnter !== undefined) next.sendWithEnter = patch.sendWithEnter;
 	if (patch.linkPreviews !== undefined) next.linkPreviews = patch.linkPreviews;
+	if (patch.confirmMessageDelete !== undefined)
+		next.confirmMessageDelete = patch.confirmMessageDelete;
+	if (patch.autoPlayVoice !== undefined) next.autoPlayVoice = patch.autoPlayVoice;
 	if (patch.lastSeenVisibility !== undefined) next.lastSeenVisibility = patch.lastSeenVisibility;
+	if (patch.lastSeenReciprocity !== undefined)
+		next.lastSeenReciprocity = patch.lastSeenReciprocity;
 	if (patch.readReceipts !== undefined) next.readReceipts = patch.readReceipts;
 	if (patch.showTyping !== undefined) next.showTyping = patch.showTyping;
 	if (patch.whoCanMessage !== undefined) next.whoCanMessage = patch.whoCanMessage;
+	if (patch.profileVisibility !== undefined) next.profileVisibility = patch.profileVisibility;
 
 	db.update(userSettings).set(next).where(eq(userSettings.userId, userId)).run();
 	return getUserSettings(userId);
@@ -171,11 +195,22 @@ export function canStartChat(
 	if (existing) return { ok: true };
 
 	const target = getUserSettings(toUserId);
+	if (target.whoCanMessage === 'nobody') {
+		return { ok: false, error: 'This user is not accepting new messages' };
+	}
 	if (target.whoCanMessage === 'chats') {
 		return { ok: false, error: 'This user only accepts messages from existing chats' };
 	}
 
 	return { ok: true };
+}
+
+export function canSeeProfileDetails(ownerId: string, viewerId: string): boolean {
+	if (ownerId === viewerId) return true;
+	const v = getUserSettings(ownerId).profileVisibility;
+	if (v === 'everyone') return true;
+	if (v === 'nobody') return false;
+	return !!findDmBetween(ownerId, viewerId);
 }
 
 export function canSeeLastSeen(
@@ -184,6 +219,12 @@ export function canSeeLastSeen(
 	visibility?: LastSeenVisibility
 ): boolean {
 	if (ownerId === viewerId) return true;
+
+	const viewerSettings = getUserSettings(viewerId);
+	if (viewerSettings.lastSeenReciprocity && viewerSettings.lastSeenVisibility !== 'everyone') {
+		return false;
+	}
+
 	const v = visibility ?? getUserSettings(ownerId).lastSeenVisibility;
 	if (v === 'everyone') return true;
 	if (v === 'nobody') return false;

@@ -11,6 +11,7 @@
 	import UserRound from '@lucide/svelte/icons/user-round';
 	import Ban from '@lucide/svelte/icons/ban';
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
+	import KeyRound from '@lucide/svelte/icons/key-round';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { isAdmin } from '$lib/admin';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
@@ -35,7 +36,21 @@
 	}
 
 	async function logout() {
-		await fetch('/api/auth/logout', { method: 'POST' });
+		let endpoint = '';
+		try {
+			if ('serviceWorker' in navigator) {
+				const reg = await navigator.serviceWorker.ready;
+				const sub = await reg.pushManager.getSubscription();
+				endpoint = sub?.endpoint ?? '';
+			}
+		} catch {
+			/* ignore */
+		}
+		await fetch('/api/auth/logout', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ endpoint })
+		});
 		await goto('/login');
 	}
 
@@ -98,6 +113,11 @@
 				<a class="settings-row link-row settings-nav-row" href="/settings/profile">
 					<span class="settings-nav-icon"><UserRound size={18} /></span>
 					<span class="label">{i18n.t('settings.navProfile')}</span>
+					<span class="settings-nav-chevron"><ChevronRight size={18} /></span>
+				</a>
+				<a class="settings-row link-row settings-nav-row" href="/settings/security">
+					<span class="settings-nav-icon"><KeyRound size={18} /></span>
+					<span class="label">{i18n.t('settings.navSecurity')}</span>
 					<span class="settings-nav-chevron"><ChevronRight size={18} /></span>
 				</a>
 			</div>

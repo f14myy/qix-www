@@ -23,7 +23,14 @@
 				error = data.error || 'Registration failed';
 				return;
 			}
-			await goto('/');
+			if (Array.isArray(data.recoveryCodes)) {
+				try {
+					sessionStorage.setItem('qix-recovery-codes', JSON.stringify(data.recoveryCodes));
+				} catch {
+					/* ignore */
+				}
+			}
+			await goto('/settings/security?codes=1');
 		} finally {
 			loading = false;
 		}
@@ -54,7 +61,7 @@
 					id="password"
 					type="password"
 					autocomplete="new-password"
-					minlength="4"
+					minlength="8"
 					bind:value={password}
 					required
 				/>

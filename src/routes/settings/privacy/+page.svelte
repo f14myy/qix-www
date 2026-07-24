@@ -7,6 +7,7 @@
 		patchSettings,
 		type ClientSettings,
 		type LastSeenVisibility,
+		type ProfileVisibility,
 		type WhoCanMessage
 	} from '$lib/settings';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
@@ -26,7 +27,13 @@
 		settings = await patchSettings({ whoCanMessage: v });
 	}
 
-	async function toggle(key: 'readReceipts' | 'showTyping') {
+	async function setProfileVis(v: ProfileVisibility) {
+		settings = await patchSettings({ profileVisibility: v });
+	}
+
+	async function toggle(
+		key: 'readReceipts' | 'showTyping' | 'lastSeenReciprocity'
+	) {
 		if (!settings) return;
 		settings = await patchSettings({ [key]: !settings[key] });
 	}
@@ -67,6 +74,18 @@
 							>
 						</div>
 					</div>
+					<label class="settings-row toggle-row">
+						<span class="toggle-copy">
+							<span class="label">{i18n.t('settings.lastSeenReciprocity')}</span>
+							<span class="hint">{i18n.t('settings.lastSeenReciprocityHint')}</span>
+						</span>
+						<input
+							type="checkbox"
+							class="switch"
+							checked={settings.lastSeenReciprocity}
+							onchange={() => toggle('lastSeenReciprocity')}
+						/>
+					</label>
 				</div>
 			</section>
 
@@ -86,6 +105,41 @@
 								class="theme-pill"
 								class:active={settings.whoCanMessage === 'chats'}
 								onclick={() => setWho('chats')}>{i18n.t('settings.whoChats')}</button
+							>
+							<button
+								type="button"
+								class="theme-pill"
+								class:active={settings.whoCanMessage === 'nobody'}
+								onclick={() => setWho('nobody')}>{i18n.t('settings.whoNobody')}</button
+							>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section class="settings-section">
+				<h2>{i18n.t('settings.profileVisibility')}</h2>
+				<div class="settings-card">
+					<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
+						<p class="field-hint" style="margin:0 0 4px">{i18n.t('settings.profileVisibilityHint')}</p>
+						<div class="theme-pills stacked-pills">
+							<button
+								type="button"
+								class="theme-pill"
+								class:active={settings.profileVisibility === 'everyone'}
+								onclick={() => setProfileVis('everyone')}>{i18n.t('settings.lastSeenEveryone')}</button
+							>
+							<button
+								type="button"
+								class="theme-pill"
+								class:active={settings.profileVisibility === 'chats'}
+								onclick={() => setProfileVis('chats')}>{i18n.t('settings.lastSeenChats')}</button
+							>
+							<button
+								type="button"
+								class="theme-pill"
+								class:active={settings.profileVisibility === 'nobody'}
+								onclick={() => setProfileVis('nobody')}>{i18n.t('settings.lastSeenNobody')}</button
 							>
 						</div>
 					</div>

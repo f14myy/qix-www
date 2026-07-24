@@ -31,7 +31,17 @@ sqlite.exec(`
 	CREATE TABLE IF NOT EXISTS sessions (
 		id TEXT PRIMARY KEY,
 		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		expires_at INTEGER NOT NULL
+		expires_at INTEGER NOT NULL,
+		user_agent TEXT,
+		created_at INTEGER,
+		last_seen_at INTEGER
+	);
+
+	CREATE TABLE IF NOT EXISTS recovery_codes (
+		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		code_hash TEXT NOT NULL,
+		used_at INTEGER
 	);
 
 	CREATE TABLE IF NOT EXISTS chats (
@@ -135,6 +145,7 @@ sqlite.exec(`
 	CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id);
 	CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON blocks(blocked_id);
 	CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+	CREATE INDEX IF NOT EXISTS idx_recovery_codes_user ON recovery_codes(user_id);
 `);
 
 function ensureColumn(table: string, column: string, ddl: string) {
@@ -160,6 +171,14 @@ ensureColumn('users', 'banned_at', 'banned_at INTEGER');
 ensureColumn('users', 'banned_reason', 'banned_reason TEXT');
 ensureColumn('users', 'banner_key', "banner_key TEXT NOT NULL DEFAULT 'default'");
 ensureColumn('users', 'banner_path', 'banner_path TEXT');
+ensureColumn('sessions', 'user_agent', 'user_agent TEXT');
+ensureColumn('sessions', 'created_at', 'created_at INTEGER');
+ensureColumn('sessions', 'last_seen_at', 'last_seen_at INTEGER');
+ensureColumn('user_settings', 'profile_visibility', "profile_visibility TEXT NOT NULL DEFAULT 'everyone'");
+ensureColumn('user_settings', 'last_seen_reciprocity', 'last_seen_reciprocity INTEGER NOT NULL DEFAULT 1');
+ensureColumn('user_settings', 'confirm_message_delete', 'confirm_message_delete INTEGER NOT NULL DEFAULT 1');
+ensureColumn('user_settings', 'auto_play_voice', 'auto_play_voice INTEGER NOT NULL DEFAULT 1');
+ensureColumn('user_settings', 'notify_sound', 'notify_sound INTEGER NOT NULL DEFAULT 1');
 
 export const db = drizzle(sqlite, { schema });
 export { uploadsDir };

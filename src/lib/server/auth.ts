@@ -1,13 +1,15 @@
-import { eq, and, gt } from 'drizzle-orm';
+import { createHash, randomBytes } from 'node:crypto';
+import { eq, and, gt, ne, isNull } from 'drizzle-orm';
 import type { Cookies } from '@sveltejs/kit';
 import { hash, compare } from 'bcryptjs';
 import { db } from './db';
-import { sessions, users, type User } from './schema';
+import { recoveryCodes, sessions, users, type User } from './schema';
 import { createId } from './id';
 
 export const SESSION_COOKIE = 'qix_session';
 const SESSION_DAYS = 30;
 const USERNAME_RE = /^[a-zA-Z0-9]{3,9}$/;
+const SESSION_TOUCH_MS = 5 * 60 * 1000;
 
 export function normalizeUsername(raw: string): string {
 	return raw.trim().toLowerCase();
@@ -21,8 +23,9 @@ export function validateUsername(raw: string): string | null {
 	return null;
 }
 
+/** New passwords (register / change / recover). */
 export function validatePassword(password: string): string | null {
-	if (password.length < 4) return 'Password must be at least 4 characters';
+	if (password.length < 8) return 'Password must be at least 8 characters';
 	if (password.length > 128) return 'Password is too long';
 	return null;
 }
@@ -35,11 +38,44 @@ export async function verifyPassword(password: string, passwordHash: string): Pr
 	return compare(password, passwordHash);
 }
 
-export async function createSession(userId: string, cookies: Cookies): Promise<void> {
+export function labelUserAgent(ua: string | null | undefined): string {
+	if (!ua) return 'Unknown device';
+	const s = ua.slice(0, 180);
+	let browser = 'Browser';
+	if (/Edg\//i.test(s)) browser = 'Edge';
+	else if (/Chrome\//i.test(s) && !/Chromium/i.test(s)) browser = 'Chrome';
+	else if (/Firefox\//i.test(s)) browser = 'Firefox';
+	else if (/Safari\//i.test(s) && !/Chrome/i.test(s)) browser = 'Safari';
+
+	let os = 'device';
+	if (/Android/i.test(s)) os = 'Android';
+	else if (/iPhone|iPad|iPod/i.test(s)) os = 'iOS';
+	else if (/Windows/i.test(s)) os = 'Windows';
+	else if (/Mac OS X|Macintosh/i.test(s)) os = 'macOS';
+	else if (/Linux/i.test(s)) os = 'Linux';
+
+	return `${browser} · ${os}`;
+}
+
+export async function createSession(
+	userId: string,
+	cookies: Cookies,
+	userAgent?: string | null
+): Promise<void> {
 	const id = createId(24);
+	const now = new Date();
 	const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
 
-	db.insert(sessions).values({ id, userId, expiresAt }).run();
+	db.insert(sessions)
+		.values({
+			id,
+			userId,
+			expiresAt,
+			userAgent: userAgent?.slice(0, 512) ?? null,
+			createdAt: now,
+			lastSeenAt: now
+		})
+		.run();
 
 	cookies.set(SESSION_COOKIE, id, {
 		path: '/',
@@ -55,6 +91,24 @@ export function deleteSession(sessionId: string, cookies: Cookies): void {
 	cookies.delete(SESSION_COOKIE, { path: '/' });
 }
 
+export function revokeOtherSessions(userId: string, keepSessionId: string): number {
+	return db
+		.delete(sessions)
+		.where(and(eq(sessions.userId, userId), ne(sessions.id, keepSessionId)))
+		.run().changes;
+}
+
+export function touchSession(sessionId: string): void {
+	const row = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+	if (!row) return;
+	const last = row.lastSeenAt?.getTime() ?? 0;
+	if (Date.now() - last < SESSION_TOUCH_MS) return;
+	db.update(sessions)
+		.set({ lastSeenAt: new Date() })
+		.where(eq(sessions.id, sessionId))
+		.run();
+}
+
 export function getUserFromSession(sessionId: string | undefined): User | null {
 	if (!sessionId) return null;
 
@@ -66,6 +120,101 @@ export function getUserFromSession(sessionId: string | undefined): User | null {
 		.get();
 
 	return row?.user ?? null;
+}
+
+export type SessionDTO = {
+	id: string;
+	label: string;
+	createdAt: string | null;
+	lastSeenAt: string | null;
+	current: boolean;
+};
+
+export function listSessions(userId: string, currentSessionId: string | null): SessionDTO[] {
+	const rows = db
+		.select()
+		.from(sessions)
+		.where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, new Date())))
+		.all();
+
+	return rows
+		.map((r) => ({
+			id: r.id,
+			label: labelUserAgent(r.userAgent),
+			createdAt: r.createdAt ? r.createdAt.toISOString() : null,
+			lastSeenAt: r.lastSeenAt ? r.lastSeenAt.toISOString() : null,
+			current: r.id === currentSessionId
+		}))
+		.sort((a, b) => {
+			if (a.current !== b.current) return a.current ? -1 : 1;
+			const ta = a.lastSeenAt ? new Date(a.lastSeenAt).getTime() : 0;
+			const tb = b.lastSeenAt ? new Date(b.lastSeenAt).getTime() : 0;
+			return tb - ta;
+		});
+}
+
+function hashRecoveryCode(code: string): string {
+	const normalized = code.replace(/[\s-]/g, '').toUpperCase();
+	return createHash('sha256').update(normalized).digest('hex');
+}
+
+function formatRecoveryCode(raw: string): string {
+	const hex = raw.toUpperCase();
+	return `${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(8, 12)}`;
+}
+
+/** Replace all recovery codes for user; returns plaintext codes once. */
+export function regenerateRecoveryCodes(userId: string): string[] {
+	db.delete(recoveryCodes).where(eq(recoveryCodes.userId, userId)).run();
+	const plain: string[] = [];
+	for (let i = 0; i < 8; i++) {
+		const raw = randomBytes(6).toString('hex').slice(0, 12);
+		const code = formatRecoveryCode(raw);
+		plain.push(code);
+		db.insert(recoveryCodes)
+			.values({
+				id: createId(),
+				userId,
+				codeHash: hashRecoveryCode(code),
+				usedAt: null
+			})
+			.run();
+	}
+	return plain;
+}
+
+export function countUnusedRecoveryCodes(userId: string): number {
+	return (
+		db
+			.select()
+			.from(recoveryCodes)
+			.where(and(eq(recoveryCodes.userId, userId), isNull(recoveryCodes.usedAt)))
+			.all().length
+	);
+}
+
+export async function consumeRecoveryCode(
+	userId: string,
+	code: string
+): Promise<boolean> {
+	const hash = hashRecoveryCode(code);
+	const row = db
+		.select()
+		.from(recoveryCodes)
+		.where(
+			and(
+				eq(recoveryCodes.userId, userId),
+				eq(recoveryCodes.codeHash, hash),
+				isNull(recoveryCodes.usedAt)
+			)
+		)
+		.get();
+	if (!row) return false;
+	db.update(recoveryCodes)
+		.set({ usedAt: new Date() })
+		.where(eq(recoveryCodes.id, row.id))
+		.run();
+	return true;
 }
 
 export type PublicUser = {

@@ -5,7 +5,7 @@ const CACHE_KEY = 'qix-settings-cache';
 let memory: UserSettingsDTO | null = null;
 
 export type ClientSettings = UserSettingsDTO;
-export type { UserSettingsDTO, LastSeenVisibility, WhoCanMessage } from './settingsTypes';
+export type { UserSettingsDTO, LastSeenVisibility, WhoCanMessage, ProfileVisibility } from './settingsTypes';
 export { DEFAULT_SETTINGS } from './settingsTypes';
 
 export function getCachedSettings(): ClientSettings {

@@ -1,0 +1,359 @@
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import KeyRound from '@lucide/svelte/icons/key-round';
+	import Smartphone from '@lucide/svelte/icons/smartphone';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+	const i18n = useI18n();
+
+	type SessionRow = {
+		id: string;
+		label: string;
+		createdAt: string | null;
+		lastSeenAt: string | null;
+		current: boolean;
+	};
+
+	let sessions = $state<SessionRow[]>([]);
+	let remainingCodes = $state(0);
+	let shownCodes = $state<string[] | null>(null);
+	let codesAcked = $state(false);
+
+	let currentPw = $state('');
+	let nextPw = $state('');
+	let nextPw2 = $state('');
+	let pwStatus = $state('');
+	let pwError = $state('');
+	let pwSaving = $state(false);
+
+	let regenPw = $state('');
+	let regenError = $state('');
+	let regenLoading = $state(false);
+
+	let deletePw = $state('');
+	let deleteConfirm = $state('');
+	let deleteError = $state('');
+	let deleteLoading = $state(false);
+
+	onMount(async () => {
+		await refreshSessions();
+		await refreshCodesCount();
+
+		if (typeof window !== 'undefined') {
+			const params = new URLSearchParams(window.location.search);
+			if (params.get('codes') === '1') {
+				try {
+					const raw = sessionStorage.getItem('qix-recovery-codes');
+					if (raw) {
+						shownCodes = JSON.parse(raw) as string[];
+						sessionStorage.removeItem('qix-recovery-codes');
+					}
+				} catch {
+					/* ignore */
+				}
+				history.replaceState({}, '', '/settings/security');
+			}
+		}
+	});
+
+	async function refreshSessions() {
+		const res = await fetch('/api/me/sessions');
+		const json = await res.json();
+		if (res.ok) sessions = json.sessions ?? [];
+	}
+
+	async function refreshCodesCount() {
+		const res = await fetch('/api/me/recovery-codes');
+		const json = await res.json();
+		if (res.ok) remainingCodes = json.remaining ?? 0;
+	}
+
+	async function changePassword(e: Event) {
+		e.preventDefault();
+		pwError = '';
+		pwStatus = '';
+		if (nextPw !== nextPw2) {
+			pwError = i18n.t('security.passwordMismatch');
+			return;
+		}
+		pwSaving = true;
+		try {
+			const res = await fetch('/api/auth/password', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ current: currentPw, next: nextPw })
+			});
+			const json = await res.json();
+			if (!res.ok) {
+				pwError = json.error || i18n.t('security.passwordFailed');
+				return;
+			}
+			currentPw = '';
+			nextPw = '';
+			nextPw2 = '';
+			pwStatus = i18n.t('security.passwordChanged');
+			await refreshSessions();
+		} finally {
+			pwSaving = false;
+		}
+	}
+
+	async function revokeSession(id: string, current: boolean) {
+		const res = await fetch('/api/me/sessions', {
+			method: 'DELETE',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ id })
+		});
+		const json = await res.json();
+		if (json.loggedOut || current) {
+			await goto('/login');
+			return;
+		}
+		await refreshSessions();
+	}
+
+	async function revokeOthers() {
+		await fetch('/api/me/sessions', {
+			method: 'DELETE',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ all: true })
+		});
+		await refreshSessions();
+	}
+
+	async function regenerateCodes(e: Event) {
+		e.preventDefault();
+		regenError = '';
+		regenLoading = true;
+		try {
+			const res = await fetch('/api/me/recovery-codes', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ password: regenPw })
+			});
+			const json = await res.json();
+			if (!res.ok) {
+				regenError = json.error || i18n.t('security.regenFailed');
+				return;
+			}
+			regenPw = '';
+			shownCodes = json.codes as string[];
+			codesAcked = false;
+			await refreshCodesCount();
+		} finally {
+			regenLoading = false;
+		}
+	}
+
+	async function copyCodes() {
+		if (!shownCodes) return;
+		try {
+			await navigator.clipboard.writeText(shownCodes.join('\n'));
+		} catch {
+			/* ignore */
+		}
+	}
+
+	async function deleteAccount(e: Event) {
+		e.preventDefault();
+		deleteError = '';
+		if (deleteConfirm.trim().toLowerCase() !== data.user?.username) {
+			deleteError = i18n.t('security.deleteConfirmMismatch');
+			return;
+		}
+		deleteLoading = true;
+		try {
+			const res = await fetch('/api/me/account', {
+				method: 'DELETE',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ password: deletePw })
+			});
+			const json = await res.json();
+			if (!res.ok) {
+				deleteError = json.error || i18n.t('security.deleteFailed');
+				return;
+			}
+			await goto('/login');
+		} finally {
+			deleteLoading = false;
+		}
+	}
+</script>
+
+<div class="screen">
+	<header class="topbar">
+		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goto('/settings')}>
+			<ArrowLeft size={22} />
+		</button>
+		<h1>{i18n.t('settings.security')}</h1>
+	</header>
+
+	<div class="settings-body">
+		{#if shownCodes && !codesAcked}
+			<section class="settings-section">
+				<h2>{i18n.t('security.recoveryCodes')}</h2>
+				<div class="settings-card" style="padding:14px">
+					<p class="field-hint" style="margin-bottom:12px">{i18n.t('security.recoveryCodesHint')}</p>
+					<ul class="recovery-code-list">
+						{#each shownCodes as code}
+							<li><code>{code}</code></li>
+						{/each}
+					</ul>
+					<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+						<button type="button" class="btn btn-ghost" onclick={copyCodes}
+							>{i18n.t('security.copyCodes')}</button
+						>
+						<button type="button" class="btn" onclick={() => (codesAcked = true)}
+							>{i18n.t('security.codesSaved')}</button
+						>
+					</div>
+				</div>
+			</section>
+		{/if}
+
+		<section class="settings-section">
+			<h2>{i18n.t('security.changePassword')}</h2>
+			<form class="settings-card" style="padding:14px" onsubmit={changePassword}>
+				<div class="field">
+					<label for="cur-pw">{i18n.t('security.currentPassword')}</label>
+					<input id="cur-pw" type="password" autocomplete="current-password" bind:value={currentPw} required />
+				</div>
+				<div class="field" style="margin-top:12px">
+					<label for="new-pw">{i18n.t('security.newPassword')}</label>
+					<input
+						id="new-pw"
+						type="password"
+						autocomplete="new-password"
+						minlength="8"
+						bind:value={nextPw}
+						required
+					/>
+				</div>
+				<div class="field" style="margin-top:12px">
+					<label for="new-pw2">{i18n.t('security.confirmPassword')}</label>
+					<input
+						id="new-pw2"
+						type="password"
+						autocomplete="new-password"
+						minlength="8"
+						bind:value={nextPw2}
+						required
+					/>
+				</div>
+				{#if pwError}<p class="error" style="margin-top:10px">{pwError}</p>{/if}
+				{#if pwStatus}<p class="profile-flash" style="margin-top:10px">{pwStatus}</p>{/if}
+				<button class="btn btn-block" style="margin-top:14px" type="submit" disabled={pwSaving}>
+					{pwSaving ? i18n.t('security.saving') : i18n.t('security.updatePassword')}
+				</button>
+			</form>
+		</section>
+
+		<section class="settings-section">
+			<h2>{i18n.t('security.sessions')}</h2>
+			<div class="settings-card">
+				{#each sessions as s (s.id)}
+					<div class="settings-row" style="align-items:flex-start">
+						<span class="settings-nav-icon"><Smartphone size={18} /></span>
+						<span class="toggle-copy" style="flex:1">
+							<span class="label"
+								>{s.label}{#if s.current}
+									· {i18n.t('security.thisDevice')}{/if}</span
+							>
+							{#if s.lastSeenAt}
+								<span class="hint">{new Date(s.lastSeenAt).toLocaleString()}</span>
+							{/if}
+						</span>
+						{#if !s.current}
+							<button type="button" class="btn btn-ghost" onclick={() => revokeSession(s.id, false)}
+								>{i18n.t('security.revoke')}</button
+							>
+						{/if}
+					</div>
+				{/each}
+				{#if sessions.length > 1}
+					<button type="button" class="settings-row link-row" onclick={revokeOthers}>
+						<span class="label">{i18n.t('security.logoutOthers')}</span>
+					</button>
+				{/if}
+			</div>
+		</section>
+
+		<section class="settings-section">
+			<h2>{i18n.t('security.recovery')}</h2>
+			<div class="settings-card" style="padding:14px">
+				<p class="field-hint" style="margin-bottom:10px">
+					{i18n.t('security.remainingCodes', { n: remainingCodes })}
+				</p>
+				<form onsubmit={regenerateCodes}>
+					<div class="field">
+						<label for="regen-pw">{i18n.t('security.currentPassword')}</label>
+						<input
+							id="regen-pw"
+							type="password"
+							autocomplete="current-password"
+							bind:value={regenPw}
+							required
+						/>
+					</div>
+					{#if regenError}<p class="error" style="margin-top:8px">{regenError}</p>{/if}
+					<button class="btn btn-block" style="margin-top:12px" type="submit" disabled={regenLoading}>
+						<span style="display:inline-flex;align-items:center;gap:8px"
+							><KeyRound size={16} />
+							{regenLoading ? i18n.t('security.saving') : i18n.t('security.regenCodes')}</span
+						>
+					</button>
+				</form>
+			</div>
+		</section>
+
+		<section class="settings-section">
+			<h2>{i18n.t('security.dangerZone')}</h2>
+			<form class="settings-card" style="padding:14px" onsubmit={deleteAccount}>
+				<p class="field-hint" style="margin-bottom:12px">{i18n.t('security.deleteHint')}</p>
+				<div class="field">
+					<label for="del-user">{i18n.t('security.typeUsername', { user: data.user?.username ?? '' })}</label>
+					<input id="del-user" autocomplete="off" bind:value={deleteConfirm} required />
+				</div>
+				<div class="field" style="margin-top:12px">
+					<label for="del-pw">{i18n.t('security.currentPassword')}</label>
+					<input id="del-pw" type="password" autocomplete="current-password" bind:value={deletePw} required />
+				</div>
+				{#if deleteError}<p class="error" style="margin-top:8px">{deleteError}</p>{/if}
+				<button
+					class="btn btn-block btn-danger-outline"
+					style="margin-top:14px"
+					type="submit"
+					disabled={deleteLoading}
+				>
+					<span style="display:inline-flex;align-items:center;gap:8px"
+						><Trash2 size={16} />
+						{deleteLoading ? i18n.t('security.deleting') : i18n.t('security.deleteAccount')}</span
+					>
+				</button>
+			</form>
+		</section>
+	</div>
+</div>
+
+<style>
+	.recovery-code-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 6px;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		font-size: 0.9rem;
+	}
+	.recovery-code-list code {
+		background: color-mix(in srgb, var(--bg) 70%, var(--border));
+		padding: 6px 10px;
+		border-radius: 8px;
+		display: block;
+	}
+</style>

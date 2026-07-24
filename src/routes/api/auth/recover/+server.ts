@@ -1,19 +1,21 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
+	consumeRecoveryCode,
 	createSession,
+	hashPassword,
 	normalizeUsername,
-	validateUsername,
-	verifyPassword
+	validatePassword,
+	validateUsername
 } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { users } from '$lib/server/schema';
+import { sessions, users } from '$lib/server/schema';
 import { clientIp, rateLimit } from '$lib/server/rateLimit';
 import { eq } from 'drizzle-orm';
 
 export const POST: RequestHandler = async ({ request, cookies, getClientAddress }) => {
 	const ip = clientIp(request, getClientAddress);
-	const limited = rateLimit(`login:${ip}`);
+	const limited = rateLimit(`recover:${ip}`, 8);
 	if (!limited.ok) {
 		return json(
 			{ error: 'Too many attempts. Try again later.' },
@@ -27,31 +29,32 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 	}
 
 	const usernameRaw = String((body as { username?: unknown }).username ?? '');
-	const password = String((body as { password?: unknown }).password ?? '');
+	const code = String((body as { code?: unknown }).code ?? '');
+	const newPassword = String((body as { newPassword?: unknown }).newPassword ?? '');
 
 	const usernameError = validateUsername(usernameRaw);
 	if (usernameError) return json({ error: usernameError }, { status: 400 });
-	if (!password || password.length > 128) {
-		return json({ error: 'Invalid username or password' }, { status: 401 });
-	}
+
+	const passwordError = validatePassword(newPassword);
+	if (passwordError) return json({ error: passwordError }, { status: 400 });
+
+	if (!code.trim()) return json({ error: 'Recovery code required' }, { status: 400 });
 
 	const username = normalizeUsername(usernameRaw);
 	const user = db.select().from(users).where(eq(users.username, username)).get();
-	if (!user || !(await verifyPassword(password, user.passwordHash))) {
-		return json({ error: 'Invalid username or password' }, { status: 401 });
+	if (!user || user.bannedAt) {
+		return json({ error: 'Invalid username or recovery code' }, { status: 401 });
 	}
 
-	if (user.bannedAt) {
-		const reason = user.bannedReason?.trim();
-		return json(
-			{
-				error: reason ? `Account banned: ${reason}` : 'This account has been banned'
-			},
-			{ status: 403 }
-		);
+	const ok = await consumeRecoveryCode(user.id, code);
+	if (!ok) {
+		return json({ error: 'Invalid username or recovery code' }, { status: 401 });
 	}
 
+	const passwordHash = await hashPassword(newPassword);
+	db.update(users).set({ passwordHash }).where(eq(users.id, user.id)).run();
+	db.delete(sessions).where(eq(sessions.userId, user.id)).run();
 	await createSession(user.id, cookies, request.headers.get('user-agent'));
 
-	return json({ user: { id: user.id, username: user.username } });
+	return json({ ok: true });
 };

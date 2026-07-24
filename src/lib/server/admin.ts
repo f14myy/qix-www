@@ -360,13 +360,12 @@ async function removeFile(path: string | null | undefined) {
 	}
 }
 
-export async function deleteUserAccount(
-	userId: string,
-	actorUsername: string
+export async function purgeUserAccount(
+	userId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
 	const u = db.select().from(users).where(eq(users.id, userId)).get();
 	if (!u) return { ok: false, error: 'User not found' };
-	if (u.username === ADMIN_USERNAME || u.username === actorUsername) {
+	if (u.username === ADMIN_USERNAME) {
 		return { ok: false, error: 'Cannot delete admin' };
 	}
 
@@ -378,10 +377,23 @@ export async function deleteUserAccount(
 		.all();
 
 	await removeFile(u.avatarPath);
+	await removeFile(u.bannerPath);
 	for (const f of files) await removeFile(f.path);
 
 	db.delete(users).where(eq(users.id, userId)).run();
 	return { ok: true };
+}
+
+export async function deleteUserAccount(
+	userId: string,
+	actorUsername: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const u = db.select().from(users).where(eq(users.id, userId)).get();
+	if (!u) return { ok: false, error: 'User not found' };
+	if (u.username === ADMIN_USERNAME || u.username === actorUsername) {
+		return { ok: false, error: 'Cannot delete admin' };
+	}
+	return purgeUserAccount(userId);
 }
 
 export type AdminMessageItem = {

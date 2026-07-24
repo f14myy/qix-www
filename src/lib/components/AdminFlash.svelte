@@ -14,13 +14,22 @@
 </script>
 
 {#if confirmMsg}
-	<div class="admin-confirm-backdrop" role="presentation" onclick={() => resolveAdminConfirm(false)}>
+	<div
+		class="admin-confirm-backdrop"
+		role="presentation"
+		onclick={() => resolveAdminConfirm(false)}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') resolveAdminConfirm(false);
+		}}
+	>
 		<div
 			class="admin-confirm-sheet"
 			role="dialog"
+			tabindex="-1"
 			aria-modal="true"
 			aria-labelledby="admin-confirm-title"
 			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
 		>
 			<p id="admin-confirm-title" class="admin-confirm-text">{confirmMsg}</p>
 			<div class="admin-confirm-actions">

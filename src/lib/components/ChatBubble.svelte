@@ -397,8 +397,17 @@
 							onedit(message);
 						}}>{t('chat.edit')}</button
 					>
-					<button type="button" class="danger" onclick={() => (confirmDelete = true)}
-						>{t('chat.delete')}</button
+					<button
+						type="button"
+						class="danger"
+						onclick={() => {
+							if (getCachedSettings().confirmMessageDelete) {
+								confirmDelete = true;
+							} else {
+								closeMenu();
+								ondelete(message);
+							}
+						}}>{t('chat.delete')}</button
 					>
 				{/if}
 			{/if}

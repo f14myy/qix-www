@@ -4,15 +4,26 @@ import {
 	createSession,
 	hashPassword,
 	normalizeUsername,
+	regenerateRecoveryCodes,
 	validatePassword,
 	validateUsername
 } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/schema';
 import { createId } from '$lib/server/id';
+import { clientIp, rateLimit } from '$lib/server/rateLimit';
 import { eq } from 'drizzle-orm';
 
-export const POST: RequestHandler = async ({ request, cookies }) => {
+export const POST: RequestHandler = async ({ request, cookies, getClientAddress }) => {
+	const ip = clientIp(request, getClientAddress);
+	const limited = rateLimit(`register:${ip}`);
+	if (!limited.ok) {
+		return json(
+			{ error: 'Too many attempts. Try again later.' },
+			{ status: 429, headers: { 'retry-after': String(limited.retryAfterSec) } }
+		);
+	}
+
 	const body = await request.json().catch(() => null);
 	if (!body || typeof body !== 'object') {
 		return json({ error: 'Invalid request' }, { status: 400 });
@@ -45,7 +56,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		})
 		.run();
 
-	await createSession(id, cookies);
+	const codes = regenerateRecoveryCodes(id);
+	await createSession(id, cookies, request.headers.get('user-agent'));
 
-	return json({ user: { id, username } }, { status: 201 });
+	return json({ user: { id, username }, recoveryCodes: codes }, { status: 201 });
 };

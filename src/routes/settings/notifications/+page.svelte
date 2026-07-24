@@ -20,7 +20,7 @@
 		}
 	});
 
-	async function toggle(key: 'notifyMessages' | 'notifyReactions') {
+	async function toggle(key: 'notifyMessages' | 'notifyReactions' | 'notifySound') {
 		if (!settings) return;
 		settings = await patchSettings({ [key]: !settings[key] });
 	}
@@ -87,6 +87,18 @@
 							class="switch"
 							checked={settings.notifyReactions}
 							onchange={() => toggle('notifyReactions')}
+						/>
+					</label>
+					<label class="settings-row toggle-row">
+						<span class="toggle-copy">
+							<span class="label">{i18n.t('settings.notifySound')}</span>
+							<span class="hint">{i18n.t('settings.notifySoundHint')}</span>
+						</span>
+						<input
+							type="checkbox"
+							class="switch"
+							checked={settings.notifySound}
+							onchange={() => toggle('notifySound')}
 						/>
 					</label>
 				</div>

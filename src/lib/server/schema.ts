@@ -43,7 +43,19 @@ export const sessions = sqliteTable('sessions', {
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
-	expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull()
+	expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+	userAgent: text('user_agent'),
+	createdAt: integer('created_at', { mode: 'timestamp_ms' }),
+	lastSeenAt: integer('last_seen_at', { mode: 'timestamp_ms' })
+});
+
+export const recoveryCodes = sqliteTable('recovery_codes', {
+	id: text('id').primaryKey(),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	codeHash: text('code_hash').notNull(),
+	usedAt: integer('used_at', { mode: 'timestamp_ms' })
 });
 
 export const chats = sqliteTable('chats', {
@@ -125,13 +137,18 @@ export const userSettings = sqliteTable('user_settings', {
 		.references(() => users.id, { onDelete: 'cascade' }),
 	notifyMessages: integer('notify_messages', { mode: 'boolean' }).notNull().default(true),
 	notifyReactions: integer('notify_reactions', { mode: 'boolean' }).notNull().default(true),
+	notifySound: integer('notify_sound', { mode: 'boolean' }).notNull().default(true),
 	haptics: integer('haptics', { mode: 'boolean' }).notNull().default(true),
 	sendWithEnter: integer('send_with_enter', { mode: 'boolean' }).notNull().default(true),
 	linkPreviews: integer('link_previews', { mode: 'boolean' }).notNull().default(true),
+	confirmMessageDelete: integer('confirm_message_delete', { mode: 'boolean' }).notNull().default(true),
+	autoPlayVoice: integer('auto_play_voice', { mode: 'boolean' }).notNull().default(true),
 	lastSeenVisibility: text('last_seen_visibility').notNull().default('everyone'),
+	lastSeenReciprocity: integer('last_seen_reciprocity', { mode: 'boolean' }).notNull().default(true),
 	readReceipts: integer('read_receipts', { mode: 'boolean' }).notNull().default(true),
 	showTyping: integer('show_typing', { mode: 'boolean' }).notNull().default(true),
 	whoCanMessage: text('who_can_message').notNull().default('everyone'),
+	profileVisibility: text('profile_visibility').notNull().default('everyone'),
 	updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
 });
 

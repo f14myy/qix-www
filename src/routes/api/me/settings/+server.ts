@@ -4,6 +4,7 @@ import {
 	getUserSettings,
 	updateUserSettings,
 	type LastSeenVisibility,
+	type ProfileVisibility,
 	type WhoCanMessage
 } from '$lib/server/settings';
 
@@ -25,11 +26,15 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 	const boolKeys = [
 		'notifyMessages',
 		'notifyReactions',
+		'notifySound',
 		'haptics',
 		'sendWithEnter',
 		'linkPreviews',
+		'confirmMessageDelete',
+		'autoPlayVoice',
 		'readReceipts',
-		'showTyping'
+		'showTyping',
+		'lastSeenReciprocity'
 	] as const;
 
 	for (const key of boolKeys) {
@@ -44,8 +49,20 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 		patch.lastSeenVisibility = body.lastSeenVisibility as LastSeenVisibility;
 	}
 
-	if (body.whoCanMessage === 'everyone' || body.whoCanMessage === 'chats') {
+	if (
+		body.whoCanMessage === 'everyone' ||
+		body.whoCanMessage === 'chats' ||
+		body.whoCanMessage === 'nobody'
+	) {
 		patch.whoCanMessage = body.whoCanMessage as WhoCanMessage;
+	}
+
+	if (
+		body.profileVisibility === 'everyone' ||
+		body.profileVisibility === 'chats' ||
+		body.profileVisibility === 'nobody'
+	) {
+		patch.profileVisibility = body.profileVisibility as ProfileVisibility;
 	}
 
 	const settings = updateUserSettings(locals.user.id, patch);
