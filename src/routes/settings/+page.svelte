@@ -2,22 +2,33 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import Smartphone from '@lucide/svelte/icons/smartphone';
 	import { getStoredTheme, setThemePreference, type ThemePreference } from '$lib/theme';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import type { Locale } from '$lib/i18n';
+	import { dismissInstallTip, isStandaloneDisplay, shouldShowInstallTip } from '$lib/pwa';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 	const i18n = useI18n();
 	let theme = $state<ThemePreference>('system');
+	let showInstall = $state(false);
+	let standalone = $state(false);
 
 	onMount(() => {
 		theme = getStoredTheme();
+		standalone = isStandaloneDisplay();
+		showInstall = shouldShowInstallTip();
 	});
 
 	function setTheme(next: ThemePreference) {
 		theme = next;
 		setThemePreference(next);
+	}
+
+	function hideInstall() {
+		dismissInstallTip();
+		showInstall = false;
 	}
 
 	async function logout() {
@@ -35,6 +46,28 @@
 	</header>
 
 	<div class="settings-body">
+		{#if standalone}
+			<section class="settings-section install-section">
+				<div class="install-tip installed">
+					<span class="install-ico"><Smartphone size={20} /></span>
+					<p>{i18n.t('settings.installInstalled')}</p>
+				</div>
+			</section>
+		{:else if showInstall}
+			<section class="settings-section install-section">
+				<div class="install-tip">
+					<span class="install-ico"><Smartphone size={22} /></span>
+					<div class="install-copy">
+						<strong>{i18n.t('settings.installTitle')}</strong>
+						<p>{i18n.t('settings.installBody')}</p>
+					</div>
+					<button class="btn btn-ghost install-dismiss" type="button" onclick={hideInstall}>
+						{i18n.t('settings.installDismiss')}
+					</button>
+				</div>
+			</section>
+		{/if}
+
 		<section class="settings-section">
 			<h2>{i18n.t('settings.account')}</h2>
 			<div class="settings-card">

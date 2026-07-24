@@ -2,8 +2,10 @@
 	import Check from '@lucide/svelte/icons/check';
 	import CheckCheck from '@lucide/svelte/icons/check-check';
 	import FileIcon from '@lucide/svelte/icons/file';
+	import Reply from '@lucide/svelte/icons/reply';
 	import LinkCard from './LinkCard.svelte';
 	import VoicePlayer from './VoicePlayer.svelte';
+	import { haptic } from '$lib/haptic';
 	import { formatMessageTime } from '$lib/time';
 	import { REACTION_EMOJIS, type MessageDTO } from '$lib/types';
 	import type { Locale } from '$lib/i18n';
@@ -14,32 +16,48 @@
 		peerLastReadAt = null as string | null,
 		locale = 'en' as Locale,
 		t,
+		highlight = false,
+		grouped = false,
+		tail = true,
 		onreply,
 		onedit,
 		ondelete,
-		onreact
+		onreact,
+		onjump,
+		onopenImage
 	}: {
 		message: MessageDTO;
 		mine: boolean;
 		peerLastReadAt?: string | null;
 		locale?: Locale;
-		t: (key: string) => string;
+		t: (key: string, vars?: Record<string, string | number>) => string;
+		highlight?: boolean;
+		grouped?: boolean;
+		tail?: boolean;
 		onreply: (m: MessageDTO) => void;
 		onedit: (m: MessageDTO) => void;
 		ondelete: (m: MessageDTO) => void;
 		onreact: (m: MessageDTO, emoji: string) => void;
+		onjump?: (id: string) => void;
+		onopenImage?: (urls: string[], index: number) => void;
 	} = $props();
 
 	let menuOpen = $state(false);
-	let reactOpen = $state(false);
+	let confirmDelete = $state(false);
 	let swipeX = $state(0);
+	let swiping = $state(false);
 	let startX = 0;
+	let startY = 0;
+	let pressMoved = false;
 
 	const deleted = $derived(!!message.deletedAt);
 	const read = $derived(
 		mine &&
 			!!peerLastReadAt &&
 			new Date(peerLastReadAt).getTime() >= new Date(message.createdAt).getTime()
+	);
+	const imageUrls = $derived(
+		message.attachments.filter((a) => a.mime.startsWith('image/')).map((a) => `/api/files/${a.id}`)
 	);
 
 	function isImage(mime: string) {
@@ -49,35 +67,70 @@
 	function onPointerDown(e: PointerEvent) {
 		if (deleted) return;
 		startX = e.clientX;
+		startY = e.clientY;
+		swiping = true;
+		pressMoved = false;
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 	}
 
 	function onPointerMove(e: PointerEvent) {
-		if (!startX) return;
+		if (!swiping) return;
 		const dx = e.clientX - startX;
+		const dy = e.clientY - startY;
+		if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
+			swiping = false;
+			swipeX = 0;
+			pressMoved = true;
+			clearTimeout(pressTimer);
+			return;
+		}
+		if (Math.abs(dx) > 8) {
+			pressMoved = true;
+			clearTimeout(pressTimer);
+		}
 		swipeX = Math.max(0, Math.min(72, dx));
 	}
 
 	function onPointerUp() {
-		if (swipeX > 56) onreply(message);
+		const shouldReply = swipeX > 56;
+		swiping = false;
 		swipeX = 0;
 		startX = 0;
+		if (shouldReply) {
+			haptic(10);
+			onreply(message);
+		}
 	}
 
 	let pressTimer: ReturnType<typeof setTimeout> | undefined;
 	function onPressStart() {
+		pressMoved = false;
 		pressTimer = setTimeout(() => {
-			menuOpen = true;
-		}, 480);
+			if (!pressMoved) {
+				menuOpen = true;
+				confirmDelete = false;
+				haptic(18);
+			}
+		}, 420);
 	}
 	function onPressEnd() {
 		clearTimeout(pressTimer);
+	}
+
+	function closeMenu() {
+		menuOpen = false;
+		confirmDelete = false;
 	}
 </script>
 
 <div
 	class="bubble-row"
 	class:me={mine}
+	class:swiping
+	class:highlight
+	class:grouped
+	class:tail
+	id="msg-{message.id}"
 	style="transform:translateX({swipeX}px)"
 	role="group"
 	onpointerdown={onPointerDown}
@@ -86,7 +139,9 @@
 	onpointercancel={onPointerUp}
 >
 	{#if swipeX > 8}
-		<span class="swipe-reply-hint">{t('chat.reply')}</span>
+		<span class="swipe-reply-hint" style="opacity:{Math.min(1, swipeX / 56)}">
+			<Reply size={18} />
+		</span>
 	{/if}
 
 	<div
@@ -94,6 +149,8 @@
 		class:me={mine}
 		class:them={!mine}
 		class:deleted
+		class:grouped
+		class:tail
 		onpointerdown={onPressStart}
 		onpointerup={onPressEnd}
 		onpointerleave={onPressEnd}
@@ -103,7 +160,11 @@
 			<p class="body deleted-body">{t('chat.deletedBody')}</p>
 		{:else}
 			{#if message.replyTo}
-				<button type="button" class="reply-quote" onclick={() => {}}>
+				<button
+					type="button"
+					class="reply-quote"
+					onclick={() => onjump?.(message.replyTo!.id)}
+				>
 					<span class="reply-bar"></span>
 					<span>
 						{#if message.replyTo.deleted}
@@ -116,14 +177,21 @@
 			{/if}
 
 			{#if message.kind === 'voice' && message.attachments[0]}
-				<VoicePlayer src="/api/files/{message.attachments[0].id}" />
+				<VoicePlayer id={message.id} src="/api/files/{message.attachments[0].id}" />
 			{:else if message.attachments.length}
 				<div class="att-list">
-					{#each message.attachments as att (att.id)}
+					{#each message.attachments as att, ai (att.id)}
 						{#if isImage(att.mime)}
-							<a href="/api/files/{att.id}" target="_blank" rel="noopener">
+							<button
+								type="button"
+								class="att-image-btn"
+								onclick={() => {
+									const idx = imageUrls.indexOf(`/api/files/${att.id}`);
+									onopenImage?.(imageUrls, idx >= 0 ? idx : ai);
+								}}
+							>
 								<img class="att-image" src="/api/files/{att.id}" alt={att.filename} />
-							</a>
+							</button>
 						{:else}
 							<a class="att-file" href="/api/files/{att.id}" target="_blank" rel="noopener">
 								<FileIcon size={18} />
@@ -164,8 +232,10 @@
 			{/if}
 			{formatMessageTime(message.createdAt, locale)}
 			{#if mine && !deleted}
-				<span class="receipt" class:read>
-					{#if read}
+				<span class="receipt" class:read class:pending={message.id.startsWith('tmp-')}>
+					{#if message.id.startsWith('tmp-')}
+						<Check size={14} />
+					{:else if read}
 						<CheckCheck size={14} />
 					{:else}
 						<Check size={14} />
@@ -173,68 +243,60 @@
 				</span>
 			{/if}
 		</span>
-
-		{#if !deleted}
-			<button
-				type="button"
-				class="bubble-more"
-				onclick={() => (menuOpen = !menuOpen)}
-				aria-label="Menu"
-			>
-				⋯
-			</button>
-		{/if}
 	</div>
 </div>
 
 {#if menuOpen}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="menu-backdrop" onclick={() => { menuOpen = false; reactOpen = false; }}></div>
-	<div class="msg-menu">
-		<button
-			type="button"
-			onclick={() => {
-				menuOpen = false;
-				onreply(message);
-			}}>{t('chat.reply')}</button
-		>
-		<button
-			type="button"
-			onclick={() => {
-				reactOpen = !reactOpen;
-			}}>{t('chat.react')}</button
-		>
-		{#if mine && message.kind !== 'voice'}
-			<button
-				type="button"
-				onclick={() => {
-					menuOpen = false;
-					onedit(message);
-				}}>{t('chat.edit')}</button
-			>
-			<button
-				type="button"
-				class="danger"
-				onclick={() => {
-					menuOpen = false;
-					ondelete(message);
-				}}>{t('chat.delete')}</button
-			>
-		{/if}
-		{#if reactOpen}
-			<div class="react-row">
+	<div class="menu-backdrop" onclick={closeMenu}></div>
+	<div class="msg-sheet">
+		{#if !deleted && !confirmDelete}
+			<div class="react-bar">
 				{#each REACTION_EMOJIS as emoji}
 					<button
 						type="button"
 						onclick={() => {
-							menuOpen = false;
-							reactOpen = false;
+							closeMenu();
 							onreact(message, emoji);
 						}}>{emoji}</button
 					>
 				{/each}
 			</div>
 		{/if}
+		<div class="msg-menu">
+			{#if confirmDelete}
+				<p class="msg-confirm-text">{t('chat.deleteConfirm')}</p>
+				<button
+					type="button"
+					class="danger"
+					onclick={() => {
+						closeMenu();
+						ondelete(message);
+					}}>{t('chat.deleteConfirmAction')}</button
+				>
+				<button type="button" onclick={() => (confirmDelete = false)}>{t('chat.keep')}</button>
+			{:else}
+				<button
+					type="button"
+					onclick={() => {
+						closeMenu();
+						onreply(message);
+					}}>{t('chat.reply')}</button
+				>
+				{#if mine && message.kind !== 'voice' && !message.id.startsWith('tmp-')}
+					<button
+						type="button"
+						onclick={() => {
+							closeMenu();
+							onedit(message);
+						}}>{t('chat.edit')}</button
+					>
+					<button type="button" class="danger" onclick={() => (confirmDelete = true)}
+						>{t('chat.delete')}</button
+					>
+				{/if}
+			{/if}
+		</div>
 	</div>
 {/if}
