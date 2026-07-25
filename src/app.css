@@ -280,11 +280,13 @@ button {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
-	backdrop-filter: blur(18px) saturate(1.35);
-	-webkit-backdrop-filter: blur(18px) saturate(1.35);
+	background: color-mix(in srgb, var(--bg-elevated) 66%, transparent);
+	backdrop-filter: blur(28px) saturate(1.5);
+	-webkit-backdrop-filter: blur(28px) saturate(1.5);
 	border-bottom: none;
-	box-shadow: 0 1px 0 color-mix(in srgb, var(--border) 55%, transparent);
+	box-shadow:
+		0 1px 0 color-mix(in srgb, var(--border) 50%, transparent),
+		0 8px 24px color-mix(in srgb, var(--text) 4%, transparent);
 	position: sticky;
 	top: 0;
 	z-index: 20;
@@ -691,13 +693,17 @@ html.sheet-open body {
 }
 
 .list-section-label {
-	padding: 10px 16px 4px;
+	padding: 8px 16px 4px;
 	font-size: 0.72rem;
 	font-weight: 700;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
 	color: var(--text-muted);
 	animation: row-in 360ms var(--ease-out) both;
+}
+
+.chats-screen .list > .list-section-label:first-child {
+	padding-top: 6px;
 }
 
 .chat-row-wrap {
@@ -888,17 +894,17 @@ html.sheet-open body {
 }
 
 .list-filter {
-	padding: 10px 14px 8px;
+	padding: 8px 14px 10px;
 	animation: filter-in 400ms var(--ease-out) both;
-	position: sticky;
-	top: calc(var(--header-h) + var(--safe-top));
+	position: relative;
 	z-index: 15;
+	flex-shrink: 0;
 	display: flex;
 	align-items: center;
-	background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
-	backdrop-filter: blur(18px) saturate(1.3);
-	-webkit-backdrop-filter: blur(18px) saturate(1.3);
-	border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+	background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+	backdrop-filter: blur(22px) saturate(1.35);
+	-webkit-backdrop-filter: blur(22px) saturate(1.35);
+	border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
 }
 
 @keyframes filter-in {
@@ -1190,6 +1196,33 @@ html.sheet-open body {
 
 .chat-view > .messages-wrap {
 	padding-top: calc(var(--header-h) + var(--safe-top));
+}
+
+/* Coach / pin sit under the absolute chat header — offset them, then drop wrap padding */
+.chat-view > .coach-tip {
+	position: relative;
+	left: auto;
+	right: auto;
+	top: auto;
+	margin: calc(var(--header-h) + var(--safe-top) + 8px) 10px 0;
+	width: auto;
+	z-index: 19;
+	flex-shrink: 0;
+}
+
+.chat-view:not(:has(> .coach-tip)) > .pin-banner {
+	margin-top: calc(var(--header-h) + var(--safe-top));
+}
+
+.chat-view:has(> .coach-tip) > .messages-wrap,
+.chat-view:has(> .pin-banner) > .messages-wrap {
+	padding-top: 0;
+}
+
+.chat-view > .pin-banner {
+	position: relative;
+	z-index: 19;
+	flex-shrink: 0;
 }
 
 .chat-view.kb-open .composer-wrap {
@@ -6871,16 +6904,6 @@ html[data-reduce-motion='1'] .chat-row.holding {
 
 .coach-tip.list-coach {
 	margin: 8px 12px 4px;
-}
-
-.chat-view .coach-tip {
-	position: relative;
-	left: auto;
-	right: auto;
-	top: auto;
-	margin: 8px 10px 0;
-	width: auto;
-	z-index: 18;
 	flex-shrink: 0;
 }
 
