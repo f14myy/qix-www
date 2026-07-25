@@ -54,7 +54,9 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 	const passwordHash = await hashPassword(newPassword);
 	db.update(users).set({ passwordHash }).where(eq(users.id, user.id)).run();
 	db.delete(sessions).where(eq(sessions.userId, user.id)).run();
-	await createSession(user.id, cookies, request.headers.get('user-agent'));
+	await createSession(user.id, cookies, request.headers.get('user-agent'), {
+		secure: new URL(request.url).protocol === 'https:'
+	});
 
 	return json({ ok: true });
 };

@@ -155,6 +155,18 @@ button {
 	.app-shell {
 		max-width: none;
 		box-shadow: none;
+		min-height: 100dvh;
+		min-height: -webkit-fill-available;
+		height: 100dvh;
+		height: 100svh;
+	}
+
+	html,
+	body {
+		height: 100%;
+		min-height: 100dvh;
+		min-height: -webkit-fill-available;
+		overscroll-behavior: none;
 	}
 }
 
@@ -169,6 +181,17 @@ button {
 .chats-screen {
 	position: relative;
 	isolation: isolate;
+	/* Opacity-only enter — transform/filter on .screen would trap position:fixed sheets */
+	animation: chats-screen-in var(--motion-enter) var(--ease-out) both;
+}
+
+@keyframes chats-screen-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }
 
 .chats-screen::before {
@@ -186,9 +209,20 @@ button {
 	animation: screen-glow 8s ease-in-out infinite alternate;
 }
 
-.chats-screen > * {
+.chats-screen > *:not(.menu-backdrop):not(.msg-sheet):not(.chat-menu-portal) {
 	position: relative;
 	z-index: 1;
+}
+
+.chats-screen > .menu-backdrop,
+.chats-screen > .msg-sheet,
+.chats-screen > .chat-menu-portal {
+	position: fixed;
+	z-index: 100;
+}
+
+.chats-screen > .msg-sheet {
+	z-index: 101;
 }
 
 @keyframes screen-glow {
@@ -389,7 +423,20 @@ button {
 		background-color var(--motion) ease,
 		transform var(--motion-fast) var(--ease-spring),
 		opacity var(--motion) ease,
-		box-shadow var(--motion) ease;
+		box-shadow var(--motion) ease,
+		filter var(--motion-fast) ease;
+	animation: btn-rise 480ms var(--ease-out) both;
+}
+
+@keyframes btn-rise {
+	from {
+		opacity: 0;
+		transform: translateY(8px) scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
 }
 
 .btn:hover {
@@ -401,6 +448,9 @@ button {
 .btn:disabled {
 	opacity: 0.55;
 	cursor: not-allowed;
+	transform: none;
+	box-shadow: none;
+	animation: none;
 }
 
 .btn-ghost {
@@ -433,19 +483,23 @@ button {
 .field input {
 	min-height: 48px;
 	padding: 0 14px;
-	border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-	border-radius: 12px;
-	background: color-mix(in srgb, var(--bg) 70%, var(--bg-elevated));
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--border);
+	background: var(--bg-elevated);
 	color: var(--text);
-	outline: none;
+	font: inherit;
 	transition:
 		border-color var(--motion) ease,
-		box-shadow var(--motion) ease;
+		box-shadow var(--motion) ease,
+		transform var(--motion-fast) var(--ease-soft),
+		background-color var(--motion) ease;
 }
 
 .field input:focus {
+	outline: none;
 	border-color: var(--accent);
 	box-shadow: 0 0 0 3px var(--accent-soft);
+	transform: translateY(-1px);
 }
 
 .error {
@@ -542,6 +596,28 @@ button {
 	overscroll-behavior: contain;
 }
 
+.list.is-holding {
+	overflow: hidden;
+	touch-action: none;
+}
+
+html.sheet-open,
+html.sheet-open body {
+	overflow: hidden;
+	overscroll-behavior: none;
+}
+
+.chat-menu-portal .menu-backdrop {
+	z-index: 200;
+	background: rgba(0, 0, 0, 0.34);
+}
+
+.chat-menu-portal .msg-sheet {
+	z-index: 201;
+	bottom: calc(20px + var(--safe-bottom));
+	width: min(340px, calc(100% - 28px));
+}
+
 .app-version {
 	flex-shrink: 0;
 	margin: 0;
@@ -554,6 +630,8 @@ button {
 	user-select: none;
 	pointer-events: none;
 }
+
+/* Chat-list long-press reuses .menu-backdrop / .msg-sheet / .msg-menu */
 
 .empty {
 	padding: 56px 28px;
@@ -661,7 +739,7 @@ button {
 .row-actions-under {
 	position: absolute;
 	inset: 0 0 0 auto;
-	width: 120px;
+	width: 180px;
 	display: flex;
 	flex-direction: row;
 	align-items: stretch;
@@ -719,14 +797,47 @@ button {
 	position: relative;
 	z-index: 1;
 	isolation: isolate;
-	transform: translateX(var(--row-x, 0px));
+	transform: translateZ(0) scale(1);
 	transition:
 		background-color var(--motion) var(--ease-soft),
 		transform 280ms var(--ease-out),
-		box-shadow var(--motion) ease;
+		box-shadow var(--motion) ease,
+		filter 280ms var(--ease-soft);
 	cursor: pointer;
 	touch-action: pan-y;
 	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+.chat-row.holding {
+	transform: scale(0.972);
+	background: var(--accent-soft);
+	box-shadow:
+		0 8px 28px color-mix(in srgb, var(--accent) 18%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+	z-index: 2;
+	border-radius: 14px;
+	border-bottom-color: transparent;
+	animation: hold-glow 520ms var(--ease-soft) both;
+}
+
+@keyframes hold-glow {
+	from {
+		transform: scale(1);
+		box-shadow: none;
+	}
+	to {
+		transform: scale(0.972);
+		box-shadow:
+			0 8px 28px color-mix(in srgb, var(--accent) 18%, transparent),
+			0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+	}
+}
+
+.chat-row-wrap.menu-open .chat-row {
+	background: var(--accent-soft);
+	transform: scale(0.985);
 }
 
 .chat-row-wrap.swiping .chat-row {
@@ -958,6 +1069,18 @@ button {
 	display: grid;
 	place-items: center;
 	flex-shrink: 0;
+	animation: badge-pop 420ms var(--ease-spring) both;
+}
+
+@keyframes badge-pop {
+	from {
+		opacity: 0;
+		transform: scale(0.4);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
 }
 
 .avatar {
@@ -972,6 +1095,12 @@ button {
 	flex-shrink: 0;
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
+	transition: transform var(--motion-fast) var(--ease-spring), filter var(--motion) ease;
+}
+
+.chat-row:active .avatar,
+.chat-row.holding .avatar {
+	transform: scale(0.94);
 }
 
 .avatar-wrap {
@@ -1026,6 +1155,9 @@ button {
 
 .chat-view {
 	position: relative;
+	flex: 1;
+	min-height: 0;
+	height: 100%;
 	background-color: var(--bg-chat);
 	background-image: var(--chat-wallpaper-glow), var(--chat-wallpaper-pattern);
 	background-size: var(--chat-wallpaper-size);
@@ -1034,6 +1166,18 @@ button {
 	transition:
 		background-color var(--motion-slow) var(--ease-soft),
 		background-image var(--motion-slow) ease;
+}
+
+@media (display-mode: standalone) {
+	.chat-view {
+		/* Fill the PWA shell; safe area is handled by composer/topbar */
+		height: 100%;
+		max-height: none;
+	}
+
+	.composer-wrap {
+		padding-bottom: max(var(--safe-bottom), 8px);
+	}
 }
 
 .chat-view > .topbar {
@@ -1055,11 +1199,9 @@ button {
 @keyframes chat-world-in {
 	from {
 		opacity: 0.4;
-		filter: saturate(0.85);
 	}
 	to {
 		opacity: 1;
-		filter: saturate(1);
 	}
 }
 
@@ -1870,8 +2012,68 @@ button {
 
 .sheet-row-ico {
 	display: inline-grid;
+	place-items: center;
 	margin-right: 8px;
 	vertical-align: middle;
+	flex-shrink: 0;
+	opacity: 0.78;
+}
+
+.msg-menu button {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	min-height: 48px;
+	border: none;
+	background: transparent;
+	text-align: left;
+	padding: 12px 16px;
+	color: var(--text);
+	border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+	transition:
+		background-color var(--motion-fast) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-spring),
+		color var(--motion) ease;
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+}
+
+.msg-menu button .sheet-row-ico {
+	margin-right: 0;
+}
+
+.msg-menu button svg {
+	flex-shrink: 0;
+}
+
+.msg-menu button:hover {
+	background: var(--accent-soft);
+}
+
+.msg-menu button:active {
+	transform: scale(0.985);
+	background: color-mix(in srgb, var(--accent-soft) 80%, transparent);
+}
+
+.msg-menu button:disabled {
+	opacity: 0.55;
+	pointer-events: none;
+}
+
+.msg-menu button:last-child {
+	border-bottom: none;
+}
+
+.msg-menu button.danger {
+	color: var(--danger);
+}
+
+.msg-menu button.danger .sheet-row-ico {
+	opacity: 0.95;
 }
 
 .msg-menu button.active {
@@ -1960,6 +2162,17 @@ button {
 		12px center no-repeat;
 	color: var(--text);
 	outline: none;
+	transition:
+		border-color var(--motion) ease,
+		box-shadow var(--motion) var(--ease-soft),
+		background-color var(--motion) ease,
+		transform var(--motion-fast) var(--ease-soft);
+}
+
+.search-box input:focus {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 3px var(--accent-soft);
+	transform: translateY(-1px);
 }
 
 .user-row {
@@ -2112,6 +2325,10 @@ button {
 		color var(--motion) ease,
 		transform 180ms var(--ease-spring),
 		box-shadow var(--motion) ease;
+}
+
+.theme-pill:active {
+	transform: scale(0.96);
 }
 
 .theme-pill.active {
@@ -2408,9 +2625,11 @@ button {
 .menu-backdrop {
 	position: fixed;
 	inset: 0;
-	z-index: 40;
-	background: rgba(0, 0, 0, 0.28);
+	z-index: 90;
+	background: rgba(0, 0, 0, 0.32);
 	animation: backdrop-in 180ms ease both;
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
 }
 
 @keyframes backdrop-in {
@@ -2429,12 +2648,13 @@ button {
 	left: 50%;
 	bottom: calc(16px + var(--safe-bottom));
 	transform: translateX(-50%);
-	z-index: 50;
+	z-index: 91;
 	width: min(320px, calc(100% - 32px));
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
 	animation: sheet-up 380ms var(--ease-out) both;
+	pointer-events: auto;
 }
 
 .react-bar {
@@ -2484,25 +2704,8 @@ button {
 	to {
 		opacity: 1;
 		transform: translateX(-50%) translateY(0) scale(1);
-		filter: blur(0);
+		filter: none;
 	}
-}
-
-.msg-menu button {
-	border: none;
-	background: transparent;
-	text-align: left;
-	padding: 14px 16px;
-	color: var(--text);
-	border-bottom: 1px solid var(--border);
-}
-
-.msg-menu button:last-child {
-	border-bottom: none;
-}
-
-.msg-menu button.danger {
-	color: var(--danger);
 }
 
 .msg-confirm-text {
@@ -2986,6 +3189,14 @@ button {
 	background: color-mix(in srgb, var(--text) 4%, transparent);
 	color: inherit;
 	text-decoration: none;
+	transition:
+		transform var(--motion-fast) var(--ease-spring),
+		border-color var(--motion) ease,
+		box-shadow var(--motion) ease;
+}
+
+.link-card:active {
+	transform: scale(0.98);
 }
 
 .link-card-img {
@@ -3059,6 +3270,7 @@ button {
 	background: color-mix(in srgb, var(--accent-soft) 85%, var(--bg-muted));
 	color: var(--accent);
 	flex-shrink: 0;
+	transition: transform var(--motion-fast) var(--ease-spring), background-color var(--motion) ease;
 }
 
 .settings-nav-chevron {
@@ -3067,6 +3279,16 @@ button {
 	display: grid;
 	place-items: center;
 	opacity: 0.85;
+	transition: transform var(--motion-fast) var(--ease-spring), opacity var(--motion) ease;
+}
+
+.settings-row.link-row:active .settings-nav-icon {
+	transform: scale(0.92);
+}
+
+.settings-row.link-row:active .settings-nav-chevron {
+	transform: translateX(3px);
+	opacity: 1;
 }
 
 .toggle-row {
@@ -4536,6 +4758,10 @@ html[data-reduce-motion='1'] *::after {
 	animation-duration: 0.01ms !important;
 	animation-iteration-count: 1 !important;
 	transition-duration: 0.01ms !important;
+}
+
+html[data-reduce-motion='1'] .chat-row.holding {
+	animation: none !important;
 }
 
 .settings-row.link-row {

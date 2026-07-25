@@ -51,7 +51,9 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 		);
 	}
 
-	await createSession(user.id, cookies, request.headers.get('user-agent'));
+	await createSession(user.id, cookies, request.headers.get('user-agent'), {
+		secure: new URL(request.url).protocol === 'https:'
+	});
 
 	return json({ user: { id: user.id, username: user.username } });
 };

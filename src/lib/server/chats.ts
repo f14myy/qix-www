@@ -63,21 +63,25 @@ export function getChatMemberIds(chatId: string): string[] {
 }
 
 export function findDmChatId(userA: string, userB: string): string | null {
-	const row = db
+	const memberships = db
 		.select({ chatId: chatMembers.chatId })
 		.from(chatMembers)
 		.where(eq(chatMembers.userId, userA))
-		.all()
-		.find((mine) => {
-			const other = db
-				.select({ userId: chatMembers.userId })
-				.from(chatMembers)
-				.where(and(eq(chatMembers.chatId, mine.chatId), eq(chatMembers.userId, userB)))
-				.get();
-			return !!other;
-		});
+		.all();
 
-	return row?.chatId ?? null;
+	for (const mine of memberships) {
+		// Built-in channels enroll everyone — never treat them as a DM.
+		if (getChannelByChatId(mine.chatId)) continue;
+		const chat = db.select().from(chats).where(eq(chats.id, mine.chatId)).get();
+		if (!chat || chat.kind === 'channel' || chat.channelKey) continue;
+
+		const members = getChatMemberIds(mine.chatId);
+		if (members.length === 2 && members.includes(userB)) {
+			return mine.chatId;
+		}
+	}
+
+	return null;
 }
 
 export function createDm(userA: string, userB: string): string {
@@ -88,7 +92,9 @@ export function createDm(userA: string, userB: string): string {
 	const now = new Date();
 
 	db.transaction((tx) => {
-		tx.insert(chats).values({ id: chatId, createdAt: now }).run();
+		tx.insert(chats)
+			.values({ id: chatId, createdAt: now, kind: 'dm', posting: 'members' })
+			.run();
 		tx.insert(chatMembers)
 			.values([
 				{ chatId, userId: userA, lastReadAt: now, muted: false },

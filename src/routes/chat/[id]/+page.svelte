@@ -542,7 +542,6 @@
 
 	onMount(() => {
 		scrollToBottom();
-		fetch(`/api/chats/${data.chatId}/read`, { method: 'POST' });
 		fetch('/api/presence', { method: 'POST' });
 		flushQueue();
 
@@ -567,13 +566,62 @@
 			history.replaceState({}, '', `/chat/${data.chatId}`);
 		}
 
+		window.addEventListener('online', flushQueue);
+
+		const vv = window.visualViewport;
+		const syncKb = () => {
+			const full = window.innerHeight;
+			const h = vv?.height ?? full;
+			// Only lock to visualViewport while the software keyboard is open.
+			// On iOS home-screen PWAs, using it while closed leaves a gap above the home indicator.
+			keyboardOpen = h < full - 80;
+			if (keyboardOpen) {
+				viewportH = Math.round(h);
+				viewportOffset = Math.round(vv?.offsetTop ?? 0);
+			} else {
+				viewportH = 0;
+				viewportOffset = 0;
+			}
+			if (atBottom) scrollToBottom(false);
+		};
+		vv?.addEventListener('resize', syncKb);
+		vv?.addEventListener('scroll', syncKb);
+		syncKb();
+
+		return () => {
+			window.removeEventListener('online', flushQueue);
+			clearTimeout(typingTimer);
+			vv?.removeEventListener('resize', syncKb);
+			vv?.removeEventListener('scroll', syncKb);
+		};
+	});
+
+	// Reconnect realtime when navigating between /chat/[id] (same component instance)
+	$effect(() => {
+		const chatId = data.chatId;
+		replyTo = null;
+		editing = null;
+		selectMode = false;
+		selectedIds = new Set();
+		showMenu = false;
+		typing = false;
+		pendingNewCount = 0;
+		highlightId = null;
+
+		fetch(`/api/chats/${chatId}/read`, { method: 'POST' });
+		flushQueue();
+		queueMicrotask(() => scrollToBottom(false));
+
 		let es: EventSource | null = null;
 		let presenceEs: EventSource | null = null;
 		let beat: ReturnType<typeof setInterval> | undefined;
+		let cancelled = false;
 
 		const onChatMessage = (ev: MessageEvent) => {
+			if (cancelled) return;
 			try {
 				const msg = JSON.parse(ev.data) as MessageDTO;
+				if (msg.chatId && msg.chatId !== chatId) return;
 				messages = messages.filter(
 					(m) =>
 						!(
@@ -586,7 +634,7 @@
 				);
 				void upsert(msg);
 				if (msg.senderId !== data.user?.id) {
-					fetch(`/api/chats/${data.chatId}/read`, { method: 'POST' });
+					fetch(`/api/chats/${chatId}/read`, { method: 'POST' });
 				}
 			} catch {
 				/* ignore */
@@ -594,29 +642,36 @@
 		};
 
 		function connectStreams() {
+			if (cancelled) return;
 			es?.close();
 			presenceEs?.close();
 			if (beat) clearInterval(beat);
 
-			es = new EventSource(`/api/chats/${data.chatId}/events`);
+			es = new EventSource(`/api/chats/${chatId}/events`);
 			es.addEventListener('message', onChatMessage);
 			es.addEventListener('message_update', (ev) => {
 				try {
-					void upsert(JSON.parse(ev.data) as MessageDTO);
+					const msg = JSON.parse(ev.data) as MessageDTO;
+					if (msg.chatId && msg.chatId !== chatId) return;
+					void upsert(msg);
 				} catch {
 					/* ignore */
 				}
 			});
 			es.addEventListener('message_delete', (ev) => {
 				try {
-					void upsert(JSON.parse(ev.data) as MessageDTO);
+					const msg = JSON.parse(ev.data) as MessageDTO;
+					if (msg.chatId && msg.chatId !== chatId) return;
+					void upsert(msg);
 				} catch {
 					/* ignore */
 				}
 			});
 			es.addEventListener('reaction', (ev) => {
 				try {
-					void upsert(JSON.parse(ev.data) as MessageDTO);
+					const msg = JSON.parse(ev.data) as MessageDTO;
+					if (msg.chatId && msg.chatId !== chatId) return;
+					void upsert(msg);
 				} catch {
 					/* ignore */
 				}
@@ -693,30 +748,13 @@
 
 		connectStreams();
 		document.addEventListener('visibilitychange', onVisibility);
-		window.addEventListener('online', flushQueue);
-
-		const vv = window.visualViewport;
-		const syncKb = () => {
-			const h = vv?.height ?? window.innerHeight;
-			viewportH = h;
-			viewportOffset = vv?.offsetTop ?? 0;
-			keyboardOpen = h < window.innerHeight - 80;
-			if (atBottom) scrollToBottom(false);
-		};
-		vv?.addEventListener('resize', syncKb);
-		vv?.addEventListener('scroll', syncKb);
-		syncKb();
 
 		return () => {
+			cancelled = true;
 			disconnectStreams();
 			document.removeEventListener('visibilitychange', onVisibility);
-			window.removeEventListener('online', flushQueue);
-			clearTimeout(typingTimer);
-			vv?.removeEventListener('resize', syncKb);
-			vv?.removeEventListener('scroll', syncKb);
 		};
 	});
-
 	function emitTyping() {
 		const now = Date.now();
 		if (now - lastTypingSent < 1200) return;
@@ -993,9 +1031,9 @@
 <div
 	class="screen chat-view"
 	class:kb-open={keyboardOpen}
-	style="padding-bottom:0;{viewportH
-		? `height:${viewportH}px;max-height:${viewportH}px;transform:translateY(${viewportOffset}px;`
-		: ''}"
+	style={viewportH
+		? `padding-bottom:0;height:${viewportH}px;max-height:${viewportH}px;transform:translateY(${viewportOffset}px)`
+		: 'padding-bottom:0'}
 >
 	<header class="topbar chat-topbar">
 		<button type="button" class="icon-btn back-btn" aria-label={i18n.t('back')} onclick={goBack}>

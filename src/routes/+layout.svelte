@@ -28,6 +28,8 @@
 		if (!document.startViewTransition) return;
 		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 		if (document.documentElement.getAttribute('data-reduce-motion') === '1') return;
+		// Skip view transitions on touch / coarse pointers — they glitch chat switches on mobile
+		if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
 
 		return new Promise<void>((resolve) => {
 			document.startViewTransition(async () => {

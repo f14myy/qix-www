@@ -1,4 +1,4 @@
 /** App build stamp: `{beta|release}.{DDMM}.{H}.{mm}` — update when shipping a build. */
 export const APP_CHANNEL = 'beta' as const;
 
-export const APP_VERSION = 'beta.2507.1.36';
+export const APP_VERSION = 'beta.2507.22.52';

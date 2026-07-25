@@ -21,6 +21,7 @@
 	import { lastMessagePreview } from '$lib/chatPreview';
 	import { dismissCoach, markCoachShown, shouldShowCoach } from '$lib/coach';
 	import { toast } from '$lib/flash.svelte';
+	import { haptic } from '$lib/haptic';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import { notifyMessage } from '$lib/notify';
 	import { shouldForceOnboarding } from '$lib/onboarding';
@@ -33,7 +34,7 @@
 	const i18n = useI18n();
 	let filter = $state('');
 	let searching = $state(false);
-	let showSwipeHint = $state(false);
+	let showHoldHint = $state(false);
 	let showSearchHint = $state(false);
 	let showChannelsHint = $state(false);
 	let searchChats = $state<PageData['chats']>([]);
@@ -56,15 +57,17 @@
 		}>
 	>([]);
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
-	let openId = $state<string | null>(null);
-	let activeId = $state<string | null>(null);
-	let offsetX = $state(0);
-	let dragging = $state(false);
-	let startX = 0;
-	let startY = 0;
-	let baseX = 0;
-	let axis: 'none' | 'h' | 'v' = 'none';
-	let didSwipe = false;
+	let menuId = $state<string | null>(null);
+	let holdingId = $state<string | null>(null);
+	let holdTimer: ReturnType<typeof setTimeout> | undefined;
+	let holdChatId: string | null = null;
+	let holdStartX = 0;
+	let holdStartY = 0;
+	let holdMoved = false;
+	let skipClickUntil = 0;
+	let detachHoldListeners: (() => void) | null = null;
+	let prefBusy = $state(false);
+	let pullStartY = 0;
 	let pullY = $state(0);
 	let pulling = $state(false);
 	let refreshing = $state(false);
@@ -76,8 +79,17 @@
 	let failedChats = $state<Set<string>>(new Set());
 	let requestCount = $state(0);
 
-	const ACTION_W = 180;
-	const OPEN_AT = 56;
+	const HOLD_MS = 440;
+	const HOLD_MOVE_SLOP = 40;
+	const SKIP_CLICK_MS = 650;
+
+	const menuChat = $derived(
+		menuId
+			? data.chats.find((c) => c.id === menuId) ??
+					searchChats.find((c) => c.id === menuId) ??
+					null
+			: null
+	);
 
 	const q = $derived(filter.trim());
 	const isSearch = $derived(q.length > 0);
@@ -208,127 +220,157 @@
 	}
 
 	async function setPref(chatId: string, patch: { pinned?: boolean; muted?: boolean; archived?: boolean }) {
-		await fetch(`/api/chats/${chatId}/prefs`, {
-			method: 'PATCH',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify(patch)
-		});
-		closeSwipe();
-		await invalidateAll();
+		if (prefBusy) return;
+		prefBusy = true;
+		try {
+			await fetch(`/api/chats/${chatId}/prefs`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(patch)
+			});
+			closeMenu();
+			await invalidateAll();
+		} finally {
+			prefBusy = false;
+		}
 	}
 
-	function closeSwipe() {
-		openId = null;
-		activeId = null;
-		offsetX = 0;
-		dragging = false;
-		axis = 'none';
-		didSwipe = false;
+	function portal(node: HTMLElement) {
+		const host = document.querySelector('.app-shell') ?? document.body;
+		host.appendChild(node);
+		return {
+			destroy() {
+				node.remove();
+			}
+		};
 	}
 
-	function rowOffset(id: string) {
-		if (activeId === id) return offsetX;
-		if (openId === id) return -ACTION_W;
-		return 0;
+	function setSheetOpen(open: boolean) {
+		if (typeof document === 'undefined') return;
+		document.documentElement.classList.toggle('sheet-open', open);
 	}
 
-	function onRowDown(e: PointerEvent, id: string) {
+	function clearHoldTimer() {
+		if (holdTimer) clearTimeout(holdTimer);
+		holdTimer = undefined;
+	}
+
+	function endHoldTracking() {
+		clearHoldTimer();
+		detachHoldListeners?.();
+		detachHoldListeners = null;
+		holdChatId = null;
+		holdingId = null;
+		holdMoved = false;
+	}
+
+	function closeMenu() {
+		menuId = null;
+		prefBusy = false;
+		endHoldTracking();
+		setSheetOpen(false);
+	}
+
+	function openMenu(id: string) {
+		clearHoldTimer();
+		holdingId = null;
+		holdChatId = null;
+		pulling = false;
+		pullY = 0;
+		menuId = id;
+		skipClickUntil = Date.now() + SKIP_CLICK_MS;
+		setSheetOpen(true);
+		haptic([8, 40, 14]);
+	}
+
+	function onRowPointerDown(e: PointerEvent, id: string) {
 		if (e.button !== undefined && e.button !== 0) return;
-		const t = e.target as HTMLElement | null;
-		if (t?.closest('.row-action')) return;
-
-		if (openId && openId !== id) {
-			openId = null;
+		if (menuId) {
+			closeMenu();
+			skipClickUntil = Date.now() + SKIP_CLICK_MS;
+			return;
 		}
 
-		startX = e.clientX;
-		startY = e.clientY;
-		baseX = openId === id ? -ACTION_W : 0;
-		offsetX = baseX;
-		activeId = id;
-		dragging = true;
-		axis = 'none';
-		didSwipe = false;
-		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		endHoldTracking();
+		holdMoved = false;
+		holdStartX = e.clientX;
+		holdStartY = e.clientY;
+		holdChatId = id;
+		holdingId = id;
+
+		const pointerId = e.pointerId;
+		const onMove = (ev: PointerEvent) => {
+			if (ev.pointerId !== pointerId) return;
+			if (!holdChatId || menuId) return;
+			const dx = ev.clientX - holdStartX;
+			const dy = ev.clientY - holdStartY;
+			if (dx * dx + dy * dy > HOLD_MOVE_SLOP * HOLD_MOVE_SLOP) {
+				holdMoved = true;
+				clearHoldTimer();
+				holdingId = null;
+			}
+		};
+		const onUp = (ev: PointerEvent) => {
+			if (ev.pointerId !== pointerId) return;
+			clearHoldTimer();
+			holdingId = null;
+			holdChatId = null;
+			detachHoldListeners?.();
+			detachHoldListeners = null;
+		};
+
+		window.addEventListener('pointermove', onMove, { passive: true });
+		window.addEventListener('pointerup', onUp);
+		window.addEventListener('pointercancel', onUp);
+		detachHoldListeners = () => {
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onUp);
+			window.removeEventListener('pointercancel', onUp);
+		};
+
+		holdTimer = setTimeout(() => {
+			if (holdChatId !== id || holdMoved) return;
+			openMenu(id);
+		}, HOLD_MS);
 	}
 
-	function onRowMove(e: PointerEvent) {
-		if (!dragging || !activeId) return;
-		const dx = e.clientX - startX;
-		const dy = e.clientY - startY;
-
-		if (axis === 'none') {
-			if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-			axis = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
-			if (axis === 'v') {
-				dragging = false;
-				if (openId !== activeId) {
-					activeId = null;
-					offsetX = 0;
-				} else {
-					offsetX = -ACTION_W;
-				}
-				try {
-					(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-				} catch {
-					/* already released */
-				}
-				return;
-			}
-		}
-
-		if (axis !== 'h') return;
-		didSwipe = true;
-		offsetX = Math.min(0, Math.max(-ACTION_W, baseX + dx));
-	}
-
-	function onRowUp() {
-		if (!activeId) return;
-		const id = activeId;
-		const horizontal = axis === 'h';
-		dragging = false;
-		axis = 'none';
-
-		if (horizontal) {
-			if (offsetX <= -OPEN_AT) {
-				openId = id;
-				offsetX = -ACTION_W;
-			} else {
-				openId = null;
-				offsetX = 0;
-				activeId = null;
-			}
-		} else if (openId !== id) {
-			activeId = null;
-			offsetX = 0;
-		}
+	function onRowContextMenu(e: MouseEvent, id: string) {
+		e.preventDefault();
+		e.stopPropagation();
+		openMenu(id);
 	}
 
 	function onRowClick(id: string) {
-		if (didSwipe) {
-			didSwipe = false;
-			return;
-		}
-		if (openId === id) {
-			closeSwipe();
-			return;
-		}
-		if (openId) {
-			closeSwipe();
+		if (Date.now() < skipClickUntil) return;
+		if (menuId) {
+			closeMenu();
 			return;
 		}
 		openChat(id);
 	}
 
+	function onMenuKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && menuId) {
+			e.preventDefault();
+			closeMenu();
+		}
+	}
+
 	function onListTouchStart(e: TouchEvent) {
+		if (holdChatId || holdingId || menuId) return;
 		if (!listEl || listEl.scrollTop > 0 || refreshing) return;
-		startY = e.touches[0].clientY;
+		pullStartY = e.touches[0].clientY;
 		pulling = true;
 	}
 
 	function onListTouchMove(e: TouchEvent) {
+		if (holdChatId || holdingId || menuId) {
+			pulling = false;
+			pullY = 0;
+			return;
+		}
 		if (!pulling || refreshing) return;
-		const dy = e.touches[0].clientY - startY;
+		const dy = e.touches[0].clientY - pullStartY;
 		if (dy > 0 && listEl && listEl.scrollTop <= 0) {
 			pullY = Math.min(72, dy * 0.45);
 		} else {
@@ -344,15 +386,10 @@
 	}
 
 	function openChat(id: string, messageId?: string) {
+		closeMenu();
+		// Never navigate into a built-in channel id by mistake from DM helpers
 		const href = messageId ? `/chat/${id}?m=${encodeURIComponent(messageId)}` : `/chat/${id}`;
-		const run = () => goto(href);
-		if (typeof document !== 'undefined' && 'startViewTransition' in document) {
-			(document as Document & { startViewTransition: (cb: () => void) => void }).startViewTransition(
-				run
-			);
-		} else {
-			run();
-		}
+		void goto(href);
 	}
 
 	async function openUser(username: string) {
@@ -388,9 +425,9 @@
 			} else if (shouldShowCoach('qix-hint-channels') && data.chats.some((c) => c.kind === 'channel')) {
 				showChannelsHint = true;
 				markCoachShown('qix-hint-channels');
-			} else if (shouldShowCoach('qix-hint-swipe-list') && data.chats.length > 0) {
-				showSwipeHint = true;
-				markCoachShown('qix-hint-swipe-list');
+			} else if (shouldShowCoach('qix-hint-hold-list') && data.chats.length > 0) {
+				showHoldHint = true;
+				markCoachShown('qix-hint-hold-list');
 			}
 		} catch {
 			/* ignore */
@@ -466,11 +503,13 @@
 			disconnect();
 			document.removeEventListener('visibilitychange', onVisibility);
 			clearTimeout(searchTimer);
+			endHoldTracking();
+			setSheetOpen(false);
 		};
 	});
 </script>
 
-<svelte:window onfocus={refresh} />
+<svelte:window onfocus={refresh} onkeydown={onMenuKeydown} />
 
 <div class="screen chats-screen">
 	<header class="topbar">
@@ -525,19 +564,19 @@
 			{/snippet}
 			<p>{i18n.t('coach.channels')}</p>
 		</CoachTip>
-	{:else if showSwipeHint}
+	{:else if showHoldHint}
 		<CoachTip
 			class="list-coach"
-			actionLabel={i18n.t('chats.swipeHintDismiss')}
+			actionLabel={i18n.t('chats.holdHintDismiss')}
 			ondismiss={() => {
-				showSwipeHint = false;
-				dismissCoach('qix-hint-swipe-list');
+				showHoldHint = false;
+				dismissCoach('qix-hint-hold-list');
 			}}
 		>
 			{#snippet icon()}
 				<Hand size={20} />
 			{/snippet}
-			<p>{i18n.t('chats.swipeHint')}</p>
+			<p>{i18n.t('chats.holdHint')}</p>
 		</CoachTip>
 	{/if}
 
@@ -567,6 +606,7 @@
 
 	<div
 		class="list"
+		class:is-holding={!!holdingId || !!menuId}
 		bind:this={listEl}
 		role="list"
 		ontouchstart={onListTouchStart}
@@ -594,7 +634,7 @@
 				{#if searchChats.length}
 					<div class="list-section-label">{i18n.t('chats.searchChats')}</div>
 					{#each searchChats as chat, i (chat.id)}
-						{@render chatRow(chat, i, false)}
+						{@render chatRow(chat, i, true)}
 					{/each}
 				{/if}
 
@@ -683,71 +723,77 @@
 	<p class="app-version" aria-hidden="true">{APP_VERSION}</p>
 </div>
 
-{#snippet chatRow(chat: PageData['chats'][number], index: number, swipeable: boolean)}
-	{@const tx = swipeable ? rowOffset(chat.id) : 0}
+{#if menuChat}
+	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+	<div class="chat-menu-portal" use:portal>
+		<div class="menu-backdrop" onclick={closeMenu}></div>
+		<div
+			class="msg-sheet"
+			role="dialog"
+			aria-modal="true"
+			aria-label={displayName(menuChat)}
+		>
+			<div class="msg-menu">
+				<button
+					type="button"
+					disabled={prefBusy}
+					onclick={() => setPref(menuChat.id, { pinned: !menuChat.pinned })}
+				>
+					<span class="sheet-row-ico">
+						{#if menuChat.pinned}
+							<PinOff size={18} />
+						{:else}
+							<Pin size={18} />
+						{/if}
+					</span>
+					{menuChat.pinned ? i18n.t('actions.unpin') : i18n.t('actions.pin')}
+				</button>
+				<button
+					type="button"
+					disabled={prefBusy}
+					onclick={() => setPref(menuChat.id, { muted: !menuChat.muted })}
+				>
+					<span class="sheet-row-ico">
+						{#if menuChat.muted}
+							<Bell size={18} />
+						{:else}
+							<BellOff size={18} />
+						{/if}
+					</span>
+					{menuChat.muted ? i18n.t('actions.unmute') : i18n.t('actions.mute')}
+				</button>
+				<button
+					type="button"
+					class="danger"
+					disabled={prefBusy}
+					onclick={() => setPref(menuChat.id, { archived: true })}
+				>
+					<span class="sheet-row-ico"><Archive size={18} /></span>
+					{i18n.t('chat.archive')}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#snippet chatRow(chat: PageData['chats'][number], index: number, withActions: boolean)}
 	{@const icon = previewIcon(chat)}
 	<div
 		class="chat-row-wrap"
-		class:menu-open={swipeable && (openId === chat.id || (activeId === chat.id && tx < -40))}
-		class:swiping={swipeable && activeId === chat.id && dragging}
-		style="animation-delay:{Math.min(index, 6) * 40}ms; --row-x:{tx}px"
+		class:holding={holdingId === chat.id}
+		class:menu-open={menuId === chat.id}
+		style="animation-delay:{Math.min(index, 6) * 40}ms"
 		role="group"
-		onpointerdown={swipeable ? (e) => onRowDown(e, chat.id) : undefined}
-		onpointermove={swipeable ? onRowMove : undefined}
-		onpointerup={swipeable ? onRowUp : undefined}
-		onpointercancel={swipeable ? onRowUp : undefined}
 	>
-		{#if swipeable}
-			<div class="row-actions-under">
-				<button
-					type="button"
-					class="row-action pin"
-					aria-label={chat.pinned ? i18n.t('actions.unpin') : i18n.t('actions.pin')}
-					onclick={(e) => {
-						e.stopPropagation();
-						setPref(chat.id, { pinned: !chat.pinned });
-					}}
-				>
-					{#if chat.pinned}
-						<PinOff size={18} />
-					{:else}
-						<Pin size={18} />
-					{/if}
-				</button>
-				<button
-					type="button"
-					class="row-action mute"
-					aria-label={chat.muted ? i18n.t('actions.unmute') : i18n.t('actions.mute')}
-					onclick={(e) => {
-						e.stopPropagation();
-						setPref(chat.id, { muted: !chat.muted });
-					}}
-				>
-					{#if chat.muted}
-						<Bell size={18} />
-					{:else}
-						<BellOff size={18} />
-					{/if}
-				</button>
-				<button
-					type="button"
-					class="row-action archive"
-					aria-label={i18n.t('chat.archive')}
-					onclick={(e) => {
-						e.stopPropagation();
-						setPref(chat.id, { archived: true });
-					}}
-				>
-					<Archive size={18} />
-				</button>
-			</div>
-		{/if}
 		<button
 			type="button"
 			class="chat-row"
 			class:muted={chat.muted}
 			class:unread={chat.unreadCount > 0}
-			onclick={() => (swipeable ? onRowClick(chat.id) : openChat(chat.id))}
+			class:holding={holdingId === chat.id}
+			onclick={() => (withActions ? onRowClick(chat.id) : openChat(chat.id))}
+			onpointerdown={withActions ? (e) => onRowPointerDown(e, chat.id) : undefined}
+			oncontextmenu={withActions ? (e) => onRowContextMenu(e, chat.id) : undefined}
 		>
 			{#if chat.kind === 'channel' && chat.channel}
 				<ChannelAvatar channelKey={chat.channel.key} size={48} />

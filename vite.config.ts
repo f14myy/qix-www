@@ -13,6 +13,9 @@ export default defineConfig({
 		})
 	],
 	server: {
+		// Allow Cloudflare / ngrok / localtunnel hosts in `pnpm dev`
+		allowedHosts: true,
+		host: true,
 		fs: {
 			allow: ['data']
 		}

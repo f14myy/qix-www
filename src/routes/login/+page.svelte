@@ -18,12 +18,17 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ username, password })
 			});
-			const data = await res.json();
+			const data = await res.json().catch(() => ({}));
 			if (!res.ok) {
-				error = data.error || i18n.t('auth.loginFailed');
+				error =
+					typeof data.error === 'string' && data.error
+						? data.error
+						: i18n.t('auth.loginFailed');
 				return;
 			}
 			await goto('/');
+		} catch {
+			error = i18n.t('auth.loginFailed');
 		} finally {
 			loading = false;
 		}

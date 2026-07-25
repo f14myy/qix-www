@@ -60,7 +60,8 @@ export function labelUserAgent(ua: string | null | undefined): string {
 export async function createSession(
 	userId: string,
 	cookies: Cookies,
-	userAgent?: string | null
+	userAgent?: string | null,
+	opts?: { secure?: boolean }
 ): Promise<void> {
 	const id = createId(24);
 	const now = new Date();
@@ -77,11 +78,16 @@ export async function createSession(
 		})
 		.run();
 
+	const origin = process.env.ORIGIN?.trim();
+	const secure =
+		opts?.secure ??
+		(origin ? origin.startsWith('https://') : false);
+
 	cookies.set(SESSION_COOKIE, id, {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: process.env.NODE_ENV === 'production',
+		secure,
 		expires: expiresAt
 	});
 }
