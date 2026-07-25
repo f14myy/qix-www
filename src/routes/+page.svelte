@@ -724,9 +724,9 @@
 </div>
 
 {#if menuChat}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 	<div class="chat-menu-portal" use:portal>
-		<div class="menu-backdrop" onclick={closeMenu}></div>
+		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+		<div class="menu-backdrop" role="presentation" onclick={closeMenu}></div>
 		<div
 			class="msg-sheet"
 			role="dialog"

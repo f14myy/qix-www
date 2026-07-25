@@ -6363,7 +6363,7 @@ html[data-reduce-motion='1'] .chat-row.holding {
 	place-items: center;
 }
 
-.call-avatar-wrap > :global(.avatar-wrap) {
+.call-avatar-wrap > .avatar-wrap {
 	position: relative;
 	z-index: 1;
 }
@@ -7964,7 +7964,7 @@ html[data-theme='light'] [data-look-preview='noir'] .look-card-label {
 	animation: onboard-fade-up 480ms calc(140ms + var(--i) * 70ms) both;
 }
 
-.onboard-bullets li :global(svg) {
+.onboard-bullets li svg {
 	color: var(--accent);
 	flex-shrink: 0;
 }
@@ -7996,9 +7996,9 @@ html[data-theme='light'] [data-look-preview='noir'] .look-card-label {
 
 .onboard-avatar-img,
 .onboard-avatar-ph,
-.onboard-avatar-ring :global(.avatar-wrap),
-.onboard-avatar-ring :global(.avatar),
-.onboard-avatar-ring :global(img) {
+.onboard-avatar-ring .avatar-wrap,
+.onboard-avatar-ring .avatar,
+.onboard-avatar-ring img {
 	width: 112px !important;
 	height: 112px !important;
 	max-width: 112px !important;
