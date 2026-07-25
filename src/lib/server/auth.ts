@@ -66,13 +66,21 @@ export async function createSession(
 	const id = createId(24);
 	const now = new Date();
 	const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+	const ua = userAgent?.slice(0, 512) || null;
+
+	// Re-login / cookie flapping on the same browser used to stack duplicate rows.
+	if (ua) {
+		db.delete(sessions)
+			.where(and(eq(sessions.userId, userId), eq(sessions.userAgent, ua)))
+			.run();
+	}
 
 	db.insert(sessions)
 		.values({
 			id,
 			userId,
 			expiresAt,
-			userAgent: userAgent?.slice(0, 512) ?? null,
+			userAgent: ua,
 			createdAt: now,
 			lastSeenAt: now
 		})
@@ -87,6 +95,58 @@ export async function createSession(
 		secure,
 		expires: expiresAt
 	});
+}
+
+/** Drop older rows that share the same user-agent (keeps current + newest per UA). */
+export function pruneDuplicateSessions(userId: string, currentSessionId: string | null): void {
+	const rows = db
+		.select()
+		.from(sessions)
+		.where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, new Date())))
+		.all();
+
+	const keep = new Set<string>();
+	const bestByUa = new Map<string, { id: string; t: number }>();
+
+	for (const r of rows) {
+		if (r.id === currentSessionId) {
+			keep.add(r.id);
+			const key = r.userAgent || `id:${r.id}`;
+			bestByUa.set(key, {
+				id: r.id,
+				t: Number.MAX_SAFE_INTEGER
+			});
+		}
+	}
+
+	const sorted = [...rows].sort((a, b) => {
+		const ta = a.lastSeenAt?.getTime() ?? a.createdAt?.getTime() ?? 0;
+		const tb = b.lastSeenAt?.getTime() ?? b.createdAt?.getTime() ?? 0;
+		return tb - ta;
+	});
+
+	for (const r of sorted) {
+		if (keep.has(r.id)) continue;
+		const key = r.userAgent || `id:${r.id}`;
+		const t = r.lastSeenAt?.getTime() ?? r.createdAt?.getTime() ?? 0;
+		const best = bestByUa.get(key);
+		if (!best) {
+			bestByUa.set(key, { id: r.id, t });
+			keep.add(r.id);
+			continue;
+		}
+		if (t > best.t) {
+			keep.delete(best.id);
+			bestByUa.set(key, { id: r.id, t });
+			keep.add(r.id);
+		}
+	}
+
+	for (const r of rows) {
+		if (!keep.has(r.id)) {
+			db.delete(sessions).where(eq(sessions.id, r.id)).run();
+		}
+	}
 }
 
 /** Prefer proxy proto so Secure cookies are not set on plain HTTP behind nginx. */
@@ -146,6 +206,8 @@ export type SessionDTO = {
 };
 
 export function listSessions(userId: string, currentSessionId: string | null): SessionDTO[] {
+	pruneDuplicateSessions(userId, currentSessionId);
+
 	const rows = db
 		.select()
 		.from(sessions)

@@ -77,7 +77,8 @@ body {
 	height: 100%;
 	font-family: var(--font);
 	color: var(--text);
-	background: var(--bg);
+	/* Match app chrome so iOS safe-area / dvh gaps don't flash a darker --bg strip */
+	background: var(--bg-elevated);
 	-webkit-tap-highlight-color: transparent;
 	-webkit-font-smoothing: antialiased;
 }
@@ -89,7 +90,9 @@ html {
 }
 
 body {
+	min-height: 100%;
 	min-height: 100dvh;
+	min-height: -webkit-fill-available;
 	transition:
 		background-color var(--motion-slow) var(--ease-soft),
 		color var(--motion) var(--ease-soft);
@@ -137,8 +140,10 @@ button {
 }
 
 .app-shell {
-	min-height: 100dvh;
+	min-height: 100%;
 	min-height: 100svh;
+	min-height: 100dvh;
+	min-height: -webkit-fill-available;
 	display: flex;
 	flex-direction: column;
 	max-width: 480px;
@@ -155,18 +160,22 @@ button {
 	.app-shell {
 		max-width: none;
 		box-shadow: none;
+		min-height: 100svh;
 		min-height: 100dvh;
 		min-height: -webkit-fill-available;
+		height: 100%;
 		height: 100dvh;
-		height: 100svh;
+		height: -webkit-fill-available;
 	}
 
 	html,
 	body {
 		height: 100%;
+		min-height: 100%;
 		min-height: 100dvh;
 		min-height: -webkit-fill-available;
 		overscroll-behavior: none;
+		background: var(--bg-elevated);
 	}
 }
 
@@ -245,13 +254,9 @@ button {
 @keyframes screen-in {
 	from {
 		opacity: 0;
-		transform: translateY(16px) scale(0.985);
-		filter: blur(5px);
 	}
 	to {
 		opacity: 1;
-		transform: none;
-		filter: none;
 	}
 }
 
@@ -280,7 +285,7 @@ button {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	background: color-mix(in srgb, var(--bg-elevated) 66%, transparent);
+	background: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
 	backdrop-filter: blur(28px) saturate(1.5);
 	-webkit-backdrop-filter: blur(28px) saturate(1.5);
 	border-bottom: none;
@@ -290,20 +295,25 @@ button {
 	position: sticky;
 	top: 0;
 	z-index: 20;
+	flex-shrink: 0;
 	transition:
 		background-color var(--motion) var(--ease-soft),
 		box-shadow var(--motion) ease;
 	animation: topbar-in 360ms var(--ease-out) both;
 }
 
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	.topbar {
+		background: var(--bg-elevated);
+	}
+}
+
 @keyframes topbar-in {
 	from {
 		opacity: 0;
-		transform: translateY(-6px);
 	}
 	to {
 		opacity: 1;
-		transform: none;
 	}
 }
 
@@ -628,7 +638,7 @@ html.sheet-open body {
 	font-size: 0.68rem;
 	letter-spacing: 0.04em;
 	color: color-mix(in srgb, var(--text-muted) 55%, transparent);
-	background: var(--bg-elevated);
+	background: transparent;
 	user-select: none;
 	pointer-events: none;
 }
@@ -3535,6 +3545,12 @@ html.sheet-open body {
 	font-size: 0.84rem;
 }
 
+.session-logout-others .label {
+	width: 100%;
+	text-align: center;
+	font-weight: 650;
+}
+
 .recovery-code-list {
 	list-style: none;
 	margin: 0;
@@ -3566,6 +3582,7 @@ html.sheet-open body {
 .look-card {
 	display: flex;
 	flex-direction: column;
+	align-items: stretch;
 	gap: 8px;
 	padding: 0;
 	border: 2px solid var(--border);
@@ -3575,6 +3592,10 @@ html.sheet-open body {
 	cursor: pointer;
 	text-align: left;
 	color: inherit;
+	width: 100%;
+	min-width: 0;
+	appearance: none;
+	-webkit-appearance: none;
 	transition:
 		border-color var(--motion) ease,
 		transform var(--motion-fast) var(--ease-spring),
@@ -3592,13 +3613,16 @@ html.sheet-open body {
 
 .look-card-preview {
 	display: block;
+	width: 100%;
 	height: 88px;
 	position: relative;
 	overflow: hidden;
+	flex-shrink: 0;
 }
 
 .look-card-topbar {
 	display: block;
+	width: 100%;
 	height: 18px;
 	background: color-mix(in srgb, var(--preview-elevated, #fff) 88%, var(--preview-accent, var(--accent)));
 	border-bottom: 1px solid color-mix(in srgb, var(--preview-border, #ccc) 70%, transparent);
@@ -3609,7 +3633,9 @@ html.sheet-open body {
 	flex-direction: column;
 	gap: 6px;
 	padding: 10px 8px;
+	width: 100%;
 	height: calc(100% - 18px);
+	box-sizing: border-box;
 	background-color: var(--preview-chat, #cfdce6);
 	background-image: var(--chat-wallpaper-glow, none), var(--chat-wallpaper-pattern);
 	background-size: var(--chat-wallpaper-size, 100% 100%, 12px 12px);
@@ -3652,6 +3678,7 @@ html.sheet-open body {
 .wallpaper-card {
 	display: flex;
 	flex-direction: column;
+	align-items: stretch;
 	gap: 8px;
 	padding: 0;
 	border: 2px solid var(--border);
@@ -3660,6 +3687,10 @@ html.sheet-open body {
 	overflow: hidden;
 	cursor: pointer;
 	color: inherit;
+	width: 100%;
+	min-width: 0;
+	appearance: none;
+	-webkit-appearance: none;
 	transition:
 		border-color var(--motion) ease,
 		transform var(--motion-fast) var(--ease-spring),
@@ -3677,6 +3708,7 @@ html.sheet-open body {
 
 .wallpaper-sample {
 	display: block;
+	width: 100%;
 	height: 72px;
 	background-color: var(--preview-chat, var(--bg-chat));
 	background-image: var(--chat-wallpaper-glow), var(--chat-wallpaper-pattern);
@@ -4417,14 +4449,18 @@ html.sheet-open body {
 	flex: 0 0 148px;
 	scroll-snap-align: start;
 	width: 148px;
+	min-width: 148px;
+	max-width: 148px;
 }
 
 .look-card-rail .look-card-preview {
 	height: 110px;
+	width: 100%;
 }
 
 .wallpaper-card-rail .wallpaper-sample {
 	height: 96px;
+	width: 100%;
 	position: relative;
 }
 
@@ -4456,7 +4492,6 @@ html.sheet-open body {
 }
 
 /* Preview surfaces pick current wallpaper */
-.look-card-chat,
 .appearance-live-chat {
 	background-image: inherit;
 }
@@ -4800,6 +4835,23 @@ html[data-reduce-motion='1'] .chat-row.holding {
 .settings-row.link-row {
 	text-decoration: none;
 	color: inherit;
+}
+
+button.settings-row {
+	width: 100%;
+	border: none;
+	background: transparent;
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
+	border-radius: 0;
+	appearance: none;
+	-webkit-appearance: none;
+}
+
+button.settings-row.link-row .label {
+	color: var(--accent);
 }
 
 .profile-screen {
@@ -7383,6 +7435,7 @@ html[data-reduce-motion='1'] .app-toast {
 	position: relative;
 	display: flex;
 	flex-direction: column;
+	align-items: stretch;
 	gap: 8px;
 	padding: 0;
 	border: 2px solid var(--border);
@@ -7392,6 +7445,9 @@ html[data-reduce-motion='1'] .app-toast {
 	cursor: pointer;
 	color: inherit;
 	text-align: left;
+	width: 100%;
+	appearance: none;
+	-webkit-appearance: none;
 	transition: border-color var(--motion) ease, transform var(--motion-fast) var(--ease-spring);
 }
 .bubble-style-card:hover { transform: translateY(-2px); }
@@ -7404,7 +7460,9 @@ html[data-reduce-motion='1'] .app-toast {
 	flex-direction: column;
 	gap: 6px;
 	padding: 12px 10px;
+	width: 100%;
 	min-height: 64px;
+	box-sizing: border-box;
 	background: var(--preview-chat, var(--bg-chat));
 }
 .bubble-style-them,

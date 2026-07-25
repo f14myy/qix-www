@@ -276,7 +276,7 @@
 					</div>
 				{/each}
 				{#if sessions.length > 1}
-					<button type="button" class="settings-row link-row" onclick={revokeOthers}>
+					<button type="button" class="settings-row link-row session-logout-others" onclick={revokeOthers}>
 						<span class="label">{i18n.t('security.logoutOthers')}</span>
 					</button>
 				{/if}
