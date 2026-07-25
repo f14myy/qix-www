@@ -119,12 +119,31 @@
 			if (bannerFile) form.set('banner', bannerFile);
 			if (removeBanner) form.set('removeBanner', '1');
 			const res = await fetch('/api/me/profile', { method: 'PATCH', body: form });
-			const json = await res.json();
+			const text = await res.text();
+			let json: {
+				error?: string;
+				profile?: {
+					displayName: string | null;
+					bio: string | null;
+					avatarPath: string | null;
+					bannerPath: string | null;
+				};
+			} = {};
+			try {
+				json = text ? JSON.parse(text) : {};
+			} catch {
+				error = text.slice(0, 160) || i18n.t('profile.error');
+				return;
+			}
 			if (!res.ok) {
 				error = json.error || i18n.t('profile.error');
 				return;
 			}
 			const p = json.profile;
+			if (!p) {
+				error = i18n.t('profile.error');
+				return;
+			}
 			displayName = p.displayName ?? '';
 			bio = p.bio ?? '';
 			avatarPath = p.avatarPath;
