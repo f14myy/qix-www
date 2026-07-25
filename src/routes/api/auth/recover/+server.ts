@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
 	consumeRecoveryCode,
+	cookieSecureFromRequest,
 	createSession,
 	hashPassword,
 	normalizeUsername,
@@ -55,7 +56,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 	db.update(users).set({ passwordHash }).where(eq(users.id, user.id)).run();
 	db.delete(sessions).where(eq(sessions.userId, user.id)).run();
 	await createSession(user.id, cookies, request.headers.get('user-agent'), {
-		secure: new URL(request.url).protocol === 'https:'
+		secure: cookieSecureFromRequest(request)
 	});
 
 	return json({ ok: true });

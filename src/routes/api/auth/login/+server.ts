@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
 	createSession,
+	cookieSecureFromRequest,
 	normalizeUsername,
 	validateUsername,
 	verifyPassword
@@ -52,7 +53,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 	}
 
 	await createSession(user.id, cookies, request.headers.get('user-agent'), {
-		secure: new URL(request.url).protocol === 'https:'
+		secure: cookieSecureFromRequest(request)
 	});
 
 	return json({ user: { id: user.id, username: user.username } });

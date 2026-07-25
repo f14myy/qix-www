@@ -78,10 +78,7 @@ export async function createSession(
 		})
 		.run();
 
-	const origin = process.env.ORIGIN?.trim();
-	const secure =
-		opts?.secure ??
-		(origin ? origin.startsWith('https://') : false);
+	const secure = opts?.secure ?? false;
 
 	cookies.set(SESSION_COOKIE, id, {
 		path: '/',
@@ -90,6 +87,18 @@ export async function createSession(
 		secure,
 		expires: expiresAt
 	});
+}
+
+/** Prefer proxy proto so Secure cookies are not set on plain HTTP behind nginx. */
+export function cookieSecureFromRequest(request: Request): boolean {
+	const xf = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase();
+	if (xf === 'https') return true;
+	if (xf === 'http') return false;
+	try {
+		return new URL(request.url).protocol === 'https:';
+	} catch {
+		return false;
+	}
 }
 
 export function deleteSession(sessionId: string, cookies: Cookies): void {

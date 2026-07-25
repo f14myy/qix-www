@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 
 	const i18n = useI18n();
@@ -15,6 +14,7 @@
 		try {
 			const res = await fetch('/api/auth/login', {
 				method: 'POST',
+				credentials: 'same-origin',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ username, password })
 			});
@@ -26,10 +26,10 @@
 						: i18n.t('auth.loginFailed');
 				return;
 			}
-			await goto('/');
+			// Full reload so the session cookie is always applied
+			window.location.assign('/');
 		} catch {
 			error = i18n.t('auth.loginFailed');
-		} finally {
 			loading = false;
 		}
 	}

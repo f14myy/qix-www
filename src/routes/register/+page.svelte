@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 
 	const i18n = useI18n();
@@ -15,12 +14,17 @@
 		try {
 			const res = await fetch('/api/auth/register', {
 				method: 'POST',
+				credentials: 'same-origin',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ username, password })
 			});
-			const data = await res.json();
+			const data = await res.json().catch(() => ({}));
 			if (!res.ok) {
-				error = data.error || i18n.t('auth.registerFailed');
+				error =
+					typeof data.error === 'string' && data.error
+						? data.error
+						: i18n.t('auth.registerFailed');
+				loading = false;
 				return;
 			}
 			if (Array.isArray(data.recoveryCodes)) {
@@ -35,8 +39,9 @@
 			} catch {
 				/* ignore */
 			}
-			await goto('/');
-		} finally {
+			window.location.assign('/');
+		} catch {
+			error = i18n.t('auth.registerFailed');
 			loading = false;
 		}
 	}
