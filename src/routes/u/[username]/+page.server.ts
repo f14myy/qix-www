@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { users } from '$lib/server/schema';
@@ -8,11 +8,12 @@ import { isBlockedBy, isBlockedEither, canSeeProfileDetails } from '$lib/server/
 import { eq } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
+	if (!locals.user) redirect(303, '/login');
 	const username = normalizeUsername(params.username);
 	const user = db.select().from(users).where(eq(users.username, username)).get();
 	if (!user) error(404, 'Not found');
 
-	const me = locals.user!.id;
+	const me = locals.user.id;
 	const isSelf = user.id === me;
 	const blockedByMe = isBlockedBy(me, user.id);
 	const blocked = isBlockedEither(me, user.id);

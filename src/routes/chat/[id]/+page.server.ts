@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import {
 	getMessageById,
@@ -14,21 +14,22 @@ import { getChatMeta } from '$lib/server/features';
 import { isAdmin } from '$lib/admin';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
+	if (!locals.user) redirect(303, '/login');
 	const chatId = params.id;
-	if (!isChatMember(chatId, locals.user!.id)) {
+	if (!isChatMember(chatId, locals.user.id)) {
 		error(404, 'Chat not found');
 	}
 
 	const channel = getChannelByChatId(chatId);
-	const peer = channel ? null : getPeer(chatId, locals.user!.id);
+	const peer = channel ? null : getPeer(chatId, locals.user.id);
 	if (!channel && !peer) error(404, 'Chat not found');
 
-	const peerLastReadAt = channel ? null : getPeerLastReadAt(chatId, locals.user!.id);
-	const myLastReadAt = getMyLastReadAt(chatId, locals.user!.id);
+	const peerLastReadAt = channel ? null : getPeerLastReadAt(chatId, locals.user.id);
+	const myLastReadAt = getMyLastReadAt(chatId, locals.user.id);
 	const meta = getChatMeta(chatId);
 	const pinnedRow = meta?.pinnedMessageId ? getMessageById(meta.pinnedMessageId) : null;
 	const pinnedMessage =
-		pinnedRow && !pinnedRow.deletedAt ? toMessageDTO(pinnedRow, locals.user!.id) : null;
+		pinnedRow && !pinnedRow.deletedAt ? toMessageDTO(pinnedRow, locals.user.id) : null;
 
 	return {
 		chatId,
@@ -44,7 +45,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			: null,
 		peerLastReadAt: peerLastReadAt ? peerLastReadAt.toISOString() : null,
 		myLastReadAt: myLastReadAt ? myLastReadAt.toISOString() : null,
-		messages: listMessages(chatId, locals.user!.id, 100),
+		messages: listMessages(chatId, locals.user.id, 100),
 		pinnedMessageId: meta?.pinnedMessageId ?? null,
 		disappearAfterSec: meta?.disappearAfterSec ?? 0,
 		pinnedMessage,
