@@ -224,19 +224,19 @@ function isBubble(v: string | null): v is BubbleStyle {
 }
 
 export function getStoredTheme(): ThemePreference {
-	if (typeof localStorage === 'undefined') return 'system';
+	if (typeof localStorage === 'undefined') return 'light';
 	const v = localStorage.getItem(MODE_KEY);
 	if (v === 'light' || v === 'dark' || v === 'system') return v;
-	return 'system';
+	return 'light';
 }
 
 export function getStoredLook(): LookId {
-	if (typeof localStorage === 'undefined') return 'qix';
+	if (typeof localStorage === 'undefined') return 'citrus';
 	const look = localStorage.getItem(LOOK_KEY);
 	if (isLook(look)) return look;
 	const legacy = localStorage.getItem(LEGACY_ACCENT_KEY);
 	if (legacy && LEGACY_ACCENT_MAP[legacy]) return LEGACY_ACCENT_MAP[legacy];
-	return 'qix';
+	return 'citrus';
 }
 
 export function getStoredWallpaper(): WallpaperId {
@@ -272,7 +272,7 @@ export function resolveTheme(pref: ThemePreference): 'light' | 'dark' {
 }
 
 export function statusBarColor(
-	look: LookId = typeof document !== 'undefined' ? getStoredLook() : 'qix',
+	look: LookId = typeof document !== 'undefined' ? getStoredLook() : 'citrus',
 	mode: 'light' | 'dark' = typeof document !== 'undefined'
 		? resolveTheme(getStoredTheme())
 		: 'light'

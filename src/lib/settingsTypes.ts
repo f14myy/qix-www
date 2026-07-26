@@ -36,6 +36,6 @@ export const DEFAULT_SETTINGS: UserSettingsDTO = {
 	showTyping: true,
 	whoCanMessage: 'everyone',
 	profileVisibility: 'everyone',
-	look: 'qix',
-	theme: 'system'
+	look: 'citrus',
+	theme: 'light'
 };

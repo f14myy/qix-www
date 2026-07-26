@@ -19,3 +19,15 @@ export function hapticSuccess() {
 export function hapticFail() {
 	haptic([30, 40, 30]);
 }
+
+export function hapticPop() {
+	haptic([6, 20, 8]);
+}
+
+export function hapticSwipe() {
+	haptic(12);
+}
+
+export function hapticBurst() {
+	haptic([8, 15, 8, 15, 12]);
+}

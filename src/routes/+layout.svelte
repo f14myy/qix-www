@@ -26,7 +26,7 @@
 	import '../app.css';
 
 	let { children } = $props();
-	let themeColor = $state('#121a22');
+	let themeColor = $state('#f7f9ec');
 
 	/** Top-level destinations that keep the bottom tab bar visible. */
 	const TAB_ROUTES = new Set(['/', '/requests', '/archive', '/settings']);

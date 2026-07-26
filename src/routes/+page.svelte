@@ -576,6 +576,9 @@
 			setSheetOpen(false);
 		};
 	});
+
+
+
 </script>
 
 <svelte:window onfocus={refresh} onkeydown={onMenuKeydown} />
@@ -756,8 +759,8 @@
 				{@render chatRow(chat, pinned.length + i, true)}
 			{/each}
 		{/if}
+		<p class="app-version" aria-hidden="true">{APP_VERSION}</p>
 	</div>
-	<p class="app-version" aria-hidden="true">{APP_VERSION}</p>
 
 	<a class="fab" href="/new" aria-label={i18n.t('chats.newTitle')} title={i18n.t('chats.newTitle')}>
 		<PenLine size={22} />

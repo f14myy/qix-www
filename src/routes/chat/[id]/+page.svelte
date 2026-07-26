@@ -70,7 +70,7 @@
 	let showJump = $state(false);
 	let stickyLabel = $state('');
 	let lightbox = $state<{ urls: string[]; index: number } | null>(null);
-	let viewportH = $state(0);
+	let viewportH = $state<number | null>(null);
 	let viewportOffset = $state(0);
 	let keyboardOpen = $state(false);
 	let hasMore = $state(true);
@@ -1015,6 +1015,68 @@
 		exitSelect();
 	}
 
+	// Edge Swipe Back Gesture
+	let edgeSwipeX = $state(0);
+	let edgeSwiping = $state(false);
+	let edgeTouchStartX = 0;
+	let edgeTouchStartY = 0;
+
+	function onEdgeTouchStart(e: TouchEvent) {
+		const touch = e.touches[0];
+		if (!touch || touch.clientX > 32) return;
+		edgeTouchStartX = touch.clientX;
+		edgeTouchStartY = touch.clientY;
+		edgeSwiping = true;
+	}
+
+	function onEdgeTouchMove(e: TouchEvent) {
+		if (!edgeSwiping) return;
+		const touch = e.touches[0];
+		if (!touch) return;
+		const dx = touch.clientX - edgeTouchStartX;
+		const dy = Math.abs(touch.clientY - edgeTouchStartY);
+		if (dy > Math.abs(dx) && edgeSwipeX === 0) {
+			edgeSwiping = false;
+			return;
+		}
+		if (dx > 0) {
+			edgeSwipeX = dx;
+		}
+	}
+
+	function onEdgeTouchEnd() {
+		if (!edgeSwiping) return;
+		edgeSwiping = false;
+		if (edgeSwipeX > 90) {
+			haptic(12);
+			goBack();
+		}
+		edgeSwipeX = 0;
+	}
+
+	$effect(() => {
+		if (typeof window === 'undefined' || !window.visualViewport) return;
+		const vv = window.visualViewport;
+		const updateViewport = () => {
+			const kh = window.innerHeight - vv.height;
+			if (kh > 100) {
+				keyboardOpen = true;
+				viewportH = vv.height;
+				viewportOffset = vv.offsetTop;
+			} else {
+				keyboardOpen = false;
+				viewportH = null;
+				viewportOffset = 0;
+			}
+		};
+		vv.addEventListener('resize', updateViewport);
+		vv.addEventListener('scroll', updateViewport);
+		return () => {
+			vv.removeEventListener('resize', updateViewport);
+			vv.removeEventListener('scroll', updateViewport);
+		};
+	});
+
 	function goBack() {
 		if (selectMode) {
 			exitSelect();
@@ -1052,9 +1114,14 @@
 <div
 	class="screen chat-view"
 	class:kb-open={keyboardOpen}
-	style={viewportH
-		? `padding-bottom:0;height:${viewportH}px;max-height:${viewportH}px;transform:translateY(${viewportOffset}px)`
-		: 'padding-bottom:0'}
+	ontouchstart={onEdgeTouchStart}
+	ontouchmove={onEdgeTouchMove}
+	ontouchend={onEdgeTouchEnd}
+	style={edgeSwipeX
+		? `transform: translateX(${edgeSwipeX}px); transition: none;`
+		: viewportH
+			? `padding-bottom:0;height:${viewportH}px;max-height:${viewportH}px;transform:translateY(${viewportOffset}px)`
+			: 'padding-bottom:0'}
 >
 	<header class="topbar chat-topbar">
 		<button type="button" class="icon-btn back-btn" aria-label={i18n.t('back')} onclick={goBack}>
@@ -1261,11 +1328,11 @@
 									peerPublicKey: e2eePeerKey
 								}
 							: null}
-						onreply={(m) => {
+						onreply={(m: MessageDTO) => {
 							replyTo = m;
 							editing = null;
 						}}
-						onedit={(m) => {
+						onedit={(m: MessageDTO) => {
 							editing = m;
 							replyTo = null;
 						}}
@@ -1273,8 +1340,8 @@
 						onreact={react}
 						onjump={jumpTo}
 						onretry={retrySend}
-						onopenImage={(urls, index) => (lightbox = { urls, index })}
-						onforward={(m) => openForward([m.id])}
+						onopenImage={(urls: string[], index: number) => (lightbox = { urls, index })}
+						onforward={(m: MessageDTO) => openForward([m.id])}
 						onpin={pinMessage}
 						ontoggleSelect={toggleSelect}
 						onenterSelect={enterSelect}

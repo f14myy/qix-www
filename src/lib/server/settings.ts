@@ -64,8 +64,8 @@ function rowToDto(existing: typeof userSettings.$inferSelect): UserSettingsDTO {
 		profileVisibility: parseProfileVis(
 			(existing as { profileVisibility?: string }).profileVisibility
 		),
-		look: (existing as { look?: string }).look || 'qix',
-		theme: (existing as { theme?: string }).theme || 'system'
+		look: (existing as { look?: string }).look || 'citrus',
+		theme: (existing as { theme?: string }).theme || 'light'
 	};
 }
 

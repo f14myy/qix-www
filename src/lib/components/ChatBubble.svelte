@@ -8,7 +8,7 @@
 	import LinkCard from './LinkCard.svelte';
 	import VoicePlayer from './VoicePlayer.svelte';
 	import { decryptAttachmentUrl } from '$lib/e2ee/messages';
-	import { haptic } from '$lib/haptic';
+	import { haptic, hapticBurst } from '$lib/haptic';
 	import { getCachedSettings } from '$lib/settings';
 	import { formatMessageTime } from '$lib/time';
 	import { formatMessageHtml } from '$lib/formatMessage';
@@ -76,6 +76,7 @@
 	let lastTapAt = 0;
 	let canShare = $state(false);
 	let moveGuard = 0;
+	let burstEmoji = $state<string | null>(null);
 	let attUrls = $state<Record<string, { url: string; mime: string }>>({});
 
 	const deleted = $derived(!!message.deletedAt);
@@ -307,6 +308,9 @@
 		if (selectMode) ontoggleSelect?.(message);
 	}}
 >
+	{#if burstEmoji}
+		<span class="reaction-burst-particle" aria-hidden="true">{burstEmoji}</span>
+	{/if}
 	<span
 		class="swipe-reply-hint"
 		class:visible={swipeX < -8}
@@ -500,6 +504,11 @@
 					<button
 						type="button"
 						onclick={() => {
+							burstEmoji = emoji;
+							hapticBurst();
+							setTimeout(() => {
+								burstEmoji = null;
+							}, 800);
 							closeMenu();
 							onreact(message, emoji);
 						}}>{emoji}</button
