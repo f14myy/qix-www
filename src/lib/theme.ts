@@ -1,3 +1,5 @@
+import { patchSettings } from '$lib/settings';
+
 export type ThemePreference = 'light' | 'dark' | 'system';
 
 /** Full visual look — colors, bubbles, chat base tone. */
@@ -321,11 +323,13 @@ export function applyTheme(pref: ThemePreference): 'light' | 'dark' {
 
 export function setThemePreference(pref: ThemePreference): 'light' | 'dark' {
 	localStorage.setItem(MODE_KEY, pref);
+	void patchSettings({ theme: pref }).catch(() => null);
 	return applyTheme(pref);
 }
 
 export function setLookPreference(look: LookId) {
 	localStorage.setItem(LOOK_KEY, look);
+	void patchSettings({ look }).catch(() => null);
 	applyLook(look);
 }
 

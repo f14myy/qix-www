@@ -20,7 +20,7 @@ module.exports = {
 			env: {
 				NODE_ENV: 'production',
 				// MUST match the URL users open (http vs https, with :port if not 80/443)
-				ORIGIN: process.env.ORIGIN || 'http://217.60.240.76',
+				ORIGIN: process.env.ORIGIN || 'https://qqqix.ru',
 				HOST: '0.0.0.0',
 				PORT: process.env.PORT || '3000',
 				// Avatar/banner uploads (default adapter limit is 512K)

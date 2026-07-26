@@ -63,7 +63,9 @@ function rowToDto(existing: typeof userSettings.$inferSelect): UserSettingsDTO {
 		whoCanMessage: parseWhoCan(existing.whoCanMessage),
 		profileVisibility: parseProfileVis(
 			(existing as { profileVisibility?: string }).profileVisibility
-		)
+		),
+		look: (existing as { look?: string }).look || 'qix',
+		theme: (existing as { theme?: string }).theme || 'system'
 	};
 }
 
@@ -109,6 +111,8 @@ export function updateUserSettings(
 	if (patch.showTyping !== undefined) next.showTyping = patch.showTyping;
 	if (patch.whoCanMessage !== undefined) next.whoCanMessage = patch.whoCanMessage;
 	if (patch.profileVisibility !== undefined) next.profileVisibility = patch.profileVisibility;
+	if (patch.look !== undefined) next.look = patch.look;
+	if (patch.theme !== undefined) next.theme = patch.theme;
 
 	db.update(userSettings).set(next).where(eq(userSettings.userId, userId)).run();
 	return getUserSettings(userId);

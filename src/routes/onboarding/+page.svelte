@@ -32,7 +32,7 @@
 	let { data }: { data: PageData } = $props();
 	const i18n = useI18n();
 
-	const STEPS = ['welcome', 'profile', 'look', 'language', 'notifications', 'tips', 'done'] as const;
+	const STEPS = ['language', 'welcome', 'profile', 'look', 'notifications', 'tips', 'done'] as const;
 	type Step = (typeof STEPS)[number];
 
 	const seed = untrack(() => data.profile);

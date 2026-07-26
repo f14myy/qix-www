@@ -161,6 +161,8 @@ export const userSettings = sqliteTable('user_settings', {
 	showTyping: integer('show_typing', { mode: 'boolean' }).notNull().default(true),
 	whoCanMessage: text('who_can_message').notNull().default('everyone'),
 	profileVisibility: text('profile_visibility').notNull().default('everyone'),
+	look: text('look').notNull().default('qix'),
+	theme: text('theme').notNull().default('system'),
 	updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
 });
 

@@ -17,6 +17,8 @@ export type UserSettingsDTO = {
 	showTyping: boolean;
 	whoCanMessage: WhoCanMessage;
 	profileVisibility: ProfileVisibility;
+	look: string;
+	theme: string;
 };
 
 export const DEFAULT_SETTINGS: UserSettingsDTO = {
@@ -33,5 +35,7 @@ export const DEFAULT_SETTINGS: UserSettingsDTO = {
 	readReceipts: true,
 	showTyping: true,
 	whoCanMessage: 'everyone',
-	profileVisibility: 'everyone'
+	profileVisibility: 'everyone',
+	look: 'qix',
+	theme: 'system'
 };

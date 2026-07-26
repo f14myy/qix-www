@@ -197,6 +197,8 @@ ensureColumn('user_settings', 'last_seen_reciprocity', 'last_seen_reciprocity IN
 ensureColumn('user_settings', 'confirm_message_delete', 'confirm_message_delete INTEGER NOT NULL DEFAULT 1');
 ensureColumn('user_settings', 'auto_play_voice', 'auto_play_voice INTEGER NOT NULL DEFAULT 1');
 ensureColumn('user_settings', 'notify_sound', 'notify_sound INTEGER NOT NULL DEFAULT 1');
+ensureColumn('user_settings', 'look', "look TEXT NOT NULL DEFAULT 'qix'");
+ensureColumn('user_settings', 'theme', "theme TEXT NOT NULL DEFAULT 'system'");
 ensureColumn('chat_members', 'archived_at', 'archived_at INTEGER');
 ensureColumn('chats', 'pinned_message_id', 'pinned_message_id TEXT');
 ensureColumn('chats', 'disappear_after_sec', 'disappear_after_sec INTEGER NOT NULL DEFAULT 0');

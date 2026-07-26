@@ -20,7 +20,7 @@ export function initLocale(): Locale {
 	if (typeof localStorage !== 'undefined') {
 		const stored = localStorage.getItem(STORAGE_KEY);
 		if (stored === 'en' || stored === 'ru') current = stored;
-		else current = detectLocale();
+		else current = 'en';
 	}
 	return current;
 }

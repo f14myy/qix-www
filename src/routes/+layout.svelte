@@ -14,7 +14,7 @@
 		onCallSignal,
 		resumeActiveCall
 	} from '$lib/calls/store.svelte';
-	import { initTheme, statusBarColor } from '$lib/theme';
+	import { initTheme, setLookPreference, setThemePreference, statusBarColor, type LookId, type ThemePreference } from '$lib/theme';
 	import { initLocale } from '$lib/i18n';
 	import { fetchSettings } from '$lib/settings';
 	import { registerServiceWorker } from '$lib/pwa';
