@@ -3,6 +3,7 @@
 	import { onNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import CallOverlay from '$lib/components/CallOverlay.svelte';
+	import WhatsNew from '$lib/components/WhatsNew.svelte';
 	import AppFlash from '$lib/components/AppFlash.svelte';
 	import RecoveryCodesGate from '$lib/components/RecoveryCodesGate.svelte';
 	import TabBar from '$lib/components/TabBar.svelte';
@@ -199,4 +200,5 @@
 {#if page.data.user}
 	<RecoveryCodesGate />
 	<CallOverlay />
+	<WhatsNew />
 {/if}

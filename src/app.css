@@ -9555,3 +9555,103 @@ html[data-reduce-motion='1'] .ob-bubble {
 		transform: rotate(360deg);
 	}
 }
+
+/* What's New Modal Overlay */
+.wn-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 999;
+	display: grid;
+	place-items: center;
+	padding: 20px;
+	background: rgba(0, 0, 0, 0.45);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	animation: wn-fade 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.wn-card {
+	width: min(100%, 420px);
+	max-height: min(84dvh, 580px);
+	display: flex;
+	flex-direction: column;
+	background: var(--bg-elevated);
+	border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+	border-radius: 24px;
+	padding: 24px;
+	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+	animation: wn-slide 340ms var(--ease-spring) both;
+}
+
+.wn-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 18px;
+}
+
+.wn-sparkle {
+	width: 42px;
+	height: 42px;
+	border-radius: 14px;
+	display: grid;
+	place-items: center;
+	background: color-mix(in srgb, var(--accent) 16%, transparent);
+	color: var(--accent);
+	flex-shrink: 0;
+}
+
+.wn-title {
+	margin: 0;
+	font-size: 1.25rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+
+.wn-list {
+	list-style: none;
+	margin: 0 0 20px;
+	padding: 0;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	flex: 1;
+}
+
+.wn-entry {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	font-size: 0.92rem;
+	line-height: 1.4;
+	color: var(--text);
+}
+
+.wn-entry-icon {
+	font-size: 1.15rem;
+	line-height: 1.2;
+	flex-shrink: 0;
+}
+
+.wn-dismiss {
+	width: 100%;
+	min-height: 48px;
+	border-radius: 14px;
+	font-weight: 600;
+	font-size: 1rem;
+	background: var(--accent);
+	color: #ffffff;
+	border: none;
+	box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+@keyframes wn-fade {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@keyframes wn-slide {
+	from { opacity: 0; transform: translateY(20px) scale(0.96); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
