@@ -31,7 +31,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			'content-type': att.mime,
 			'content-length': String(stats.size),
 			'content-disposition': `inline; filename="${encodeURIComponent(att.filename)}"`,
-			'cache-control': 'private, max-age=3600'
+			// An attachment id is minted per upload and its bytes never change, so
+			// this can be cached for good. Matters most on the phone clients, which
+			// otherwise re-download every image in a chat over mobile data each
+			// hour. Still `private` — the response is session-gated.
+			'cache-control': 'private, max-age=31536000, immutable'
 		}
 	});
 };
