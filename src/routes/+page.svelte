@@ -35,7 +35,6 @@
 	const i18n = useI18n();
 	let filter = $state('');
 	let searching = $state(false);
-	let showHoldHint = $state(false);
 	let showSearchHint = $state(false);
 	let showChannelsHint = $state(false);
 	let searchChats = $state<PageData['chats']>([]);
@@ -82,14 +81,8 @@
 	>([]);
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	let menuId = $state<string | null>(null);
-	let holdingId = $state<string | null>(null);
-	let holdTimer: ReturnType<typeof setTimeout> | undefined;
-	let holdChatId: string | null = null;
-	let holdStartX = 0;
-	let holdStartY = 0;
-	let holdMoved = false;
 	let skipClickUntil = 0;
-	let detachHoldListeners: (() => void) | null = null;
+	let detachPointerListeners: (() => void) | null = null;
 	let prefBusy = $state(false);
 	let pullStartY = 0;
 	let pullY = $state(0);
@@ -105,8 +98,6 @@
 	let swipeX = $state(0);
 	let openSwipeId = $state<string | null>(null);
 
-	const HOLD_MS = 440;
-	const HOLD_MOVE_SLOP = 40;
 	const SKIP_CLICK_MS = 650;
 	/** Must match --row-actions-w in app.css. */
 	const SWIPE_OPEN = 132;
@@ -300,31 +291,15 @@
 		document.documentElement.classList.toggle('sheet-open', open);
 	}
 
-	function clearHoldTimer() {
-		if (holdTimer) clearTimeout(holdTimer);
-		holdTimer = undefined;
-	}
-
-	function endHoldTracking() {
-		clearHoldTimer();
-		detachHoldListeners?.();
-		detachHoldListeners = null;
-		holdChatId = null;
-		holdingId = null;
-		holdMoved = false;
-	}
-
 	function closeMenu() {
 		menuId = null;
 		prefBusy = false;
-		endHoldTracking();
+		detachPointerListeners?.();
+		detachPointerListeners = null;
 		setSheetOpen(false);
 	}
 
 	function openMenu(id: string) {
-		clearHoldTimer();
-		holdingId = null;
-		holdChatId = null;
 		pulling = false;
 		pullY = 0;
 		closeSwipe();
@@ -350,44 +325,29 @@
 			}
 		}
 
-		endHoldTracking();
-		holdMoved = false;
-		holdStartX = e.clientX;
-		holdStartY = e.clientY;
-		holdChatId = id;
-		holdingId = id;
+		detachPointerListeners?.();
+		const startX = e.clientX;
+		const startY = e.clientY;
 
 		const pointerId = e.pointerId;
 		const onMove = (ev: PointerEvent) => {
 			if (ev.pointerId !== pointerId) return;
 			if (menuId) return;
-			const dx = ev.clientX - holdStartX;
-			const dy = ev.clientY - holdStartY;
+			const dx = ev.clientX - startX;
+			const dy = ev.clientY - startY;
 
 			if (swipeId === id) {
 				swipeX = Math.max(-(SWIPE_OPEN + 28), Math.min(0, dx));
 				return;
 			}
-			if (!holdChatId) return;
 			if (dx < -SWIPE_START && Math.abs(dx) > Math.abs(dy) * 1.4) {
-				clearHoldTimer();
-				holdingId = null;
-				holdMoved = true;
 				swipeId = id;
 				swipeX = Math.max(-(SWIPE_OPEN + 28), dx);
-				return;
-			}
-			if (dx * dx + dy * dy > HOLD_MOVE_SLOP * HOLD_MOVE_SLOP) {
-				holdMoved = true;
-				clearHoldTimer();
-				holdingId = null;
 			}
 		};
+
 		const onUp = (ev: PointerEvent) => {
 			if (ev.pointerId !== pointerId) return;
-			clearHoldTimer();
-			holdingId = null;
-			holdChatId = null;
 			if (swipeId === id) {
 				swipeId = null;
 				skipClickUntil = Date.now() + SKIP_CLICK_MS;
@@ -399,29 +359,23 @@
 					swipeX = 0;
 				}
 			}
-			detachHoldListeners?.();
-			detachHoldListeners = null;
+			detachPointerListeners?.();
+			detachPointerListeners = null;
 		};
 
 		window.addEventListener('pointermove', onMove, { passive: true });
 		window.addEventListener('pointerup', onUp);
 		window.addEventListener('pointercancel', onUp);
-		detachHoldListeners = () => {
+		detachPointerListeners = () => {
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
 			window.removeEventListener('pointercancel', onUp);
 		};
-
-		holdTimer = setTimeout(() => {
-			if (holdChatId !== id || holdMoved) return;
-			openMenu(id);
-		}, HOLD_MS);
 	}
 
-	function onRowContextMenu(e: MouseEvent, id: string) {
+	function onRowContextMenu(e: MouseEvent) {
 		e.preventDefault();
 		e.stopPropagation();
-		openMenu(id);
 	}
 
 	function onRowClick(id: string) {
@@ -445,14 +399,14 @@
 	}
 
 	function onListTouchStart(e: TouchEvent) {
-		if (holdChatId || holdingId || menuId || swipeId || openSwipeId) return;
+		if (menuId || swipeId || openSwipeId) return;
 		if (!listEl || listEl.scrollTop > 0 || refreshing) return;
 		pullStartY = e.touches[0].clientY;
 		pulling = true;
 	}
 
 	function onListTouchMove(e: TouchEvent) {
-		if (holdChatId || holdingId || menuId || swipeId) {
+		if (menuId || swipeId) {
 			pulling = false;
 			pullY = 0;
 			return;
@@ -514,9 +468,6 @@
 			} else if (shouldShowCoach('qix-hint-channels') && data.chats.some((c) => c.kind === 'channel')) {
 				showChannelsHint = true;
 				markCoachShown('qix-hint-channels');
-			} else if (shouldShowCoach('qix-hint-hold-list') && data.chats.length > 0) {
-				showHoldHint = true;
-				markCoachShown('qix-hint-hold-list');
 			}
 		} catch {
 			/* ignore */
@@ -592,7 +543,8 @@
 			disconnect();
 			document.removeEventListener('visibilitychange', onVisibility);
 			clearTimeout(searchTimer);
-			endHoldTracking();
+			detachPointerListeners?.();
+			detachPointerListeners = null;
 			setSheetOpen(false);
 		};
 	});
@@ -634,20 +586,6 @@
 			{/snippet}
 			<p>{i18n.t('coach.channels')}</p>
 		</CoachTip>
-	{:else if showHoldHint}
-		<CoachTip
-			class="list-coach"
-			actionLabel={i18n.t('chats.holdHintDismiss')}
-			ondismiss={() => {
-				showHoldHint = false;
-				dismissCoach('qix-hint-hold-list');
-			}}
-		>
-			{#snippet icon()}
-				<Hand size={20} />
-			{/snippet}
-			<p>{i18n.t('chats.holdHint')}</p>
-		</CoachTip>
 	{/if}
 
 	<div class="list-filter">
@@ -676,7 +614,7 @@
 
 	<div
 		class="list"
-		class:is-holding={!!holdingId || !!menuId}
+		class:is-holding={!!menuId}
 		bind:this={listEl}
 		role="list"
 		onscroll={onListScroll}
@@ -858,7 +796,6 @@
 	{@const offset = rowOffset(chat.id)}
 	<div
 		class="chat-row-wrap"
-		class:holding={holdingId === chat.id}
 		class:menu-open={menuId === chat.id}
 		class:swiping={swipeId === chat.id}
 		class:swipe-open={openSwipeId === chat.id}
@@ -896,11 +833,10 @@
 			class="chat-row"
 			class:muted={chat.muted}
 			class:unread={chat.unreadCount > 0}
-			class:holding={holdingId === chat.id}
 			style={offset ? `transform:translate3d(${offset}px,0,0)` : ''}
 			onclick={() => (withActions ? onRowClick(chat.id) : openChat(chat.id))}
 			onpointerdown={withActions ? (e) => onRowPointerDown(e, chat.id) : undefined}
-			oncontextmenu={withActions ? (e) => onRowContextMenu(e, chat.id) : undefined}
+			oncontextmenu={withActions ? (e) => onRowContextMenu(e) : undefined}
 		>
 			{#if chat.kind === 'channel' && chat.channel}
 				<ChannelAvatar channelKey={chat.channel.key} size={48} />

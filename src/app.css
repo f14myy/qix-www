@@ -17,8 +17,8 @@
 	--radius: 16px;
 	--radius-sm: 12px;
 	--radius-bubble: 18px;
-	--font: 'Outfit', 'Segoe UI', sans-serif;
-	--font-brand: 'Syne', 'Trebuchet MS', sans-serif;
+	--font: 'Outfit', 'Rubik', 'Nunito', 'Onest', system-ui, -apple-system, sans-serif;
+	--font-brand: 'Syne', 'Unbounded', 'Outfit', sans-serif;
 	--header-h: 56px;
 	--row-h: 74px;
 	--safe-top: env(safe-area-inset-top, 0px);
