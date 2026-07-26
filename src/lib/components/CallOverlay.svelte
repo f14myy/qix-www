@@ -187,6 +187,8 @@
 			<audio bind:this={remoteAudio} autoplay></audio>
 		{/if}
 
+		<div class="call-ambient-glow" aria-hidden="true"></div>
+
 		<div class="call-stage">
 			{#if showPeerAvatar}
 				<div class="call-avatar-wrap" class:pulse={ringing}>
@@ -204,7 +206,12 @@
 				{session.call.video ? i18n.t('call.video') : i18n.t('call.voice')}
 			</p>
 			<h2 class="call-name">{peerTitle}</h2>
-			<p class="call-status" aria-live="polite">{statusLabel}</p>
+			<p class="call-status" aria-live="polite">
+				{#if session.phase === 'active' && durationLabel}
+					<span class="call-status-live-dot" aria-hidden="true"></span>
+				{/if}
+				{statusLabel}
+			</p>
 			{#if session.error === 'connectionLost'}
 				<button type="button" class="call-end-link" disabled={busy} onclick={onHangup}>
 					{i18n.t('call.hangup')}

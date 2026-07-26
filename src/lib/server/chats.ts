@@ -606,3 +606,39 @@ export function toPublicProfile(
 		e2eePublicKey: user.e2eePublicKey ?? null
 	};
 }
+
+export function deleteChatForUser(chatId: string, userId: string): void {
+	// Set archivedAt and clear user membership for non-channels or set archived
+	db.update(chatMembers)
+		.set({ archivedAt: new Date() })
+		.where(and(eq(chatMembers.chatId, chatId), eq(chatMembers.userId, userId)))
+		.run();
+}
+
+export function deleteChatForEveryone(chatId: string, userId: string): void {
+	if (!isChatMember(chatId, userId)) return;
+	const channel = getChannelByChatId(chatId);
+	if (channel) {
+		// Built-in channel cannot be deleted for everyone, only archived/hidden for user
+		deleteChatForUser(chatId, userId);
+		return;
+	}
+
+	db.transaction((tx) => {
+		const msgRows = tx
+			.select({ id: messages.id })
+			.from(messages)
+			.where(eq(messages.chatId, chatId))
+			.all();
+		const msgIds = msgRows.map((m) => m.id);
+
+		for (const mid of msgIds) {
+			tx.delete(attachments).where(eq(attachments.messageId, mid)).run();
+			tx.delete(messageReactions).where(eq(messageReactions.messageId, mid)).run();
+			tx.delete(linkPreviews).where(eq(linkPreviews.messageId, mid)).run();
+		}
+		tx.delete(messages).where(eq(messages.chatId, chatId)).run();
+		tx.delete(chatMembers).where(eq(chatMembers.chatId, chatId)).run();
+		tx.delete(chats).where(eq(chats.id, chatId)).run();
+	});
+}

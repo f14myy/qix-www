@@ -7,6 +7,8 @@
 	import Copy from '@lucide/svelte/icons/copy';
 	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import Pencil from '@lucide/svelte/icons/pencil';
+	import Share2 from '@lucide/svelte/icons/share-2';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
 	import { confirmDialog, toast } from '$lib/flash.svelte';
@@ -98,7 +100,26 @@
 		try {
 			await navigator.clipboard.writeText(`@${data.profile.username}`);
 			copied = true;
+			toast(`@${data.profile.username}`);
 			setTimeout(() => (copied = false), 1600);
+		} catch {
+			/* ignore */
+		}
+	}
+
+	async function shareProfile() {
+		const url = `${window.location.origin}/u/${data.profile.username}`;
+		if (navigator.share) {
+			try {
+				await navigator.share({ title: title, url });
+				return;
+			} catch {
+				/* fallback to clipboard */
+			}
+		}
+		try {
+			await navigator.clipboard.writeText(url);
+			toast(i18n.t('common.copied') || 'Link copied');
 		} catch {
 			/* ignore */
 		}
@@ -111,6 +132,9 @@
 			<ArrowLeft size={20} />
 		</button>
 		<span class="topbar-spacer"></span>
+		<button type="button" class="icon-btn icon-btn-glass" aria-label="Share" onclick={shareProfile}>
+			<Share2 size={18} />
+		</button>
 	</header>
 
 	<div class="profile-page">
@@ -152,42 +176,44 @@
 
 			<div class="profile-copy">
 				<h1 class="profile-name">
-					<NameWithBadges name={title} badges={data.profile.badges} size="lg" />
+					<NameWithBadges name={title} badges={data.profile.badges} size="lg" showLabels={true} />
 				</h1>
 
 				<button type="button" class="profile-user-btn" onclick={copyUsername}>
 					<span>@{data.profile.username}</span>
 					{#if copied}
-						<Check size={14} />
+						<Check size={14} class="text-accent" />
 					{:else}
 						<Copy size={14} />
 					{/if}
 				</button>
 
 				{#if status}
-					<p class="peer-status profile-status" class:online>{status}</p>
+					<p class="peer-status profile-status" class:online>
+						{#if online}<span class="online-dot" aria-hidden="true"></span>{/if}
+						{status}
+					</p>
 				{/if}
 			</div>
 
-			{#if data.profile.badges.length}
-				<div class="profile-badges">
-					<NameWithBadges name="" badges={data.profile.badges} showLabels />
+			{#if data.profile.bio}
+				<div class="profile-card profile-bio-card">
+					<p class="profile-bio">{data.profile.bio}</p>
+				</div>
+			{:else if data.isSelf}
+				<div class="profile-card profile-bio-card empty">
+					<a class="profile-bio profile-bio-empty" href="/settings/profile">
+						{i18n.t('profile.bioEmpty')}
+					</a>
 				</div>
 			{/if}
 
-			{#if data.profile.bio}
-				<p class="profile-bio">{data.profile.bio}</p>
-			{:else if data.isSelf}
-				<a class="profile-bio profile-bio-empty" href="/settings/profile">
-					{i18n.t('profile.bioEmpty')}
-				</a>
-			{/if}
-
-			<div class="profile-chips">
-				<span class="profile-chip">
-					<Calendar size={14} />
-					{i18n.t('profile.joined')} {joined}
-				</span>
+			<div class="profile-card profile-info-card">
+				<div class="profile-info-row">
+					<span class="profile-info-icon"><Calendar size={16} /></span>
+					<span class="profile-info-label">{i18n.t('profile.joined')}</span>
+					<span class="profile-info-value">{joined}</span>
+				</div>
 			</div>
 
 			{#if blockedByMe}

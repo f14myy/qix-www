@@ -1,16 +1,22 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
+	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import ArchiveRestore from '@lucide/svelte/icons/archive-restore';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ChannelAvatar from '$lib/components/ChannelAvatar.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
 	import { lastMessagePreview } from '$lib/chatPreview';
+	import { toast } from '$lib/flash.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import { goBack } from '$lib/nav';
 	import { formatRelativeTime } from '$lib/time';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 	const i18n = useI18n();
+	let prefBusy = $state(false);
+	let deleteTarget = $state<{ id: string; title: string } | null>(null);
 
 	function title(chat: PageData['chats'][number]) {
 		if (chat.kind === 'channel' && chat.channel) {
@@ -20,17 +26,49 @@
 	}
 
 	async function unarchive(chatId: string) {
-		await fetch(`/api/chats/${chatId}/prefs`, {
-			method: 'PATCH',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ archived: false })
-		});
-		await invalidateAll();
+		if (prefBusy) return;
+		prefBusy = true;
+		try {
+			await fetch(`/api/chats/${chatId}/prefs`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ archived: false })
+			});
+			await invalidateAll();
+			toast(i18n.t('chats.unarchived'));
+		} finally {
+			prefBusy = false;
+		}
+	}
+
+	async function confirmDeleteChat(id: string, mode: 'self' | 'everyone') {
+		if (prefBusy) return;
+		prefBusy = true;
+		try {
+			await fetch(`/api/chats/${id}`, {
+				method: 'DELETE',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ mode })
+			});
+			deleteTarget = null;
+			await invalidateAll();
+			toast(i18n.t('chat.deletedBody'));
+		} finally {
+			prefBusy = false;
+		}
 	}
 </script>
 
 <div class="screen">
 	<header class="topbar">
+		<button
+			type="button"
+			class="icon-btn"
+			aria-label={i18n.t('back')}
+			onclick={() => goBack('/')}
+		>
+			<ArrowLeft size={22} />
+		</button>
 		<h1>{i18n.t('chats.archive')}</h1>
 	</header>
 
@@ -79,17 +117,66 @@
 							</div>
 						</div>
 					</button>
-					<button
-						type="button"
-						class="icon-btn"
-						style="align-self:center;margin-right:8px"
-						aria-label={i18n.t('chats.unarchive')}
-						onclick={() => unarchive(chat.id)}
-					>
-						<ArchiveRestore size={16} />
-					</button>
+					<div class="archive-row-actions" style="display:flex;align-items:center;gap:6px;padding-right:12px">
+						<button
+							type="button"
+							class="icon-btn"
+							disabled={prefBusy}
+							aria-label={i18n.t('chats.unarchive')}
+							title={i18n.t('chats.unarchive')}
+							onclick={() => unarchive(chat.id)}
+						>
+							<ArchiveRestore size={18} />
+						</button>
+						{#if chat.kind !== 'channel' && !chat.channel}
+							<button
+								type="button"
+								class="icon-btn danger"
+								disabled={prefBusy}
+								aria-label={i18n.t('chat.delete')}
+								title={i18n.t('chat.delete')}
+								onclick={() => (deleteTarget = { id: chat.id, title: title(chat) })}
+							>
+								<Trash2 size={18} />
+							</button>
+						{/if}
+					</div>
 				</div>
 			{/each}
 		{/if}
 	</div>
 </div>
+
+{#if deleteTarget}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<div class="menu-backdrop" role="presentation" onclick={() => (deleteTarget = null)}></div>
+	<div class="msg-sheet delete-dialog-sheet">
+		<div class="msg-menu pad-sheet">
+			<h3 class="sheet-title">{i18n.t('chat.deleteChatTitle')}</h3>
+			<p class="sheet-desc">{deleteTarget.title}</p>
+			<button
+				type="button"
+				class="btn btn-block"
+				disabled={prefBusy}
+				onclick={() => confirmDeleteChat(deleteTarget!.id, 'self')}
+			>
+				{i18n.t('chat.deleteForMe')}
+			</button>
+			<button
+				type="button"
+				class="btn btn-block btn-danger-outline"
+				disabled={prefBusy}
+				onclick={() => confirmDeleteChat(deleteTarget!.id, 'everyone')}
+			>
+				{i18n.t('chat.deleteForEveryone')}
+			</button>
+			<button
+				type="button"
+				class="btn btn-ghost btn-block"
+				onclick={() => (deleteTarget = null)}
+			>
+				{i18n.t('chat.keep')}
+			</button>
+		</div>
+	</div>
+{/if}

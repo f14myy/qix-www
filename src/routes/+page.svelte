@@ -11,7 +11,7 @@
 	import Pin from '@lucide/svelte/icons/pin';
 	import PinOff from '@lucide/svelte/icons/pin-off';
 	import Search from '@lucide/svelte/icons/search';
-	import Hand from '@lucide/svelte/icons/hand';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import X from '@lucide/svelte/icons/x';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ChannelAvatar from '$lib/components/ChannelAvatar.svelte';
@@ -97,10 +97,11 @@
 	let swipeId = $state<string | null>(null);
 	let swipeX = $state(0);
 	let openSwipeId = $state<string | null>(null);
+	let deleteTarget = $state<{ id: string; title: string } | null>(null);
 
 	const SKIP_CLICK_MS = 650;
 	/** Must match --row-actions-w in app.css. */
-	const SWIPE_OPEN = 132;
+	const SWIPE_OPEN = 186;
 	const SWIPE_START = 14;
 	const SWIPE_TRIGGER = 64;
 
@@ -271,6 +272,33 @@
 			closeMenu();
 			closeSwipe();
 			await invalidateAll();
+		} finally {
+			prefBusy = false;
+		}
+	}
+
+	function promptDeleteChat(id: string) {
+		const chat = data.chats.find((c) => c.id === id) ?? searchChats.find((c) => c.id === id);
+		if (!chat) return;
+		closeSwipe();
+		closeMenu();
+		deleteTarget = { id, title: displayName(chat) };
+		setSheetOpen(true);
+	}
+
+	async function confirmDeleteChat(id: string, mode: 'self' | 'everyone') {
+		if (prefBusy) return;
+		prefBusy = true;
+		try {
+			await fetch(`/api/chats/${id}`, {
+				method: 'DELETE',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ mode })
+			});
+			deleteTarget = null;
+			setSheetOpen(false);
+			await invalidateAll();
+			toast(mode === 'everyone' ? i18n.t('chat.deletedBody') : i18n.t('chats.archive'));
 		} finally {
 			prefBusy = false;
 		}
@@ -731,11 +759,9 @@
 	</div>
 	<p class="app-version" aria-hidden="true">{APP_VERSION}</p>
 
-	{#if !isSearch}
-		<a class="fab" href="/new" aria-label={i18n.t('chats.newTitle')}>
-			<PenLine size={24} />
-		</a>
-	{/if}
+	<a class="fab" href="/new" aria-label={i18n.t('chats.newTitle')} title={i18n.t('chats.newTitle')}>
+		<PenLine size={22} />
+	</a>
 </div>
 
 {#if menuChat}
@@ -791,6 +817,42 @@
 	</div>
 {/if}
 
+{#if deleteTarget}
+	<div class="chat-menu-portal" use:portal>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<div class="menu-backdrop" role="presentation" onclick={() => { deleteTarget = null; setSheetOpen(false); }}></div>
+		<div class="msg-sheet delete-dialog-sheet">
+			<div class="msg-menu pad-sheet">
+				<h3 class="sheet-title">{i18n.t('chat.deleteChatTitle')}</h3>
+				<p class="sheet-desc">{deleteTarget.title}</p>
+				<button
+					type="button"
+					class="btn btn-block"
+					disabled={prefBusy}
+					onclick={() => confirmDeleteChat(deleteTarget!.id, 'self')}
+				>
+					{i18n.t('chat.deleteForMe')}
+				</button>
+				<button
+					type="button"
+					class="btn btn-block btn-danger-outline"
+					disabled={prefBusy}
+					onclick={() => confirmDeleteChat(deleteTarget!.id, 'everyone')}
+				>
+					{i18n.t('chat.deleteForEveryone')}
+				</button>
+				<button
+					type="button"
+					class="btn btn-ghost btn-block"
+					onclick={() => { deleteTarget = null; setSheetOpen(false); }}
+				>
+					{i18n.t('chat.keep')}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 {#snippet chatRow(chat: PageData['chats'][number], index: number, withActions: boolean)}
 	{@const icon = previewIcon(chat)}
 	{@const offset = rowOffset(chat.id)}
@@ -826,6 +888,17 @@
 					<Archive size={17} />
 					<span>{i18n.t('chat.archive')}</span>
 				</button>
+				{#if chat.kind !== 'channel' && !chat.channel}
+					<button
+						type="button"
+						class="row-action delete"
+						disabled={prefBusy}
+						onclick={() => promptDeleteChat(chat.id)}
+					>
+						<Trash2 size={17} />
+						<span>{i18n.t('chat.delete')}</span>
+					</button>
+				{/if}
 			</div>
 		{/if}
 		<button

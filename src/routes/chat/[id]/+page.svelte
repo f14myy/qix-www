@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import Archive from '@lucide/svelte/icons/archive';
+	import Clock from '@lucide/svelte/icons/clock';
+	import Flag from '@lucide/svelte/icons/flag';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import Copy from '@lucide/svelte/icons/copy';
@@ -81,6 +84,7 @@
 	let selectMode = $state(false);
 	let selectedIds = $state<Set<string>>(new Set());
 	let showMenu = $state(false);
+	let showDeleteModal = $state(false);
 	let showSearch = $state(false);
 	let showGallery = $state(false);
 	let showForward = $state(false);
@@ -892,6 +896,22 @@
 		goto('/');
 	}
 
+	async function confirmDeleteCurrentChat(mode: 'self' | 'everyone') {
+		try {
+			await fetch(`/api/chats/${data.chatId}`, {
+				method: 'DELETE',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ mode })
+			});
+			showDeleteModal = false;
+			showMenu = false;
+			await goto('/');
+			toast(mode === 'everyone' ? i18n.t('chat.deletedBody') : i18n.t('chats.archive'));
+		} catch {
+			/* ignore */
+		}
+	}
+
 	async function reportPeer() {
 		if (!data.peer) return;
 		const reason = (await promptDialog(i18n.t('chat.reportPrompt'))) ?? '';
@@ -1112,14 +1132,26 @@
 				</div>
 			</a>
 			<div class="topbar-actions">
-				<button
-					type="button"
-					class="icon-btn"
-					aria-label={i18n.t('chats.searchMessages')}
-					onclick={() => (showSearch = true)}
-				>
-					<Search size={20} />
-				</button>
+				{#if !isChannel}
+					<button
+						type="button"
+						class="icon-btn call-head-btn"
+						aria-label={i18n.t('call.voice')}
+						title={i18n.t('call.voice')}
+						onclick={() => startCall(false)}
+					>
+						<Phone size={19} />
+					</button>
+					<button
+						type="button"
+						class="icon-btn call-head-btn"
+						aria-label={i18n.t('call.video')}
+						title={i18n.t('call.video')}
+						onclick={() => startCall(true)}
+					>
+						<Video size={19} />
+					</button>
+				{/if}
 				<button
 					type="button"
 					class="icon-btn"
@@ -1339,27 +1371,20 @@
 	<div class="menu-backdrop" onclick={() => (showMenu = false)}></div>
 	<div class="msg-sheet">
 		<div class="msg-menu">
-			{#if !isChannel}
-				<button type="button" onclick={() => startCall(false)}>
-					<span class="sheet-row-ico"><Phone size={18} /></span>
-					{i18n.t('call.voice')}
-				</button>
-				<button type="button" onclick={() => startCall(true)}>
-					<span class="sheet-row-ico"><Video size={18} /></span>
-					{i18n.t('call.video')}
-				</button>
-			{/if}
-			<button type="button" onclick={openGallery}>
-				<span class="sheet-row-ico"><ImageIcon size={18} /></span>
-				{i18n.t('chat.gallery')}
-			</button>
 			<button type="button" onclick={() => { showSearch = true; showMenu = false; }}>
 				<span class="sheet-row-ico"><Search size={18} /></span>
 				{i18n.t('chat.searchIn')}
 			</button>
-			<button type="button" onclick={archiveChat}>{i18n.t('chat.archive')}</button>
+			<button type="button" onclick={openGallery}>
+				<span class="sheet-row-ico"><ImageIcon size={18} /></span>
+				{i18n.t('chat.gallery')}
+			</button>
+			<button type="button" onclick={archiveChat}>
+				<span class="sheet-row-ico"><Archive size={18} /></span>
+				{i18n.t('chat.archive')}
+			</button>
 			{#if !isChannel}
-				<p class="sheet-section">{i18n.t('chat.disappear')}</p>
+				<p class="sheet-section"><Clock size={14} /> {i18n.t('chat.disappear')}</p>
 				<button type="button" class:active={disappearAfterSec === 0} onclick={() => setDisappear(0)}>
 					{i18n.t('chat.disappearOff')}
 				</button>
@@ -1369,8 +1394,48 @@
 				<button type="button" class:active={disappearAfterSec === 604800} onclick={() => setDisappear(604800)}>
 					{i18n.t('chat.disappear7d')}
 				</button>
-				<button type="button" class="danger" onclick={reportPeer}>{i18n.t('chat.report')}</button>
+				<button type="button" class="danger" onclick={() => { showMenu = false; showDeleteModal = true; }}>
+					<span class="sheet-row-ico"><Trash2 size={18} /></span>
+					{i18n.t('chat.delete')}
+				</button>
+				<button type="button" class="danger" onclick={reportPeer}>
+					<span class="sheet-row-ico"><Flag size={18} /></span>
+					{i18n.t('chat.report')}
+				</button>
 			{/if}
+		</div>
+	</div>
+{/if}
+
+{#if showDeleteModal}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="menu-backdrop" onclick={() => (showDeleteModal = false)}></div>
+	<div class="msg-sheet delete-dialog-sheet">
+		<div class="msg-menu pad-sheet">
+			<h3 class="sheet-title">{i18n.t('chat.deleteChatTitle')}</h3>
+			<p class="sheet-desc">{i18n.t('chat.deleteChatPrompt')}</p>
+			<button
+				type="button"
+				class="btn btn-block"
+				onclick={() => confirmDeleteCurrentChat('self')}
+			>
+				{i18n.t('chat.deleteForMe')}
+			</button>
+			<button
+				type="button"
+				class="btn btn-block btn-danger-outline"
+				onclick={() => confirmDeleteCurrentChat('everyone')}
+			>
+				{i18n.t('chat.deleteForEveryone')}
+			</button>
+			<button
+				type="button"
+				class="btn btn-ghost btn-block"
+				onclick={() => (showDeleteModal = false)}
+			>
+				{i18n.t('chat.keep')}
+			</button>
 		</div>
 	</div>
 {/if}

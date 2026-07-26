@@ -296,6 +296,7 @@
 	class:select-mode={selectMode}
 	id="msg-{message.id}"
 	role="group"
+	oncontextmenu={(e) => e.preventDefault()}
 	onpointerdown={onPointerDown}
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}
@@ -338,6 +339,7 @@
 		onpointerdown={onPressStart}
 		onpointerup={onPressEnd}
 		onpointerleave={onPressEnd}
+		oncontextmenu={(e) => e.preventDefault()}
 		role="group"
 	>
 		{#if message.forwardedFromId}
