@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
+	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import { APP_VERSION } from '$lib/version';
 
+	const i18n = useI18n();
 	const STORAGE_KEY = 'qix-seen-version';
 
 	let visible = $state(false);
@@ -19,23 +21,22 @@
 		try { localStorage.setItem(STORAGE_KEY, APP_VERSION); } catch { /* ignore */ }
 	}
 
-	/** Changelog entries grouped by emoji category */
-	const entries = [
-		{ icon: '🎨', text: 'New default theme: Citrus Light — a fresh lemon palette' },
-		{ icon: '📞', text: 'Redesigned call UI with ambient glow & live status pulse' },
-		{ icon: '📱', text: 'Edge swipe-back gesture in chats' },
-		{ icon: '📱', text: 'Smart keyboard adaptation — no more layout jumps' },
-		{ icon: '📱', text: 'Pull-to-refresh in chat list' },
-		{ icon: '🎉', text: 'Emoji burst particles on reactions' },
-		{ icon: '🖼️', text: 'Frosted glass buttons on profile banners' },
-		{ icon: '🖼️', text: 'Fixed avatar letter centering in profile editor' },
-		{ icon: '🎯', text: 'Translucent glass topbar & floating composer bubble' },
-		{ icon: '🎯', text: 'Full-bleed messages scrolling under glass layers' },
-		{ icon: '🎯', text: 'Modern styled Block / Unblock buttons with icons' },
-		{ icon: '🔧', text: 'Built-in channels can no longer be deleted' },
-		{ icon: '🔧', text: 'Reaction picker z-index & search blur fixes' },
-		{ icon: '🔧', text: 'Browser text-selection suppression on mobile' },
-	];
+	const entries = $derived([
+		{ icon: '🎨', text: i18n.t('whatsnew.e1') },
+		{ icon: '📞', text: i18n.t('whatsnew.e2') },
+		{ icon: '📱', text: i18n.t('whatsnew.e3') },
+		{ icon: '📱', text: i18n.t('whatsnew.e4') },
+		{ icon: '📱', text: i18n.t('whatsnew.e5') },
+		{ icon: '🎉', text: i18n.t('whatsnew.e6') },
+		{ icon: '🖼️', text: i18n.t('whatsnew.e7') },
+		{ icon: '🖼️', text: i18n.t('whatsnew.e8') },
+		{ icon: '🎯', text: i18n.t('whatsnew.e9') },
+		{ icon: '🎯', text: i18n.t('whatsnew.e10') },
+		{ icon: '🎯', text: i18n.t('whatsnew.e11') },
+		{ icon: '🔧', text: i18n.t('whatsnew.e12') },
+		{ icon: '🔧', text: i18n.t('whatsnew.e13') },
+		{ icon: '🔧', text: i18n.t('whatsnew.e14') },
+	]);
 </script>
 
 {#if visible}
@@ -45,7 +46,7 @@
 		<div class="wn-card" onclick={(e) => e.stopPropagation()}>
 			<div class="wn-header">
 				<span class="wn-sparkle"><Sparkles size={22} /></span>
-				<h2 class="wn-title">What's new in {APP_VERSION}</h2>
+				<h2 class="wn-title">{i18n.t('whatsnew.title', { version: APP_VERSION })}</h2>
 			</div>
 
 			<ul class="wn-list">
@@ -57,7 +58,9 @@
 				{/each}
 			</ul>
 
-			<button class="btn wn-dismiss" type="button" onclick={dismiss}>Got it!</button>
+			<button class="btn wn-dismiss" type="button" onclick={dismiss}>
+				{i18n.t('whatsnew.dismiss')}
+			</button>
 		</div>
 	</div>
 {/if}

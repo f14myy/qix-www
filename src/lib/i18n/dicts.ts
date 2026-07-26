@@ -536,7 +536,23 @@ export const en: Dict = {
 	'auth.registerFailed': 'Registration failed',
 	'auth.passwordHint': 'At least 8 characters',
 	'settings.viewProfile': 'View public profile',
-	'settings.editProfile': 'Edit profile'
+	'settings.editProfile': 'Edit profile',
+	'whatsnew.title': 'What’s new in {version}',
+	'whatsnew.dismiss': 'Got it!',
+	'whatsnew.e1': 'New default theme: Citrus Light — fresh lemon palette',
+	'whatsnew.e2': 'Redesigned call UI with ambient glow & live status pulse',
+	'whatsnew.e3': 'Edge swipe-back gesture in chats',
+	'whatsnew.e4': 'Smart keyboard adaptation — no more layout jumps',
+	'whatsnew.e5': 'Pull-to-refresh in chat list',
+	'whatsnew.e6': 'Emoji burst particles on reactions',
+	'whatsnew.e7': 'Frosted glass buttons on profile banners',
+	'whatsnew.e8': 'Fixed avatar letter centering in profile editor',
+	'whatsnew.e9': 'Translucent glass topbar & floating composer bubble',
+	'whatsnew.e10': 'Full-bleed messages scrolling under glass layers',
+	'whatsnew.e11': 'Modern styled Block / Unblock buttons with icons',
+	'whatsnew.e12': 'Built-in channels can no longer be deleted',
+	'whatsnew.e13': 'Reaction picker z-index & search blur fixes',
+	'whatsnew.e14': 'Browser text-selection suppression on mobile'
 };
 
 export const ru: Dict = {
@@ -1073,5 +1089,21 @@ export const ru: Dict = {
 	'auth.registerFailed': 'Не удалось зарегистрироваться',
 	'auth.passwordHint': 'Не меньше 8 символов',
 	'settings.viewProfile': 'Открыть публичный профиль',
-	'settings.editProfile': 'Редактировать профиль'
+	'settings.editProfile': 'Редактировать профиль',
+	'whatsnew.title': 'Что нового в {version}',
+	'whatsnew.dismiss': 'Понятно!',
+	'whatsnew.e1': 'Новая тема по умолчанию: Citrus Light — свежая лимонная палитра',
+	'whatsnew.e2': 'Обновленный экран звонков с фоновым свечением и пульсом статуса',
+	'whatsnew.e3': 'Жест свайпа от левого края для возврата назад в чатах',
+	'whatsnew.e4': 'Умная адаптация под клавиатуру — экран больше не прыгает',
+	'whatsnew.e5': 'Pull-to-refresh: потяните список чатов вниз для обновления',
+	'whatsnew.e6': 'Анимация взрыва частиц эмодзи при реакциях',
+	'whatsnew.e7': 'Стеклянные матовые кнопки поверх баннера профиля',
+	'whatsnew.e8': 'Исправлена центровка буквы в аватарке без фото',
+	'whatsnew.e9': 'Полупрозрачный стеклянный хедер и парящее поле ввода',
+	'whatsnew.e10': 'Сообщения уходят под стеклянные слои с размытием',
+	'whatsnew.e11': 'Стильные бэйджи для кнопок блокировки пользователей',
+	'whatsnew.e12': 'Встроенные каналы (Qix, Уведомления) больше нельзя удалить',
+	'whatsnew.e13': 'Исправлен слой реакций и оверлей поиска',
+	'whatsnew.e14': 'Защита от случайного выделения текста браузером на мобилках'
 };
