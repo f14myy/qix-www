@@ -29,13 +29,26 @@
 	let { children } = $props();
 	let themeColor = $state('#f7f9ec');
 
-	/** Top-level destinations that keep the bottom tab bar visible. */
+	/** Top-level destinations that keep the bottom tab bar visible on phones. */
 	const TAB_ROUTES = new Set(['/', '/requests', '/archive', '/settings']);
-	const showTabs = $derived(!!page.data.user && TAB_ROUTES.has(page.url.pathname));
+	/** Full-bleed flows that own the whole shell, rail included. */
+	const CHROMELESS = ['/onboarding', '/invite/'];
+	const showNav = $derived(
+		!!page.data.user && !CHROMELESS.some((p) => page.url.pathname.startsWith(p))
+	);
+	/**
+	 * On phones the bar only shows on top-level routes. On desktop it becomes a
+	 * permanent side rail, so it renders everywhere and CSS hides it on narrow
+	 * screens — that keeps the content column a constant width.
+	 */
+	const secondaryTabs = $derived(!TAB_ROUTES.has(page.url.pathname));
 
 	onNavigate((navigation) => {
 		trackNavigation(navigation.type);
 		if (!canUseViewTransition()) return;
+
+		// Drives the directional push/pop keyframes in app.css.
+		document.documentElement.dataset.nav = navigation.type === 'popstate' ? 'back' : 'forward';
 
 		return new Promise<void>((resolve) => {
 			(
@@ -190,8 +203,8 @@
 
 <div class="app-shell">
 	{@render children()}
-	{#if showTabs}
-		<TabBar />
+	{#if showNav}
+		<TabBar secondary={secondaryTabs} />
 	{/if}
 </div>
 

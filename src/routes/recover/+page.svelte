@@ -120,16 +120,14 @@
 
 			<div class="field">
 				<label for="password2">{i18n.t('security.confirmPassword')}</label>
-				<div class="field-input-wrap">
-					<input
-						id="password2"
-						type={showPassword ? 'text' : 'password'}
-						autocomplete="new-password"
-						minlength="8"
-						bind:value={password2}
-						required
-					/>
-				</div>
+				<input
+					id="password2"
+					type={showPassword ? 'text' : 'password'}
+					autocomplete="new-password"
+					minlength="8"
+					bind:value={password2}
+					required
+				/>
 			</div>
 
 			{#if error}
@@ -141,8 +139,10 @@
 			</button>
 		</form>
 
-		<p class="auth-footer" style="margin-top:24px">
-			<a href="/login">{i18n.t('auth.signInLink')}</a>
-		</p>
+		<div class="auth-links">
+			<p class="auth-footer">
+				<a href="/login">{i18n.t('auth.signInLink')}</a>
+			</p>
+		</div>
 	</div>
 </div>

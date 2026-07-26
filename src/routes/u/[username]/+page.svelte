@@ -179,10 +179,10 @@
 					<NameWithBadges name={title} badges={data.profile.badges} size="lg" showLabels={true} />
 				</h1>
 
-				<button type="button" class="profile-user-btn" onclick={copyUsername}>
+				<button type="button" class="profile-user-btn" class:copied onclick={copyUsername}>
 					<span>@{data.profile.username}</span>
 					{#if copied}
-						<Check size={14} class="text-accent" />
+						<Check size={14} />
 					{:else}
 						<Copy size={14} />
 					{/if}

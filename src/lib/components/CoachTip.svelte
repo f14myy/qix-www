@@ -19,10 +19,13 @@
 
 	let leaving = $state(false);
 
+	/** Matches the .coach-tip.leaving animation (--motion) in app.css. */
+	const LEAVE_MS = 180;
+
 	function dismiss() {
 		if (leaving) return;
 		leaving = true;
-		setTimeout(() => ondismiss(), 280);
+		setTimeout(() => ondismiss(), LEAVE_MS);
 	}
 </script>
 

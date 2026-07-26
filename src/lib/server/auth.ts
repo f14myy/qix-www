@@ -59,12 +59,19 @@ export function labelUserAgent(ua: string | null | undefined): string {
 
 const SESSION_STALE_UNUSED_MS = 5 * 60 * 1000;
 
+/**
+ * Creates a session row and sets the browser cookie.
+ *
+ * Returns the session id so native clients (Tauri desktop/Android) can keep it
+ * as a bearer token — their webview lives on a different origin, so the
+ * SameSite=Lax cookie never reaches us. See `hooks.server.ts`.
+ */
 export async function createSession(
 	userId: string,
 	cookies: Cookies,
 	userAgent?: string | null,
 	opts?: { secure?: boolean }
-): Promise<void> {
+): Promise<string> {
 	const id = createId(24);
 	const now = new Date();
 	const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
@@ -90,6 +97,8 @@ export async function createSession(
 		secure,
 		expires: expiresAt
 	});
+
+	return id;
 }
 
 /**

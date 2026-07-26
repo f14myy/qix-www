@@ -204,7 +204,7 @@
 			<section class="settings-section">
 				<h2>{i18n.t('settings.mode')}</h2>
 				<div class="settings-card soft">
-					<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
+					<div class="settings-row stack">
 						<div class="theme-pills">
 							<button
 								type="button"
@@ -257,7 +257,7 @@
 				<h2>{i18n.t('appearance.intensity')}</h2>
 				<p class="settings-section-hint">{i18n.t('appearance.intensityHint')}</p>
 				<div class="settings-card soft">
-					<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
+					<div class="settings-row stack">
 						<div class="theme-pills">
 							<button
 								type="button"
@@ -311,7 +311,7 @@
 			<section class="settings-section">
 				<h2>{i18n.t('settings.language')}</h2>
 				<div class="settings-card soft">
-					<div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
+					<div class="settings-row stack">
 						<div class="theme-pills">
 							<button
 								type="button"

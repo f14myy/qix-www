@@ -7,7 +7,7 @@
 			content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1"
 		/>
 		<meta name="text-scale" content="scale" />
-		<meta name="theme-color" content="#121a22" />
+		<meta name="theme-color" content="#f7f9ec" />
 		<link rel="manifest" href="/manifest.webmanifest" />
 		<link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
 		<link rel="apple-touch-icon" href="/icons/icon.svg" />
@@ -28,7 +28,9 @@
 					if (!look) {
 						var legacy = localStorage.getItem('qix-accent');
 						var map = { teal: 'qix', ocean: 'lagoon', forest: 'meadow', slate: 'graphite', amber: 'ember' };
-						look = map[legacy] || 'qix';
+						/* Default must match getStoredLook() in lib/theme.ts or the first
+						   paint flashes one look before hydration swaps in another. */
+						look = map[legacy] || 'citrus';
 					}
 					var looks = [
 						'qix',
@@ -52,7 +54,7 @@
 						'matcha',
 						'berry'
 					];
-					if (looks.indexOf(look) === -1) look = 'qix';
+					if (looks.indexOf(look) === -1) look = 'citrus';
 					document.documentElement.dataset.look = look;
 					var wallpaper = localStorage.getItem('qix-wallpaper') || 'dots';
 					var walls = [

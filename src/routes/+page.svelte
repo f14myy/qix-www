@@ -731,7 +731,7 @@
 			{/if}
 		{:else if data.chats.length === 0}
 			<div class="empty empty-animate">
-				<span class="empty-icon"><MessageCircle size={36} /></span>
+				<span class="empty-icon"><MessageCircle size={28} /></span>
 				<strong>{i18n.t('chats.emptyTitle')}</strong>
 				<p>{i18n.t('chats.empty')}</p>
 				<button
@@ -861,7 +861,7 @@
 		class:menu-open={menuId === chat.id}
 		class:swiping={swipeId === chat.id}
 		class:swipe-open={openSwipeId === chat.id}
-		style="animation-delay:{Math.min(index, 6) * 40}ms"
+		style="animation-delay:{Math.min(index, 5) * 22}ms"
 		role="group"
 	>
 		{#if withActions}

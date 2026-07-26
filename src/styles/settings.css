@@ -1,0 +1,683 @@
+/* ==========================================================================
+   Settings screens, install tip, invite, sessions, message requests.
+   ========================================================================== */
+
+
+.settings-body {
+	padding: 4px 0 calc(28px + var(--safe-bottom));
+	flex: 1;
+	overflow-y: auto;
+}
+
+
+.settings-section {
+	padding: 6px 16px 14px;
+}
+
+
+.settings-section h2 {
+	margin: 14px 4px 8px;
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-semi);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: color-mix(in srgb, var(--text-muted) 80%, transparent);
+}
+
+
+/* Settings cards: hairline-bounded groups, no fill, no shadow. */
+.settings-card {
+	background: transparent;
+	border-radius: var(--radius);
+	border: 1px solid var(--hairline);
+	overflow: hidden;
+	animation: card-in var(--motion-enter) var(--ease-out) both;
+	transition: border-color var(--motion) var(--ease-soft);
+}
+
+
+@keyframes card-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+
+.settings-card.soft {
+	background: var(--surface-sunken);
+	border-color: transparent;
+}
+
+
+/* Inputs sit on the sunken card, so they need to step back up a level or the
+   field and its container share the same fill. */
+.settings-card.soft .field input,
+.settings-card.soft textarea,
+.settings-card.soft .profile-bio-input {
+	background: var(--bg-elevated);
+}
+
+
+.settings-card.pad {
+	padding: 16px;
+}
+
+
+.settings-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 12px 14px;
+	min-height: 52px;
+	transition:
+		background-color var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-soft);
+}
+
+
+/* Rows whose control needs the full width — segmented pills, pickers. */
+.settings-row.stack {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 10px;
+}
+
+.settings-row.link-row:hover {
+	background: var(--surface-hover);
+}
+
+
+.settings-row.link-row:active {
+	background: var(--surface-press);
+	transform: scale(0.99);
+}
+
+
+.settings-row + .settings-row {
+	border-top: 1px solid var(--hairline);
+}
+
+
+.settings-row .label {
+	font-weight: var(--fw-medium);
+	font-size: var(--fs-md);
+	letter-spacing: -0.005em;
+}
+
+
+.settings-row .value {
+	color: var(--text-muted);
+	font-size: var(--fs-sm);
+}
+
+
+.install-section {
+	animation: empty-rise 480ms var(--ease-out) both;
+}
+
+
+.install-tip {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 16px;
+	border-radius: var(--radius);
+	background: var(--surface-sunken);
+	border: 1px solid var(--hairline);
+}
+
+
+.install-tip.installed {
+	flex-direction: row;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 14px;
+}
+
+
+.install-tip.installed p {
+	margin: 0;
+	font-size: 0.9rem;
+	font-weight: var(--fw-medium);
+	color: var(--accent);
+}
+
+
+.install-ico {
+	display: grid;
+	place-items: center;
+	width: 40px;
+	height: 40px;
+	border-radius: var(--radius-sm);
+	background: var(--tint);
+	color: var(--accent);
+	flex-shrink: 0;
+}
+
+
+.install-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+
+.install-copy strong {
+	font-size: var(--fs-md);
+	font-weight: var(--fw-semi);
+	letter-spacing: -0.01em;
+}
+
+
+.install-copy p {
+	margin: 0;
+	font-size: var(--fs-sm);
+	color: var(--text-muted);
+	line-height: 1.45;
+}
+
+
+.install-dismiss {
+	align-self: flex-start;
+	min-height: 38px;
+	padding: 0 14px;
+	font-size: var(--fs-sm);
+}
+
+
+.settings-nav-row {
+	gap: 12px;
+}
+
+
+/* Nav icons stay monochrome; the accent is reserved for state, not decoration. */
+.settings-nav-icon {
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--text-muted);
+	flex-shrink: 0;
+	transition:
+		transform var(--motion-fast) var(--ease-soft),
+		color var(--motion) var(--ease-soft);
+}
+
+
+.settings-row.link-row:hover .settings-nav-icon {
+	color: var(--accent);
+}
+
+
+.settings-nav-chevron {
+	color: color-mix(in srgb, var(--text-muted) 60%, transparent);
+	margin-left: auto;
+	display: grid;
+	place-items: center;
+	transition:
+		transform var(--motion-fast) var(--ease-soft),
+		color var(--motion) var(--ease-soft);
+}
+
+
+.settings-row.link-row:active .settings-nav-icon {
+	transform: scale(0.94);
+}
+
+
+.settings-row.link-row:active .settings-nav-chevron {
+	transform: translateX(2px);
+	color: var(--text-muted);
+}
+
+
+.settings-section-hint {
+	margin: -2px 4px 12px;
+	padding: 0;
+	font-size: 0.84rem;
+	color: var(--text-muted);
+	line-height: 1.4;
+}
+
+
+/* ── Message requests ─────────────────────────────────────────────────────── */
+.request-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 10px var(--gutter) 0;
+}
+
+
+.request-card {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 14px;
+	border-radius: var(--radius);
+	border: 1px solid var(--hairline);
+	animation: card-in var(--motion-enter) var(--ease-out) both;
+}
+
+
+.request-head {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 0;
+}
+
+
+.request-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	flex: 1;
+}
+
+
+.request-meta strong {
+	font-size: var(--fs-md);
+	font-weight: var(--fw-semi);
+	letter-spacing: -0.01em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+
+.request-sub {
+	font-size: var(--fs-sm);
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+
+.request-note {
+	margin: 0;
+	padding: 10px 12px;
+	border-radius: var(--radius-sm);
+	background: var(--surface-sunken);
+	font-size: var(--fs-sm);
+	line-height: 1.45;
+	color: var(--text);
+	word-break: break-word;
+}
+
+
+.request-actions {
+	display: flex;
+	gap: 8px;
+}
+
+
+.request-actions .btn {
+	flex: 1;
+	min-height: 44px;
+}
+
+
+.blocked-row {
+	gap: 10px;
+}
+
+
+.blocked-user {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 0;
+	flex: 1;
+	color: inherit;
+	text-decoration: none;
+}
+
+
+.blocked-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+
+.blocked-meta .label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+
+.invite-body {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 18px;
+	padding-top: 12px;
+}
+
+
+.invite-lead {
+	margin: 0;
+	padding: 0 12px;
+	text-align: center;
+	color: var(--text-muted);
+	font-size: var(--fs-md);
+	line-height: 1.5;
+	max-width: 32ch;
+}
+
+
+.invite-qr {
+	width: 220px;
+	height: 220px;
+	border-radius: var(--radius-lg);
+	background: #fff;
+	padding: 12px;
+	box-shadow: var(--elev-2);
+	object-fit: contain;
+}
+
+
+.invite-qr-placeholder {
+	width: 220px;
+	height: 220px;
+	border-radius: var(--radius-lg);
+	display: grid;
+	place-items: center;
+	background: var(--surface-sunken);
+	color: var(--text-muted);
+}
+
+
+.invite-url {
+	display: block;
+	width: 100%;
+	max-width: 28rem;
+	margin: 0;
+	padding: 12px 14px;
+	border-radius: var(--radius);
+	background: var(--surface-sunken);
+	word-break: break-all;
+	font-size: var(--fs-sm);
+	text-align: center;
+	color: var(--text);
+	font-variant-numeric: tabular-nums;
+}
+
+
+.invite-copy-btn {
+	min-width: 160px;
+}
+
+
+.settings-form-stack {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+
+.settings-form-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 14px;
+}
+
+
+.settings-form-actions .btn {
+	flex: 1;
+	min-width: 120px;
+}
+
+
+.session-row {
+	align-items: flex-start;
+}
+
+
+.session-row .btn-ghost {
+	min-height: 36px;
+	padding: 0 10px;
+	font-size: 0.84rem;
+}
+
+
+.session-logout-others .label {
+	width: 100%;
+	text-align: center;
+	font-weight: var(--fw-semi);
+}
+
+
+.recovery-code-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: 6px;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 0.9rem;
+}
+
+
+.recovery-code-list code {
+	background: var(--bg-elevated);
+	border: 1px solid var(--hairline);
+	padding: 8px 12px;
+	border-radius: var(--radius-sm);
+	display: block;
+	letter-spacing: 0.04em;
+}
+
+
+/* Needs to beat .settings-card.soft, which is also two classes. */
+.settings-card.danger-card,
+.danger-card {
+	border-color: color-mix(in srgb, var(--danger) 26%, transparent);
+	background: color-mix(in srgb, var(--danger) 4%, transparent);
+}
+
+
+/* The data-reduce-motion rules live in one place — see "Reduced motion" below. */
+
+.settings-row.link-row {
+	text-decoration: none;
+	color: inherit;
+}
+
+
+button.settings-row {
+	width: 100%;
+	border: none;
+	background: transparent;
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
+	border-radius: 0;
+	appearance: none;
+	-webkit-appearance: none;
+}
+
+
+button.settings-row.link-row .label {
+	color: var(--accent);
+}
+
+
+.blocked-banner {
+	margin: 14px 0 0;
+	padding: 10px 14px;
+	width: 100%;
+	border-radius: var(--radius-sm);
+	background: color-mix(in srgb, var(--danger) 10%, transparent);
+	color: var(--danger);
+	font-size: var(--fs-sm);
+	text-align: center;
+}
+
+
+.settings-profile-card {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 14px;
+	border-radius: var(--radius);
+	background: var(--surface-sunken);
+	border: 1px solid transparent;
+	text-decoration: none;
+	color: inherit;
+	transition:
+		background-color var(--motion) var(--ease-soft),
+		border-color var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-soft);
+	animation: card-in var(--motion-enter) var(--ease-out) both;
+}
+
+
+.settings-profile-card:hover {
+	border-color: var(--hairline-strong);
+}
+
+
+.settings-profile-card:active {
+	transform: scale(0.99);
+}
+
+
+.settings-profile-copy {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+
+.settings-profile-copy strong {
+	font-size: 1.08rem;
+	font-weight: 700;
+	letter-spacing: -0.025em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+
+.settings-profile-copy span {
+	color: var(--text-muted);
+	font-size: 0.9rem;
+}
+
+
+.settings-profile-copy .hint {
+	font-size: 0.78rem;
+	margin-top: 3px;
+	color: var(--accent);
+	font-weight: var(--fw-medium);
+}
+
+
+.blocked-unblock-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 36px;
+	padding: 0 12px;
+	font-size: var(--fs-sm);
+	font-weight: var(--fw-medium);
+	border-radius: var(--radius-pill);
+	background: transparent;
+	color: var(--accent);
+	border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+	transition: background-color var(--motion) var(--ease-soft);
+}
+
+
+.blocked-unblock-btn:hover {
+	background: var(--tint);
+}
+
+
+.recovery-gate {
+	z-index: 95;
+	align-items: center;
+}
+
+
+.recovery-sheet h2 {
+	margin: 0 0 6px;
+	font-size: var(--fs-lg);
+	font-weight: var(--fw-bold);
+	letter-spacing: var(--track-tight);
+}
+
+
+.recovery-sheet .recovery-code-list {
+	margin-top: 14px;
+}
+
+
+.recovery-actions {
+	display: flex;
+	gap: 8px;
+	margin: 14px 0;
+}
+
+
+.recovery-actions .btn {
+	flex: 1;
+	min-height: 44px;
+	font-size: var(--fs-sm);
+}
+
+
+.recovery-actions .btn-ghost {
+	background: var(--surface-sunken);
+	color: var(--text);
+}
+
+/* ── Invite landing (/invite/[code]) ───────────────────────────────────────── */
+.invite-landing {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+	padding: 48px 24px calc(28px + var(--safe-bottom));
+	max-width: 360px;
+	margin-inline: auto;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.invite-landing-copy {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	text-align: center;
+}
+
+.invite-landing-copy strong {
+	font-size: 1.25rem;
+	font-weight: var(--fw-bold);
+	letter-spacing: var(--track-tight);
+}
+
+.invite-landing .invite-lead {
+	margin-top: 10px;
+	padding: 0;
+}

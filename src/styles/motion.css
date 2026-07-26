@@ -1,0 +1,153 @@
+/* ==========================================================================
+   Reduced motion — honoured for the OS setting and the in-app toggle.
+   ========================================================================== */
+
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────
+   Honoured for both the OS setting and the in-app toggle, which previously
+   only silenced a handful of components. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
+
+html[data-reduce-motion='1'] *,
+html[data-reduce-motion='1'] *::before,
+html[data-reduce-motion='1'] *::after {
+	animation-duration: 0.01ms !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0.01ms !important;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none !important;
+	}
+}
+
+
+html[data-reduce-motion='1']::view-transition-old(root),
+html[data-reduce-motion='1']::view-transition-new(root) {
+	animation: none !important;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+	.screen,
+	.bubble-row,
+	.chat-row-wrap,
+	.brand-animate,
+	.empty-animate,
+	.empty-icon,
+	.msg-menu,
+	.msg-sheet,
+	.chat-overlay-sheet,
+	.jump-latest,
+	.jump-unread,
+	.menu-backdrop,
+	.reaction-chip,
+	.unread-badge.pop,
+	.typing-dots i,
+	.online-dot,
+	.chat-view,
+	.peer-link,
+	.peer-status,
+	.composer,
+	.pull-spinner,
+	.install-section,
+	.composer .send.recording,
+	.app-toast,
+	.app-confirm-backdrop,
+	.call-overlay,
+	.call-avatar-wrap.pulse .call-ring,
+	.call-btn.accept,
+	.call-status-live-dot,
+	.settings-card,
+	.profile-card,
+	.fab {
+		animation: none !important;
+	}
+
+	.icon-btn:active,
+	.pressable:active,
+	.chat-row:active,
+	.user-row:active,
+	.btn:active,
+	.tab:active,
+	.composer .send:active {
+		transform: none !important;
+	}
+}
+
+
+html[data-reduce-motion='1'] .screen,
+html[data-reduce-motion='1'] .bubble-row,
+html[data-reduce-motion='1'] .chat-row-wrap,
+html[data-reduce-motion='1'] .brand-animate,
+html[data-reduce-motion='1'] .empty-animate,
+html[data-reduce-motion='1'] .empty-icon,
+html[data-reduce-motion='1'] .msg-menu,
+html[data-reduce-motion='1'] .msg-sheet,
+html[data-reduce-motion='1'] .chat-overlay-sheet,
+html[data-reduce-motion='1'] .jump-latest,
+html[data-reduce-motion='1'] .jump-unread,
+html[data-reduce-motion='1'] .menu-backdrop,
+html[data-reduce-motion='1'] .reaction-chip,
+html[data-reduce-motion='1'] .unread-badge.pop,
+html[data-reduce-motion='1'] .composer,
+html[data-reduce-motion='1'] .chat-view,
+html[data-reduce-motion='1'] .peer-link,
+html[data-reduce-motion='1'] .peer-status,
+html[data-reduce-motion='1'] .pull-spinner,
+html[data-reduce-motion='1'] .install-section,
+html[data-reduce-motion='1'] .composer .send.recording,
+html[data-reduce-motion='1'] .app-toast,
+html[data-reduce-motion='1'] .app-confirm-backdrop,
+html[data-reduce-motion='1'] .settings-card,
+html[data-reduce-motion='1'] .profile-card,
+html[data-reduce-motion='1'] .fab,
+html[data-reduce-motion='1'] .online-dot,
+html[data-reduce-motion='1'] .typing-dots i,
+html[data-reduce-motion='1'] .call-overlay,
+html[data-reduce-motion='1'] .call-avatar-wrap.pulse .call-ring,
+html[data-reduce-motion='1'] .call-btn.accept,
+html[data-reduce-motion='1'] .call-status-live-dot {
+	animation: none !important;
+}
+
+
+html[data-reduce-motion='1'] .icon-btn:active,
+html[data-reduce-motion='1'] .pressable:active,
+html[data-reduce-motion='1'] .chat-row:active,
+html[data-reduce-motion='1'] .user-row:active,
+html[data-reduce-motion='1'] .btn:active,
+html[data-reduce-motion='1'] .tab:active,
+html[data-reduce-motion='1'] .composer .send:active {
+	transform: none !important;
+}
+
+
+html[data-reduce-motion='1'] .coach-tip,
+html[data-reduce-motion='1'] .coach-tip-action,
+html[data-reduce-motion='1'] .app-toast {
+	animation: none !important;
+}
+
+
+html[data-reduce-motion='1'] .onboard-stage,
+html[data-reduce-motion='1'] .onboard-look,
+html[data-reduce-motion='1'] .ob-bubble,
+html[data-reduce-motion='1'] .onboard-logo,
+html[data-reduce-motion='1'] .onboard-title,
+html[data-reduce-motion='1'] .onboard-lead,
+html[data-reduce-motion='1'] .onboard-bullets li {
+	animation: none !important;
+}

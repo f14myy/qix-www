@@ -1,6 +1,7 @@
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import { APP_ORIGIN_LIST } from './src/lib/server/appOrigins';
 
 /** Origins allowed for form/multipart API calls (build-time). Comma-separated. */
 const csrfTrusted = [
@@ -8,7 +9,10 @@ const csrfTrusted = [
 	...(process.env.CSRF_TRUSTED_ORIGINS ?? '')
 		.split(',')
 		.map((s) => s.trim().replace(/\/$/, ''))
-		.filter(Boolean)
+		.filter(Boolean),
+	// Native app webviews. Without these, multipart uploads (attachments, avatars)
+	// are rejected with 403 before `handle` runs.
+	...APP_ORIGIN_LIST
 ];
 
 export default defineConfig({

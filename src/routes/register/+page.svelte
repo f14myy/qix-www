@@ -130,8 +130,10 @@
 			</button>
 		</form>
 
-		<p class="auth-footer" style="margin-top:24px">
-			{i18n.t('auth.haveAccount')} <a href="/login">{i18n.t('auth.signInLink')}</a>
-		</p>
+		<div class="auth-links">
+			<p class="auth-footer">
+				{i18n.t('auth.haveAccount')} <a href="/login">{i18n.t('auth.signInLink')}</a>
+			</p>
+		</div>
 	</div>
 </div>

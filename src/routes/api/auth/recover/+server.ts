@@ -55,9 +55,9 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 	const passwordHash = await hashPassword(newPassword);
 	db.update(users).set({ passwordHash }).where(eq(users.id, user.id)).run();
 	db.delete(sessions).where(eq(sessions.userId, user.id)).run();
-	await createSession(user.id, cookies, request.headers.get('user-agent'), {
+	const token = await createSession(user.id, cookies, request.headers.get('user-agent'), {
 		secure: cookieSecureFromRequest(request)
 	});
 
-	return json({ ok: true });
+	return json({ ok: true, user: { id: user.id, username: user.username }, token });
 };

@@ -1,11 +1,13 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireAdmin } from '$lib/server/admin';
-import { createBadge, listBadges } from '$lib/server/badges';
+import { createBadge, listBadgesWithHolders } from '$lib/server/badges';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	requireAdmin(locals.user);
-	return json({ badges: listBadges() });
+	// Holders are included so the native admin screen can render the same list
+	// the SSR page builds. Additive — `id`/`label`/`color` are unchanged.
+	return json({ badges: listBadgesWithHolders() });
 };
 
 export const POST: RequestHandler = async ({ locals, request }) => {

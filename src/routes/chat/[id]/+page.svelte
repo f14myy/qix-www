@@ -1297,7 +1297,7 @@
 				</div>
 			{:else if messages.length === 0}
 				<div class="empty empty-animate chat-empty">
-					<span class="empty-icon"><MessageCircle size={32} /></span>
+					<span class="empty-icon"><MessageCircle size={28} /></span>
 					<strong>{i18n.t('chat.emptyTitle')}</strong>
 					<p>{isChannel ? i18n.t('chat.emptyChannel') : i18n.t('chat.empty')}</p>
 				</div>

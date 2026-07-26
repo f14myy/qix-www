@@ -34,7 +34,7 @@
 	{:else}
 		<div class="admin-list">
 			{#each data.reports as r (r.id)}
-				<article class="admin-card" style="margin-bottom:10px">
+				<article class="admin-card">
 					<p>
 						<strong>@{r.reporter.username}</strong>
 						→

@@ -38,48 +38,51 @@
 	<div class="settings-body">
 		{#if data.requests.length === 0}
 			<div class="empty empty-animate">
-				<span class="empty-icon"><Inbox size={36} /></span>
+				<span class="empty-icon"><Inbox size={28} /></span>
+				<strong>{i18n.t('requests.title')}</strong>
 				<p>{i18n.t('requests.empty')}</p>
 			</div>
 		{:else}
-			{#each data.requests as req (req.id)}
-				<div class="settings-card" style="margin-bottom:10px;padding:12px">
-					<div style="display:flex;gap:12px;align-items:center">
-						{#if req.from}
-							<Avatar
-								name={req.from.displayName || req.from.username}
-								avatarPath={req.from.avatarPath}
-								userId={req.from.id}
-								size={44}
-							/>
-						{/if}
-						<div style="flex:1;min-width:0">
-							<strong>{req.from?.displayName || req.from?.username || '?'}</strong>
+			<div class="request-list">
+				{#each data.requests as req (req.id)}
+					<article class="request-card">
+						<div class="request-head">
 							{#if req.from}
-								<p class="hint">@{req.from.username}</p>
+								<Avatar
+									name={req.from.displayName || req.from.username}
+									avatarPath={req.from.avatarPath}
+									userId={req.from.id}
+									size={44}
+								/>
 							{/if}
-							{#if req.note}
-								<p class="hint">{req.note}</p>
-							{/if}
-							<p class="hint">{formatRelativeTime(req.createdAt, i18n.locale)}</p>
+							<div class="request-meta">
+								<strong>{req.from?.displayName || req.from?.username || '?'}</strong>
+								<span class="request-sub">
+									{#if req.from}@{req.from.username} ·{/if}
+									{formatRelativeTime(req.createdAt, i18n.locale)}
+								</span>
+							</div>
 						</div>
-					</div>
-					<div style="display:flex;gap:8px;margin-top:12px">
-						<button
-							class="btn"
-							type="button"
-							disabled={busy === req.id}
-							onclick={() => act(req.id, 'accept')}>{i18n.t('requests.accept')}</button
-						>
-						<button
-							class="btn btn-ghost"
-							type="button"
-							disabled={busy === req.id}
-							onclick={() => act(req.id, 'decline')}>{i18n.t('requests.decline')}</button
-						>
-					</div>
-				</div>
-			{/each}
+						{#if req.note}
+							<p class="request-note">{req.note}</p>
+						{/if}
+						<div class="request-actions">
+							<button
+								class="btn"
+								type="button"
+								disabled={busy === req.id}
+								onclick={() => act(req.id, 'accept')}>{i18n.t('requests.accept')}</button
+							>
+							<button
+								class="btn btn-quiet"
+								type="button"
+								disabled={busy === req.id}
+								onclick={() => act(req.id, 'decline')}>{i18n.t('requests.decline')}</button
+							>
+						</div>
+					</article>
+				{/each}
+			</div>
 		{/if}
 	</div>
 </div>

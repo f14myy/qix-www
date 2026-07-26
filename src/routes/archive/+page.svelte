@@ -75,13 +75,13 @@
 	<div class="list">
 		{#if data.chats.length === 0}
 			<div class="empty empty-animate">
-				<span class="empty-icon"><ArchiveRestore size={36} /></span>
+				<span class="empty-icon"><ArchiveRestore size={28} /></span>
 				<p>{i18n.t('chats.archiveEmpty')}</p>
 			</div>
 		{:else}
 			{#each data.chats as chat (chat.id)}
-				<div class="chat-row-wrap" style="display:flex;align-items:stretch">
-					<button type="button" class="chat-row" style="flex:1" onclick={() => goto(`/chat/${chat.id}`)}>
+				<div class="chat-row-wrap archive-row">
+					<button type="button" class="chat-row" onclick={() => goto(`/chat/${chat.id}`)}>
 						{#if chat.kind === 'channel' && chat.channel}
 							<ChannelAvatar channelKey={chat.channel.key} size={48} />
 						{:else if chat.peer}
@@ -117,7 +117,7 @@
 							</div>
 						</div>
 					</button>
-					<div class="archive-row-actions" style="display:flex;align-items:center;gap:6px;padding-right:12px">
+					<div class="archive-row-actions">
 						<button
 							type="button"
 							class="icon-btn"

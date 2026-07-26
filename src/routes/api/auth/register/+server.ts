@@ -58,9 +58,9 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 		.run();
 
 	const codes = regenerateRecoveryCodes(id);
-	await createSession(id, cookies, request.headers.get('user-agent'), {
+	const token = await createSession(id, cookies, request.headers.get('user-agent'), {
 		secure: cookieSecureFromRequest(request)
 	});
 
-	return json({ user: { id, username }, recoveryCodes: codes }, { status: 201 });
+	return json({ user: { id, username }, recoveryCodes: codes, token }, { status: 201 });
 };

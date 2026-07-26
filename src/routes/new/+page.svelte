@@ -120,7 +120,7 @@
 	<div class="list">
 		{#if q.length < 2}
 			<div class="empty empty-animate">
-				<span class="empty-icon"><UserPlus size={36} /></span>
+				<span class="empty-icon"><UserPlus size={28} /></span>
 				<strong>{i18n.t('chats.newTitle')}</strong>
 				<p>{i18n.t('chats.newLead')}</p>
 			</div>

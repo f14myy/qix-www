@@ -52,9 +52,11 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 		);
 	}
 
-	await createSession(user.id, cookies, request.headers.get('user-agent'), {
+	const token = await createSession(user.id, cookies, request.headers.get('user-agent'), {
 		secure: cookieSecureFromRequest(request)
 	});
 
-	return json({ user: { id: user.id, username: user.username } });
+	// `token` is the session id, for native clients that cannot use the cookie.
+	// Browsers ignore it and keep authenticating with the cookie set above.
+	return json({ user: { id: user.id, username: user.username }, token });
 };

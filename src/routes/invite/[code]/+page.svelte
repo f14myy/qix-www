@@ -48,17 +48,17 @@
 			<ArrowLeft size={22} />
 		</button>
 		<h1>{i18n.t('invite.title')}</h1>
-		<span class="icon-btn" style="visibility:hidden" aria-hidden="true"><ArrowLeft size={22} /></span>
+		<span class="topbar-ghost" aria-hidden="true"></span>
 	</header>
 
-	<div class="settings-body" style="display:flex;flex-direction:column;align-items:center;gap:16px;padding-top:40px">
+	<div class="settings-body invite-landing">
 		<Avatar name={title} size={88} avatarPath={data.profile.avatarPath} userId={data.profile.id} />
-		<div style="text-align:center">
-			<strong style="font-size:1.2rem">{title}</strong>
+		<div class="invite-landing-copy">
+			<strong>{title}</strong>
 			<p class="hint">@{data.profile.username}</p>
-			<p class="hint" style="margin-top:8px">{i18n.t('invite.lead')}</p>
+			<p class="invite-lead">{i18n.t('invite.lead')}</p>
 		</div>
-		<button class="btn" type="button" disabled={loading} onclick={add}>
+		<button class="btn btn-block" type="button" disabled={loading} onclick={add}>
 			{loading ? '…' : i18n.t('invite.add')}
 		</button>
 		{#if msg}

@@ -116,11 +116,13 @@
 			</button>
 		</form>
 
-		<p class="auth-footer" style="margin-top:24px">
-			<a href="/recover">{i18n.t('auth.forgotPassword')}</a>
-		</p>
-		<p class="auth-footer">
-			{i18n.t('auth.noAccount')} <a href="/register">{i18n.t('auth.createOne')}</a>
-		</p>
+		<div class="auth-links">
+			<p class="auth-footer">
+				<a href="/recover">{i18n.t('auth.forgotPassword')}</a>
+			</p>
+			<p class="auth-footer">
+				{i18n.t('auth.noAccount')} <a href="/register">{i18n.t('auth.createOne')}</a>
+			</p>
+		</div>
 	</div>
 </div>
