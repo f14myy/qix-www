@@ -297,6 +297,8 @@
 	id="msg-{message.id}"
 	role="group"
 	oncontextmenu={(e) => e.preventDefault()}
+	onselectstart={(e) => e.preventDefault()}
+	ondragstart={(e) => e.preventDefault()}
 	onpointerdown={onPointerDown}
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}

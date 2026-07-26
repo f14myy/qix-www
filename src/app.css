@@ -136,18 +136,28 @@ button {
 	cursor: pointer;
 }
 
+html,
+body {
+	height: 100%;
+	height: 100dvh;
+	max-height: 100dvh;
+	overflow: hidden;
+	overscroll-behavior: none;
+}
+
 .app-shell {
-	/* Early fallbacks first; 100dvh must win on modern Safari/iOS */
-	min-height: 100%;
-	min-height: -webkit-fill-available;
-	min-height: 100svh;
-	min-height: 100dvh;
+	height: 100%;
+	height: -webkit-fill-available;
+	height: 100dvh;
+	max-height: 100dvh;
 	display: flex;
 	flex-direction: column;
 	max-width: 480px;
 	margin: 0 auto;
 	background: var(--bg-elevated);
 	box-shadow: var(--shadow);
+	position: relative;
+	overflow: hidden;
 	transition:
 		background-color var(--motion-slow) var(--ease-soft),
 		box-shadow var(--motion) ease;
@@ -158,13 +168,10 @@ button {
 	.app-shell {
 		max-width: none;
 		box-shadow: none;
-		min-height: 100%;
-		min-height: -webkit-fill-available;
-		min-height: 100svh;
-		min-height: 100dvh;
 		height: 100%;
 		height: -webkit-fill-available;
 		height: 100dvh;
+		max-height: 100dvh;
 	}
 
 	html,
@@ -184,6 +191,7 @@ button {
 	flex-direction: column;
 	min-height: 0;
 	height: 100%;
+	max-height: 100%;
 	overflow: hidden;
 	position: relative;
 	animation: screen-in var(--motion-enter) var(--ease-out) both;
@@ -193,6 +201,10 @@ button {
 	position: relative;
 	isolation: isolate;
 	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	max-height: 100%;
 	/* Opacity-only enter — transform/filter on .screen would trap position:fixed sheets */
 	animation: chats-screen-in var(--motion-enter) var(--ease-out) both;
 }
@@ -505,16 +517,14 @@ button {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	background: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
+	background: color-mix(in srgb, var(--bg-elevated) 74%, transparent);
 	backdrop-filter: blur(28px) saturate(1.5);
 	-webkit-backdrop-filter: blur(28px) saturate(1.5);
-	border-bottom: none;
-	box-shadow:
-		0 1px 0 color-mix(in srgb, var(--border) 50%, transparent),
-		0 8px 24px color-mix(in srgb, var(--text) 4%, transparent);
+	border-bottom: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
+	box-shadow: 0 4px 20px color-mix(in srgb, var(--text) 5%, transparent);
 	position: sticky;
 	top: 0;
-	z-index: 20;
+	z-index: 50;
 	flex-shrink: 0;
 	transition:
 		background-color var(--motion) var(--ease-soft),
@@ -1793,8 +1803,11 @@ html.sheet-open body {
 .chat-view {
 	position: relative;
 	flex: 1;
+	display: flex;
+	flex-direction: column;
 	min-height: 0;
 	height: 100%;
+	max-height: 100%;
 	background-color: var(--bg-chat);
 	background-image: var(--chat-wallpaper-glow), var(--chat-wallpaper-pattern);
 	background-size: var(--chat-wallpaper-size);
@@ -1809,7 +1822,7 @@ html.sheet-open body {
 	.chat-view {
 		/* Fill the PWA shell; safe area is handled by composer/topbar */
 		height: 100%;
-		max-height: none;
+		max-height: 100%;
 	}
 
 	.composer-wrap {
@@ -1822,14 +1835,18 @@ html.sheet-open body {
 	top: 0;
 	left: 0;
 	right: 0;
-	z-index: 20;
+	z-index: 50;
+	flex-shrink: 0;
 }
 
 .chat-view > .messages-wrap {
-	padding-top: calc(var(--header-h) + var(--safe-top));
+	position: absolute;
+	inset: 0;
+	z-index: 10;
+	padding-top: 0;
 }
 
-/* Coach / pin sit under the absolute chat header — offset them, then drop wrap padding */
+/* Coach / pin sit under header */
 .chat-view > .coach-tip {
 	position: relative;
 	left: auto;
@@ -1841,23 +1858,11 @@ html.sheet-open body {
 	flex-shrink: 0;
 }
 
-.chat-view:not(:has(> .coach-tip)) > .pin-banner {
-	margin-top: calc(var(--header-h) + var(--safe-top));
-}
-
-.chat-view:has(> .coach-tip) > .messages-wrap,
-.chat-view:has(> .pin-banner) > .messages-wrap {
-	padding-top: 0;
-}
-
 .chat-view > .pin-banner {
 	position: relative;
 	z-index: 19;
 	flex-shrink: 0;
-}
-
-.chat-view.kb-open .composer-wrap {
-	padding-bottom: 0;
+	margin-top: calc(var(--header-h) + var(--safe-top));
 }
 
 @keyframes chat-world-in {
@@ -1880,7 +1885,7 @@ html.sheet-open body {
 .messages {
 	flex: 1;
 	overflow-y: auto;
-	padding: 12px 12px 8px;
+	padding: calc(var(--header-h) + var(--safe-top) + 12px) 12px calc(92px + env(safe-area-inset-bottom, 0px));
 	display: flex;
 	flex-direction: column;
 	gap: 3px;
@@ -2136,13 +2141,30 @@ html.sheet-open body {
 	box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 4%, transparent);
 }
 
+.chat-view,
+.messages-wrap,
+.messages,
+.bubble-row,
+.bubble-row *,
+.bubble,
+.bubble *,
+.bubble-content,
+.bubble-content * {
+	-webkit-touch-callout: none !important;
+	-webkit-user-select: none !important;
+	-khtml-user-select: none !important;
+	-moz-user-select: none !important;
+	-ms-user-select: none !important;
+	user-select: none !important;
+	-webkit-user-drag: none !important;
+	user-drag: none !important;
+	-webkit-tap-highlight-color: transparent !important;
+}
+
 .bubble-row {
 	display: flex;
 	position: relative;
 	animation: bubble-in 440ms var(--ease-out) both;
-	-webkit-touch-callout: none;
-	-webkit-user-select: none;
-	user-select: none;
 }
 
 .bubble-row.swiping .bubble {
@@ -2323,15 +2345,23 @@ html.sheet-open body {
 }
 
 .composer-wrap {
-	background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
-	backdrop-filter: blur(20px) saturate(1.3);
-	-webkit-backdrop-filter: blur(20px) saturate(1.3);
-	border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
-	padding-bottom: var(--safe-bottom);
+	background: transparent;
+	border-top: none;
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	padding-bottom: max(var(--safe-bottom), 10px);
+	padding-top: 4px;
+	pointer-events: none;
 	flex-shrink: 0;
-	position: sticky;
+	position: absolute;
 	bottom: 0;
-	z-index: 20;
+	left: 0;
+	right: 0;
+	z-index: 50;
+}
+
+.composer-wrap > * {
+	pointer-events: auto;
 }
 
 .composer {
@@ -2339,13 +2369,15 @@ html.sheet-open body {
 	align-items: flex-end;
 	gap: 6px;
 	padding: 8px 10px 10px;
-	margin: 0 10px 10px;
-	background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
-	backdrop-filter: blur(16px) saturate(1.2);
-	-webkit-backdrop-filter: blur(16px) saturate(1.2);
-	border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+	margin: 0 12px;
+	background: color-mix(in srgb, var(--bg-elevated) 76%, transparent);
+	backdrop-filter: blur(24px) saturate(1.4);
+	-webkit-backdrop-filter: blur(24px) saturate(1.4);
+	border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 	border-radius: 26px;
-	box-shadow: 0 4px 20px color-mix(in srgb, var(--text) 8%, transparent);
+	box-shadow:
+		0 8px 32px color-mix(in srgb, var(--text) 14%, transparent),
+		0 2px 8px color-mix(in srgb, var(--text) 5%, transparent);
 	transition:
 		border-color var(--motion) ease,
 		box-shadow var(--motion) var(--ease-soft),
