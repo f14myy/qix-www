@@ -57,6 +57,7 @@ export type ChatListItem = {
 		avatarPath: string | null;
 		lastSeenAt: string | null;
 		badges: import('$lib/badges').BadgeDTO[];
+		e2eePublicKey: string | null;
 	} | null;
 	channel: {
 		key: string;

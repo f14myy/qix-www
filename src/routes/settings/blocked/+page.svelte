@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { confirmDialog } from '$lib/flash.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import { goBack } from '$lib/nav';
 
 	type Blocked = {
 		id: string;
@@ -35,7 +35,7 @@
 
 <div class="screen">
 	<header class="topbar">
-		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goto('/settings')}>
+		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goBack('/settings')}>
 			<ArrowLeft size={22} />
 		</button>
 		<h1>{i18n.t('settings.blocked')}</h1>

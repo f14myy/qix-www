@@ -5,6 +5,7 @@
 	import CallOverlay from '$lib/components/CallOverlay.svelte';
 	import AppFlash from '$lib/components/AppFlash.svelte';
 	import RecoveryCodesGate from '$lib/components/RecoveryCodesGate.svelte';
+	import TabBar from '$lib/components/TabBar.svelte';
 	import {
 		handleIncomingInvite,
 		onCallAccepted,
@@ -17,22 +18,30 @@
 	import { initLocale } from '$lib/i18n';
 	import { fetchSettings } from '$lib/settings';
 	import { registerServiceWorker } from '$lib/pwa';
+	import { ENABLE_E2EE } from '$lib/e2ee/config';
 	import { bootstrapE2ee } from '$lib/e2ee/bootstrap';
+	import { canUseViewTransition } from '$lib/viewTransition';
+	import { trackNavigation } from '$lib/nav';
+	import { refreshRequestBadge } from '$lib/badges.svelte';
 	import '../app.css';
 
 	let { children } = $props();
-	let themeColor = $state('#1a7a6d');
+	let themeColor = $state('#121a22');
+
+	/** Top-level destinations that keep the bottom tab bar visible. */
+	const TAB_ROUTES = new Set(['/', '/requests', '/archive', '/settings']);
+	const showTabs = $derived(!!page.data.user && TAB_ROUTES.has(page.url.pathname));
 
 	onNavigate((navigation) => {
-		if (typeof document === 'undefined') return;
-		if (!document.startViewTransition) return;
-		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-		if (document.documentElement.getAttribute('data-reduce-motion') === '1') return;
-		// Skip view transitions on touch / coarse pointers — they glitch chat switches on mobile
-		if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+		trackNavigation(navigation.type);
+		if (!canUseViewTransition()) return;
 
 		return new Promise<void>((resolve) => {
-			document.startViewTransition(async () => {
+			(
+				document as Document & {
+					startViewTransition: (cb: () => void | Promise<void>) => void;
+				}
+			).startViewTransition(async () => {
 				resolve();
 				await navigation.complete;
 			});
@@ -52,9 +61,12 @@
 			/* guest / offline */
 		});
 		if (page.data.user) {
-			void bootstrapE2ee(page.data.user.id).catch(() => {
-				/* crypto unavailable */
-			});
+			if (ENABLE_E2EE) {
+				void bootstrapE2ee(page.data.user.id).catch(() => {
+					/* crypto unavailable */
+				});
+			}
+			void refreshRequestBadge();
 		}
 
 		const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -177,6 +189,9 @@
 
 <div class="app-shell">
 	{@render children()}
+	{#if showTabs}
+		<TabBar />
+	{/if}
 </div>
 
 <AppFlash />

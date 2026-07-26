@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Inbox from '@lucide/svelte/icons/inbox';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
@@ -33,11 +32,7 @@
 
 <div class="screen">
 	<header class="topbar">
-		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goto('/')}>
-			<ArrowLeft size={22} />
-		</button>
 		<h1>{i18n.t('requests.title')}</h1>
-		<span class="icon-btn" style="visibility:hidden" aria-hidden="true"><ArrowLeft size={22} /></span>
 	</header>
 
 	<div class="settings-body">

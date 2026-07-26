@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import ArchiveRestore from '@lucide/svelte/icons/archive-restore';
-	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ChannelAvatar from '$lib/components/ChannelAvatar.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
@@ -32,11 +31,7 @@
 
 <div class="screen">
 	<header class="topbar">
-		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goto('/')}>
-			<ArrowLeft size={22} />
-		</button>
 		<h1>{i18n.t('chats.archive')}</h1>
-		<span class="icon-btn" style="visibility:hidden" aria-hidden="true"><ArrowLeft size={22} /></span>
 	</header>
 
 	<div class="list">
@@ -87,7 +82,7 @@
 					<button
 						type="button"
 						class="icon-btn"
-						style="width:44px;height:44px;align-self:center;margin-right:8px"
+						style="align-self:center;margin-right:8px"
 						aria-label={i18n.t('chats.unarchive')}
 						onclick={() => unarchive(chat.id)}
 					>

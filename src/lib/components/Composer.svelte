@@ -466,7 +466,7 @@
 				<strong>{replyingLabel}</strong>
 				<span>{replyPreviewText()}</span>
 			</div>
-			<button type="button" class="icon-btn" style="width:32px;height:32px" onclick={onclearReply}>
+			<button type="button" class="icon-btn banner-dismiss" onclick={onclearReply}>
 				<X size={16} />
 			</button>
 		</div>
@@ -478,7 +478,7 @@
 				<strong>{editingLabel}</strong>
 				<span>{editing.body?.slice(0, 80)}</span>
 			</div>
-			<button type="button" class="icon-btn" style="width:32px;height:32px" onclick={onclearEdit}>
+			<button type="button" class="icon-btn banner-dismiss" onclick={onclearEdit}>
 				<X size={16} />
 			</button>
 		</div>
@@ -508,8 +508,7 @@
 						{item.file.name}
 						<button
 							type="button"
-							class="icon-btn"
-							style="width:22px;height:22px"
+							class="icon-btn banner-dismiss chip-dismiss"
 							onclick={() => setFiles(files.filter((_, idx) => idx !== i))}
 						>
 							<X size={12} />

@@ -14,6 +14,7 @@ export function lastMessagePreview(
 		t: (key: string, vars?: Record<string, string | number>) => string;
 		draft?: string;
 		failed?: boolean;
+		decryptedBody?: string;
 	}
 ): string {
 	const { t, userId } = opts;
@@ -24,6 +25,7 @@ export function lastMessagePreview(
 	if (last.deleted) return '';
 	if (last.body?.startsWith('e2ee:1:')) {
 		const prefix = last.senderId === userId ? t('chat.youPrefix') : '';
+		if (opts.decryptedBody) return `${prefix}${opts.decryptedBody}`;
 		return `${prefix}${t('e2ee.preview')}`;
 	}
 	const prefix = last.senderId === userId ? t('chat.youPrefix') : '';

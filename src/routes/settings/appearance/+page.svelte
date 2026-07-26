@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Check from '@lucide/svelte/icons/check';
@@ -28,6 +27,7 @@
 	import { fetchSettings, patchSettings, type ClientSettings } from '$lib/settings';
 	import { haptic } from '$lib/haptic';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import { goBack } from '$lib/nav';
 	import type { Locale } from '$lib/i18n';
 
 	const i18n = useI18n();
@@ -107,7 +107,7 @@
 
 <div class="screen appearance-screen">
 	<header class="topbar">
-		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goto('/settings')}>
+		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goBack('/settings')}>
 			<ArrowLeft size={22} />
 		</button>
 		<h1>{i18n.t('settings.appearance')}</h1>

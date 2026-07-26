@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import { fetchSettings, patchSettings, type ClientSettings } from '$lib/settings';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import { goBack } from '$lib/nav';
 
 	const i18n = useI18n();
 	let settings = $state<ClientSettings | null>(null);
@@ -22,7 +22,7 @@
 
 <div class="screen">
 	<header class="topbar">
-		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goto('/settings')}>
+		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goBack('/settings')}>
 			<ArrowLeft size={22} />
 		</button>
 		<h1>{i18n.t('settings.chatsPrefs')}</h1>

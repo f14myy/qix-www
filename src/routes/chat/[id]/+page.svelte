@@ -27,6 +27,7 @@
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
 	import { mapCallStartError, startOutgoingCall } from '$lib/calls/store.svelte';
 	import { dismissCoach, markCoachShown, shouldShowCoach } from '$lib/coach';
+	import { ENABLE_E2EE } from '$lib/e2ee/config';
 	import {
 		decryptMessages,
 		encryptOutgoing
@@ -34,6 +35,7 @@
 	import { toast, promptDialog } from '$lib/flash.svelte';
 	import { haptic, hapticFail, hapticSuccess } from '$lib/haptic';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import { goBack as navigateBack } from '$lib/nav';
 	import {
 		enqueueSend,
 		filesFromQueued,
@@ -43,6 +45,7 @@
 	} from '$lib/sendQueue';
 	import { dayKey, formatDayLabel, isOnlineIso, formatLastSeen } from '$lib/time';
 	import type { ChatListItem, MediaItemDTO, MessageDTO } from '$lib/types';
+	import { startViewTransition } from '$lib/viewTransition';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -93,6 +96,7 @@
 
 	type TimelineItem =
 		| { kind: 'sep'; key: string; label: string }
+		| { kind: 'unread'; key: string }
 		| {
 				kind: 'msg';
 				key: string;
@@ -132,11 +136,13 @@
 				dayKey(next.createdAt) === key &&
 				Math.abs(new Date(next.createdAt).getTime() - new Date(message.createdAt).getTime()) <
 					GROUP_MS;
+			const startsUnread = !!prev && message.id === firstUnreadId;
+			if (startsUnread) items.push({ kind: 'unread', key: `u-${message.id}` });
 			items.push({
 				kind: 'msg',
 				key: message.id,
 				message,
-				grouped: samePrev,
+				grouped: samePrev && !startsUnread,
 				tail: !sameNext
 			});
 		}
@@ -168,7 +174,7 @@
 	);
 
 	const e2eePeerKey = $derived(peerE2eeKey || (!isChannel && data.peer?.e2eePublicKey ? data.peer.e2eePublicKey : null));
-	const canE2ee = $derived(!!e2eePeerKey && !!data.user && !isChannel);
+	const canE2ee = $derived(ENABLE_E2EE && !!e2eePeerKey && !!data.user && !isChannel);
 
 	$effect(() => {
 		peerE2eeKey = data.peer?.e2eePublicKey ?? null;
@@ -994,14 +1000,9 @@
 			exitSelect();
 			return;
 		}
-		const run = () => goto('/');
-		if (typeof document !== 'undefined' && 'startViewTransition' in document) {
-			(document as Document & { startViewTransition: (cb: () => void) => void }).startViewTransition(
-				run
-			);
-		} else {
-			run();
-		}
+		startViewTransition(() => {
+			navigateBack('/');
+		});
 	}
 
 	async function startCall(video: boolean) {
@@ -1207,6 +1208,8 @@
 					<div data-day-label={item.label}>
 						<DateSeparator label={item.label} />
 					</div>
+				{:else if item.kind === 'unread'}
+					<div class="unread-divider"><span>{i18n.t('chat.unreadSince')}</span></div>
 				{:else}
 					<ChatBubble
 						message={item.message}

@@ -3,6 +3,7 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import { goBack } from '$lib/nav';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -43,7 +44,7 @@
 
 <div class="screen">
 	<header class="topbar">
-		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goto('/')}>
+		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goBack('/')}>
 			<ArrowLeft size={22} />
 		</button>
 		<h1>{i18n.t('invite.title')}</h1>

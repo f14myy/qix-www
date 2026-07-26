@@ -64,6 +64,8 @@
 	} = $props();
 
 	let menuOpen = $state(false);
+	/** 'react' shows only the emoji tray — used by the swipe-right shortcut. */
+	let menuMode = $state<'full' | 'react'>('full');
 	let confirmDelete = $state(false);
 	let swipeX = $state(0);
 	let swiping = $state(false);
@@ -204,7 +206,9 @@
 		}
 		if (shouldReact && releaseX > 56) {
 			haptic(10);
-			onreact(message, '👍');
+			menuMode = 'react';
+			confirmDelete = false;
+			menuOpen = true;
 			return;
 		}
 
@@ -234,6 +238,7 @@
 			if (!pressMoved) {
 				longPressed = true;
 				haptic(18);
+				menuMode = 'full';
 				menuOpen = true;
 				confirmDelete = false;
 			}
@@ -450,30 +455,33 @@
 			</button>
 		{/if}
 
-		<span class="time">
-			{#if message.editedAt}
-				<span class="edited">{t('chat.edited')}</span>
-			{/if}
-			{formatMessageTime(message.createdAt, locale)}
-			{#if mine}
-				<span
-					class="receipt"
-					class:read
-					class:pending={message.id.startsWith('tmp-') && !failed}
-					class:failed
-				>
-					{#if failed}
-						!
-					{:else if message.id.startsWith('tmp-')}
-						<Check size={14} />
-					{:else if read}
-						<CheckCheck size={14} />
-					{:else}
-						<Check size={14} />
-					{/if}
-				</span>
-			{/if}
-		</span>
+		<!-- Only the last message of a group carries the time, so runs stay quiet -->
+		{#if tail || message.editedAt || failed}
+			<span class="time">
+				{#if message.editedAt}
+					<span class="edited">{t('chat.edited')}</span>
+				{/if}
+				{formatMessageTime(message.createdAt, locale)}
+				{#if mine}
+					<span
+						class="receipt"
+						class:read
+						class:pending={message.id.startsWith('tmp-') && !failed}
+						class:failed
+					>
+						{#if failed}
+							!
+						{:else if message.id.startsWith('tmp-')}
+							<Check size={14} />
+						{:else if read}
+							<CheckCheck size={14} />
+						{:else}
+							<Check size={14} />
+						{/if}
+					</span>
+				{/if}
+			</span>
+		{/if}
 	</div>
 </div>
 
@@ -495,6 +503,7 @@
 				{/each}
 			</div>
 		{/if}
+		{#if menuMode === 'full'}
 		<div class="msg-menu">
 			{#if confirmDelete}
 				<p class="msg-confirm-text">{t('chat.deleteConfirm')}</p>
@@ -571,5 +580,6 @@
 				{/if}
 			{/if}
 		</div>
+		{/if}
 	</div>
 {/if}

@@ -270,7 +270,8 @@ export function listChatsForUser(userId: string, opts?: { archived?: boolean }):
 						displayName: peer.displayName,
 						avatarPath: peer.avatarPath,
 						lastSeenAt: peer.lastSeenAt,
-						badges: peer.badges
+						badges: peer.badges,
+						e2eePublicKey: peer.e2eePublicKey
 					}
 				: null,
 			channel: channel

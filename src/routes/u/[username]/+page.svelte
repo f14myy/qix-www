@@ -11,6 +11,7 @@
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
 	import { confirmDialog, toast } from '$lib/flash.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import { goBack } from '$lib/nav';
 	import { formatLastSeen, isOnlineIso } from '$lib/time';
 	import type { PageData } from './$types';
 
@@ -106,7 +107,7 @@
 
 <div class="screen profile-screen">
 	<header class="topbar topbar-over-media">
-		<button type="button" class="icon-btn icon-btn-glass" aria-label={i18n.t('back')} onclick={() => history.back()}>
+		<button type="button" class="icon-btn icon-btn-glass" aria-label={i18n.t('back')} onclick={() => goBack('/')}>
 			<ArrowLeft size={20} />
 		</button>
 		<span class="topbar-spacer"></span>

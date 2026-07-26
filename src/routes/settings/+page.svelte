@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Bell from '@lucide/svelte/icons/bell';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import MessageSquare from '@lucide/svelte/icons/message-square';
@@ -78,9 +77,6 @@
 
 <div class="screen settings-screen">
 	<header class="topbar">
-		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goto('/')}>
-			<ArrowLeft size={22} />
-		</button>
 		<h1>{i18n.t('settings.title')}</h1>
 	</header>
 

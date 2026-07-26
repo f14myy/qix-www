@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import Camera from '@lucide/svelte/icons/camera';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
@@ -7,6 +6,7 @@
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import { goBack } from '$lib/nav';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -173,7 +173,7 @@
 			type="button"
 			class="icon-btn"
 			aria-label={i18n.t('back')}
-			onclick={() => goto('/settings')}
+			onclick={() => goBack('/settings')}
 		>
 			<ArrowLeft size={22} />
 		</button>

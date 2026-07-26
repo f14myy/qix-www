@@ -6,6 +6,7 @@
 	import Smartphone from '@lucide/svelte/icons/smartphone';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import { goBack } from '$lib/nav';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -187,7 +188,7 @@
 
 <div class="screen">
 	<header class="topbar">
-		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goto('/settings')}>
+		<button type="button" class="icon-btn" aria-label={i18n.t('back')} onclick={() => goBack('/settings')}>
 			<ArrowLeft size={22} />
 		</button>
 		<h1>{i18n.t('settings.security')}</h1>

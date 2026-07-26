@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { eq, and, gt, ne, isNull } from 'drizzle-orm';
+import { eq, and, gt, lt, ne, isNull } from 'drizzle-orm';
 import type { Cookies } from '@sveltejs/kit';
 import { hash, compare } from 'bcryptjs';
 import { db } from './db';
@@ -57,6 +57,8 @@ export function labelUserAgent(ua: string | null | undefined): string {
 	return `${browser} · ${os}`;
 }
 
+const SESSION_STALE_UNUSED_MS = 5 * 60 * 1000;
+
 export async function createSession(
 	userId: string,
 	cookies: Cookies,
@@ -67,13 +69,6 @@ export async function createSession(
 	const now = new Date();
 	const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
 	const ua = userAgent?.slice(0, 512) || null;
-
-	// Re-login / cookie flapping on the same browser used to stack duplicate rows.
-	if (ua) {
-		db.delete(sessions)
-			.where(and(eq(sessions.userId, userId), eq(sessions.userAgent, ua)))
-			.run();
-	}
 
 	db.insert(sessions)
 		.values({
@@ -97,54 +92,46 @@ export async function createSession(
 	});
 }
 
-/** Drop older rows that share the same user-agent (keeps current + newest per UA). */
+/**
+ * Drop expired rows and unused same-UA duplicates (login flapping).
+ * Never revoke active devices that share a UA (e.g. two iPhones).
+ */
 export function pruneDuplicateSessions(userId: string, currentSessionId: string | null): void {
+	const now = Date.now();
+
+	db.delete(sessions)
+		.where(and(eq(sessions.userId, userId), lt(sessions.expiresAt, new Date(now))))
+		.run();
+
 	const rows = db
 		.select()
 		.from(sessions)
-		.where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, new Date())))
+		.where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, new Date(now))))
 		.all();
 
-	const keep = new Set<string>();
-	const bestByUa = new Map<string, { id: string; t: number }>();
-
+	const byUa = new Map<string, typeof rows>();
 	for (const r of rows) {
-		if (r.id === currentSessionId) {
-			keep.add(r.id);
-			const key = r.userAgent || `id:${r.id}`;
-			bestByUa.set(key, {
-				id: r.id,
-				t: Number.MAX_SAFE_INTEGER
-			});
-		}
-	}
-
-	const sorted = [...rows].sort((a, b) => {
-		const ta = a.lastSeenAt?.getTime() ?? a.createdAt?.getTime() ?? 0;
-		const tb = b.lastSeenAt?.getTime() ?? b.createdAt?.getTime() ?? 0;
-		return tb - ta;
-	});
-
-	for (const r of sorted) {
-		if (keep.has(r.id)) continue;
 		const key = r.userAgent || `id:${r.id}`;
-		const t = r.lastSeenAt?.getTime() ?? r.createdAt?.getTime() ?? 0;
-		const best = bestByUa.get(key);
-		if (!best) {
-			bestByUa.set(key, { id: r.id, t });
-			keep.add(r.id);
-			continue;
-		}
-		if (t > best.t) {
-			keep.delete(best.id);
-			bestByUa.set(key, { id: r.id, t });
-			keep.add(r.id);
-		}
+		const list = byUa.get(key);
+		if (list) list.push(r);
+		else byUa.set(key, [r]);
 	}
 
-	for (const r of rows) {
-		if (!keep.has(r.id)) {
-			db.delete(sessions).where(eq(sessions.id, r.id)).run();
+	for (const group of byUa.values()) {
+		if (group.length < 2) continue;
+		const sorted = [...group].sort((a, b) => {
+			const ta = a.lastSeenAt?.getTime() ?? a.createdAt?.getTime() ?? 0;
+			const tb = b.lastSeenAt?.getTime() ?? b.createdAt?.getTime() ?? 0;
+			return tb - ta;
+		});
+		const newestId = sorted[0]?.id;
+		for (const r of sorted) {
+			if (r.id === currentSessionId || r.id === newestId) continue;
+			const created = r.createdAt?.getTime() ?? 0;
+			const last = r.lastSeenAt?.getTime() ?? created;
+			if (last - created < SESSION_STALE_UNUSED_MS) {
+				db.delete(sessions).where(eq(sessions.id, r.id)).run();
+			}
 		}
 	}
 }

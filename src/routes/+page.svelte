@@ -4,20 +4,21 @@
 	import Archive from '@lucide/svelte/icons/archive';
 	import BellOff from '@lucide/svelte/icons/bell-off';
 	import Bell from '@lucide/svelte/icons/bell';
-	import Inbox from '@lucide/svelte/icons/inbox';
 	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import Mic from '@lucide/svelte/icons/mic';
 	import ImageIcon from '@lucide/svelte/icons/image';
+	import PenLine from '@lucide/svelte/icons/pen-line';
 	import Pin from '@lucide/svelte/icons/pin';
 	import PinOff from '@lucide/svelte/icons/pin-off';
 	import Search from '@lucide/svelte/icons/search';
-	import Settings from '@lucide/svelte/icons/settings';
 	import Hand from '@lucide/svelte/icons/hand';
 	import X from '@lucide/svelte/icons/x';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ChannelAvatar from '$lib/components/ChannelAvatar.svelte';
 	import CoachTip from '$lib/components/CoachTip.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
+	import { decryptMessageBody } from '$lib/e2ee/messages';
+	import { setRequestBadge, setUnreadBadge } from '$lib/badges.svelte';
 	import { lastMessagePreview } from '$lib/chatPreview';
 	import { dismissCoach, markCoachShown, shouldShowCoach } from '$lib/coach';
 	import { toast } from '$lib/flash.svelte';
@@ -38,6 +39,29 @@
 	let showSearchHint = $state(false);
 	let showChannelsHint = $state(false);
 	let searchChats = $state<PageData['chats']>([]);
+	let decryptedPreviews = $state<Record<string, string>>({});
+
+	$effect(() => {
+		if (!data.user) return;
+		for (const chat of data.chats) {
+			const lastBody = chat.lastMessage?.body;
+			if (!lastBody || !lastBody.startsWith('e2ee:1:')) continue;
+			if (decryptedPreviews[chat.id]) continue;
+			if (chat.kind === 'dm' && chat.peer?.e2eePublicKey) {
+				const chatId = chat.id;
+				const peerId = chat.peer.id;
+				const pubKey = chat.peer.e2eePublicKey;
+				const userId = data.user.id;
+				decryptMessageBody(userId, peerId, pubKey, lastBody)
+					.then((dec) => {
+						if (dec && dec !== '🔒') {
+							decryptedPreviews[chatId] = dec;
+						}
+					})
+					.catch(() => {});
+			}
+		}
+	});
 	let searchPeople = $state<
 		Array<{ id: string; username: string; displayName: string | null; avatarPath: string | null }>
 	>([]);
@@ -77,11 +101,17 @@
 	let searchInput: HTMLInputElement | undefined = $state();
 	let drafts = $state<Record<string, string>>({});
 	let failedChats = $state<Set<string>>(new Set());
-	let requestCount = $state(0);
+	let swipeId = $state<string | null>(null);
+	let swipeX = $state(0);
+	let openSwipeId = $state<string | null>(null);
 
 	const HOLD_MS = 440;
 	const HOLD_MOVE_SLOP = 40;
 	const SKIP_CLICK_MS = 650;
+	/** Must match --row-actions-w in app.css. */
+	const SWIPE_OPEN = 132;
+	const SWIPE_START = 14;
+	const SWIPE_TRIGGER = 64;
 
 	const menuChat = $derived(
 		menuId
@@ -100,6 +130,24 @@
 	const searchHasResults = $derived(
 		searchChats.length > 0 || searchPeople.length > 0 || searchMessages.length > 0
 	);
+
+	$effect(() => {
+		setUnreadBadge(
+			data.chats.reduce((sum, c) => sum + (c.muted ? 0 : c.unreadCount), 0)
+		);
+	});
+
+	function closeSwipe() {
+		openSwipeId = null;
+		swipeId = null;
+		swipeX = 0;
+	}
+
+	function rowOffset(id: string) {
+		if (swipeId === id) return swipeX;
+		if (openSwipeId === id) return -SWIPE_OPEN;
+		return 0;
+	}
 
 	function loadLocalHints() {
 		const nextDrafts: Record<string, string> = {};
@@ -125,10 +173,10 @@
 		fetch('/api/requests')
 			.then((r) => r.json())
 			.then((j) => {
-				requestCount = Array.isArray(j.requests) ? j.requests.length : 0;
+				setRequestBadge(Array.isArray(j.requests) ? j.requests.length : 0);
 			})
 			.catch(() => {
-				requestCount = 0;
+				setRequestBadge(0);
 			});
 	}
 
@@ -137,7 +185,8 @@
 			userId: data.user?.id,
 			t: i18n.t,
 			draft: drafts[chat.id],
-			failed: failedChats.has(chat.id)
+			failed: failedChats.has(chat.id),
+			decryptedBody: decryptedPreviews[chat.id]
 		});
 	}
 
@@ -229,6 +278,7 @@
 				body: JSON.stringify(patch)
 			});
 			closeMenu();
+			closeSwipe();
 			await invalidateAll();
 		} finally {
 			prefBusy = false;
@@ -277,6 +327,7 @@
 		holdChatId = null;
 		pulling = false;
 		pullY = 0;
+		closeSwipe();
 		menuId = id;
 		skipClickUntil = Date.now() + SKIP_CLICK_MS;
 		setSheetOpen(true);
@@ -290,6 +341,14 @@
 			skipClickUntil = Date.now() + SKIP_CLICK_MS;
 			return;
 		}
+		if (openSwipeId) {
+			const wasOpen = openSwipeId;
+			closeSwipe();
+			if (wasOpen === id) {
+				skipClickUntil = Date.now() + SKIP_CLICK_MS;
+				return;
+			}
+		}
 
 		endHoldTracking();
 		holdMoved = false;
@@ -301,9 +360,23 @@
 		const pointerId = e.pointerId;
 		const onMove = (ev: PointerEvent) => {
 			if (ev.pointerId !== pointerId) return;
-			if (!holdChatId || menuId) return;
+			if (menuId) return;
 			const dx = ev.clientX - holdStartX;
 			const dy = ev.clientY - holdStartY;
+
+			if (swipeId === id) {
+				swipeX = Math.max(-(SWIPE_OPEN + 28), Math.min(0, dx));
+				return;
+			}
+			if (!holdChatId) return;
+			if (dx < -SWIPE_START && Math.abs(dx) > Math.abs(dy) * 1.4) {
+				clearHoldTimer();
+				holdingId = null;
+				holdMoved = true;
+				swipeId = id;
+				swipeX = Math.max(-(SWIPE_OPEN + 28), dx);
+				return;
+			}
 			if (dx * dx + dy * dy > HOLD_MOVE_SLOP * HOLD_MOVE_SLOP) {
 				holdMoved = true;
 				clearHoldTimer();
@@ -315,6 +388,17 @@
 			clearHoldTimer();
 			holdingId = null;
 			holdChatId = null;
+			if (swipeId === id) {
+				swipeId = null;
+				skipClickUntil = Date.now() + SKIP_CLICK_MS;
+				if (swipeX <= -SWIPE_TRIGGER) {
+					swipeX = -SWIPE_OPEN;
+					openSwipeId = id;
+					haptic(10);
+				} else {
+					swipeX = 0;
+				}
+			}
 			detachHoldListeners?.();
 			detachHoldListeners = null;
 		};
@@ -356,15 +440,19 @@
 		}
 	}
 
+	function onListScroll() {
+		if (openSwipeId) closeSwipe();
+	}
+
 	function onListTouchStart(e: TouchEvent) {
-		if (holdChatId || holdingId || menuId) return;
+		if (holdChatId || holdingId || menuId || swipeId || openSwipeId) return;
 		if (!listEl || listEl.scrollTop > 0 || refreshing) return;
 		pullStartY = e.touches[0].clientY;
 		pulling = true;
 	}
 
 	function onListTouchMove(e: TouchEvent) {
-		if (holdChatId || holdingId || menuId) {
+		if (holdChatId || holdingId || menuId || swipeId) {
 			pulling = false;
 			pullY = 0;
 			return;
@@ -387,6 +475,7 @@
 
 	function openChat(id: string, messageId?: string) {
 		closeMenu();
+		closeSwipe();
 		// Never navigate into a built-in channel id by mistake from DM helpers
 		const href = messageId ? `/chat/${id}?m=${encodeURIComponent(messageId)}` : `/chat/${id}`;
 		void goto(href);
@@ -514,25 +603,6 @@
 <div class="screen chats-screen">
 	<header class="topbar">
 		<h1 class="brand brand-animate">{i18n.t('chats.title')}</h1>
-		<div class="topbar-actions">
-			<a class="icon-btn" href="/requests" aria-label={i18n.t('requests.title')}>
-				<Inbox size={20} />
-				{#if requestCount > 0}
-					<span class="top-badge">{requestCount > 9 ? '9+' : requestCount}</span>
-				{/if}
-			</a>
-			<a class="icon-btn" href="/archive" aria-label={i18n.t('chats.archive')}>
-				<Archive size={20} />
-			</a>
-			<button
-				type="button"
-				class="icon-btn"
-				aria-label={i18n.t('common.settings')}
-				onclick={() => goto('/settings')}
-			>
-				<Settings size={20} />
-			</button>
-		</div>
 	</header>
 
 	{#if showSearchHint}
@@ -609,6 +679,7 @@
 		class:is-holding={!!holdingId || !!menuId}
 		bind:this={listEl}
 		role="list"
+		onscroll={onListScroll}
 		ontouchstart={onListTouchStart}
 		ontouchmove={onListTouchMove}
 		ontouchend={onListTouchEnd}
@@ -721,6 +792,12 @@
 		{/if}
 	</div>
 	<p class="app-version" aria-hidden="true">{APP_VERSION}</p>
+
+	{#if !isSearch}
+		<a class="fab" href="/new" aria-label={i18n.t('chats.newTitle')}>
+			<PenLine size={24} />
+		</a>
+	{/if}
 </div>
 
 {#if menuChat}
@@ -778,19 +855,49 @@
 
 {#snippet chatRow(chat: PageData['chats'][number], index: number, withActions: boolean)}
 	{@const icon = previewIcon(chat)}
+	{@const offset = rowOffset(chat.id)}
 	<div
 		class="chat-row-wrap"
 		class:holding={holdingId === chat.id}
 		class:menu-open={menuId === chat.id}
+		class:swiping={swipeId === chat.id}
+		class:swipe-open={openSwipeId === chat.id}
 		style="animation-delay:{Math.min(index, 6) * 40}ms"
 		role="group"
 	>
+		{#if withActions}
+			<div class="row-actions-under">
+				<button
+					type="button"
+					class="row-action mute"
+					disabled={prefBusy}
+					onclick={() => setPref(chat.id, { muted: !chat.muted })}
+				>
+					{#if chat.muted}
+						<Bell size={17} />
+					{:else}
+						<BellOff size={17} />
+					{/if}
+					<span>{chat.muted ? i18n.t('actions.unmute') : i18n.t('actions.mute')}</span>
+				</button>
+				<button
+					type="button"
+					class="row-action archive"
+					disabled={prefBusy}
+					onclick={() => setPref(chat.id, { archived: true })}
+				>
+					<Archive size={17} />
+					<span>{i18n.t('chat.archive')}</span>
+				</button>
+			</div>
+		{/if}
 		<button
 			type="button"
 			class="chat-row"
 			class:muted={chat.muted}
 			class:unread={chat.unreadCount > 0}
 			class:holding={holdingId === chat.id}
+			style={offset ? `transform:translate3d(${offset}px,0,0)` : ''}
 			onclick={() => (withActions ? onRowClick(chat.id) : openChat(chat.id))}
 			onpointerdown={withActions ? (e) => onRowPointerDown(e, chat.id) : undefined}
 			oncontextmenu={withActions ? (e) => onRowContextMenu(e, chat.id) : undefined}
