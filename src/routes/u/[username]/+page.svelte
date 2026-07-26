@@ -223,12 +223,17 @@
 			{#if !data.isSelf}
 				<div class="profile-actions">
 					<button
-						class="btn btn-ghost btn-block profile-action-secondary"
+						class="btn btn-block profile-action-block"
+						class:is-blocked={blockedByMe}
 						type="button"
 						disabled={blocking}
 						onclick={toggleBlock}
 					>
-						<Ban size={18} />
+						{#if blockedByMe}
+							<ShieldCheck size={18} />
+						{:else}
+							<Ban size={18} />
+						{/if}
 						{blockedByMe ? i18n.t('settings.unblock') : i18n.t('settings.block')}
 					</button>
 				</div>

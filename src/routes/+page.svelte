@@ -575,10 +575,7 @@
 			detachPointerListeners = null;
 			setSheetOpen(false);
 		};
-	});
-
-
-
+	}); // end onMount
 </script>
 
 <svelte:window onfocus={refresh} onkeydown={onMenuKeydown} />

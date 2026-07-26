@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { confirmDialog } from '$lib/flash.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
@@ -65,7 +66,8 @@
 									<span class="hint">@{user.username}</span>
 								</span>
 							</a>
-							<button class="btn btn-ghost" type="button" onclick={() => unblock(user)}>
+							<button class="btn btn-ghost blocked-unblock-btn" type="button" onclick={() => unblock(user)}>
+								<ShieldCheck size={16} />
 								{i18n.t('settings.unblock')}
 							</button>
 						</div>
