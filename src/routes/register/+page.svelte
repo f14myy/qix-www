@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Eye from '@lucide/svelte/icons/eye';
+	import EyeOff from '@lucide/svelte/icons/eye-off';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 
 	const i18n = useI18n();
@@ -6,11 +8,14 @@
 	let password = $state('');
 	let error = $state('');
 	let loading = $state(false);
+	let showPassword = $state(false);
+	let shake = $state(false);
 
 	async function submit(e: Event) {
 		e.preventDefault();
 		error = '';
 		loading = true;
+		shake = false;
 		try {
 			const res = await fetch('/api/auth/register', {
 				method: 'POST',
@@ -24,6 +29,7 @@
 					typeof data.error === 'string' && data.error
 						? data.error
 						: i18n.t('auth.registerFailed');
+				shake = true;
 				loading = false;
 				return;
 			}
@@ -42,17 +48,39 @@
 			window.location.assign('/');
 		} catch {
 			error = i18n.t('auth.registerFailed');
+			shake = true;
 			loading = false;
 		}
 	}
 </script>
 
 <div class="screen auth-screen">
-	<div class="auth-card">
+	<div class="auth-top-bar">
+		<div class="auth-lang-toggle" aria-label="Language">
+			<button
+				type="button"
+				class="auth-lang-btn"
+				class:active={i18n.locale === 'en'}
+				onclick={() => i18n.setLocale('en')}
+			>
+				EN
+			</button>
+			<button
+				type="button"
+				class="auth-lang-btn"
+				class:active={i18n.locale === 'ru'}
+				onclick={() => i18n.setLocale('ru')}
+			>
+				RU
+			</button>
+		</div>
+	</div>
+
+	<div class="auth-card" class:auth-shake={shake}>
 		<h1 class="brand-title">Qix</h1>
 		<p class="subtitle">{i18n.t('auth.registerSubtitle')}</p>
 
-		<form onsubmit={submit}>
+		<form class="auth-form" onsubmit={submit}>
 			<div class="field">
 				<label for="username">{i18n.t('auth.username')}</label>
 				<input
@@ -65,27 +93,44 @@
 					required
 				/>
 			</div>
+
 			<div class="field">
 				<label for="password">{i18n.t('auth.password')}</label>
-				<input
-					id="password"
-					type="password"
-					autocomplete="new-password"
-					minlength="8"
-					bind:value={password}
-					required
-				/>
+				<div class="field-input-wrap">
+					<input
+						id="password"
+						type={showPassword ? 'text' : 'password'}
+						autocomplete="new-password"
+						minlength="8"
+						bind:value={password}
+						required
+					/>
+					<button
+						type="button"
+						class="eye-btn"
+						aria-label={showPassword ? 'Hide password' : 'Show password'}
+						onclick={() => (showPassword = !showPassword)}
+					>
+						{#if showPassword}
+							<EyeOff size={18} />
+						{:else}
+							<Eye size={18} />
+						{/if}
+					</button>
+				</div>
 				<p class="field-hint">{i18n.t('auth.passwordHint')}</p>
 			</div>
+
 			{#if error}
-				<p class="error">{error}</p>
+				<p class="error" role="alert">{error}</p>
 			{/if}
+
 			<button class="btn btn-block" type="submit" disabled={loading}>
 				{loading ? i18n.t('auth.creating') : i18n.t('auth.create')}
 			</button>
 		</form>
 
-		<p class="auth-footer">
+		<p class="auth-footer" style="margin-top:24px">
 			{i18n.t('auth.haveAccount')} <a href="/login">{i18n.t('auth.signInLink')}</a>
 		</p>
 	</div>
