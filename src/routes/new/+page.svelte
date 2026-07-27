@@ -117,7 +117,8 @@
 		{/if}
 	</div>
 
-	<div class="list">
+	<!-- `stagger` cascades the search results in as they replace one another -->
+	<div class="list stagger">
 		{#if q.length < 2}
 			<div class="empty empty-animate">
 				<span class="empty-icon"><UserPlus size={28} /></span>

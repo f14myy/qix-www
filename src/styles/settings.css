@@ -681,3 +681,190 @@ button.settings-row.link-row .label {
 	margin-top: 10px;
 	padding: 0;
 }
+
+
+/* ==========================================================================
+   Motion
+   --------------------------------------------------------------------------
+   Rows cascade in rather than appearing as a block, and every tappable row
+   answers the press. Shared keyframes come from motion.css.
+   ========================================================================== */
+
+/* ── Row cascades ───────────────────────────────────────────────────────────
+   Scoped to direct children so a nested card does not restart the cascade,
+   and capped at eight: past that the delay outlasts the person waiting. */
+.settings-card > .settings-row,
+.settings-card > .settings-nav-row,
+.settings-section > .settings-row,
+.settings-section > .settings-nav-row {
+	animation: rise-in var(--motion-enter) var(--ease-out) both;
+}
+
+.settings-card > *:nth-child(1),
+.settings-section > *:nth-child(1) {
+	animation-delay: 0ms;
+}
+.settings-card > *:nth-child(2),
+.settings-section > *:nth-child(2) {
+	animation-delay: calc(var(--stagger) * 1);
+}
+.settings-card > *:nth-child(3),
+.settings-section > *:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.settings-card > *:nth-child(4),
+.settings-section > *:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.settings-card > *:nth-child(5),
+.settings-section > *:nth-child(5) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+.settings-card > *:nth-child(6),
+.settings-section > *:nth-child(6) {
+	animation-delay: calc(var(--stagger) * 5);
+}
+.settings-card > *:nth-child(n + 7),
+.settings-section > *:nth-child(n + 7) {
+	animation-delay: calc(var(--stagger) * 6);
+}
+
+
+/* ── Row feedback ───────────────────────────────────────────────────────────
+   A settings list is mostly navigation, so the affordance is the chevron
+   leaning towards where you are about to go. */
+.settings-row,
+.settings-nav-row,
+.session-row,
+.blocked-row {
+	transition:
+		background-color var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-out);
+}
+
+.settings-nav-row:active,
+.settings-row:active {
+	transform: scale(0.985);
+}
+
+.settings-nav-chevron {
+	transition:
+		transform var(--motion) var(--ease-out),
+		color var(--motion) var(--ease-soft);
+}
+
+.settings-nav-row:active .settings-nav-chevron {
+	transform: translate3d(3px, 0, 0);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.settings-nav-row:hover .settings-nav-chevron {
+		transform: translate3d(3px, 0, 0);
+	}
+}
+
+/* The icon tile lifts slightly so the row has depth on press. */
+.settings-nav-icon {
+	transition:
+		transform var(--motion) var(--ease-spring),
+		background-color var(--motion) var(--ease-soft);
+}
+
+.settings-nav-row:active .settings-nav-icon {
+	transform: scale(1.08);
+}
+
+
+/* ── Lists that arrive after a fetch ────────────────────────────────────────
+   Message requests live in their own `.request-list`, so they get the springier
+   entrance. Sessions and blocked users are `.settings-row`s inside a card and
+   are already carried by the cascade above — giving them a second animation
+   here would lose to that rule's higher specificity and never run. */
+.request-card {
+	animation: pop-rise var(--motion-slow) var(--ease-spring) both;
+}
+
+.request-list > .request-card:nth-child(2) {
+	animation-delay: calc(var(--stagger) * 1);
+}
+.request-list > .request-card:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.request-list > .request-card:nth-child(n + 4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+
+.request-card {
+	transition:
+		transform var(--motion) var(--ease-out),
+		opacity var(--motion) var(--ease-soft);
+}
+
+.blocked-unblock-btn {
+	transition:
+		transform var(--motion-fast) var(--ease-spring),
+		background-color var(--motion) var(--ease-soft);
+}
+
+.blocked-unblock-btn:active {
+	transform: scale(0.94);
+}
+
+
+/* ── Recovery codes ─────────────────────────────────────────────────────────
+   These appear once, in a moment that matters — worth a beat each. */
+.recovery-code-list > * {
+	animation: pop-in var(--motion-slow) var(--ease-spring) both;
+}
+
+.recovery-code-list > *:nth-child(2) {
+	animation-delay: 40ms;
+}
+.recovery-code-list > *:nth-child(3) {
+	animation-delay: 80ms;
+}
+.recovery-code-list > *:nth-child(4) {
+	animation-delay: 120ms;
+}
+.recovery-code-list > *:nth-child(5) {
+	animation-delay: 160ms;
+}
+.recovery-code-list > *:nth-child(6) {
+	animation-delay: 200ms;
+}
+.recovery-code-list > *:nth-child(7) {
+	animation-delay: 240ms;
+}
+.recovery-code-list > *:nth-child(8) {
+	animation-delay: 280ms;
+}
+
+
+/* ── Invite ─────────────────────────────────────────────────────────────────*/
+.invite-qr,
+.invite-qr-placeholder {
+	animation: pop-in var(--motion-slower) var(--ease-spring) both;
+}
+
+.invite-url,
+.invite-copy-btn {
+	animation: rise-in var(--motion-enter) 80ms var(--ease-out) both;
+}
+
+.invite-copy-btn {
+	transition:
+		transform var(--motion-fast) var(--ease-spring),
+		background-color var(--motion) var(--ease-soft);
+}
+
+.invite-copy-btn:active {
+	transform: scale(0.96);
+}
+
+
+/* ── Destructive areas ──────────────────────────────────────────────────────
+   Enters last and from further away, so it is not the first thing the eye
+   lands on. */
+.danger-card {
+	animation: rise-in-far var(--motion-slower) 120ms var(--ease-out) both;
+}

@@ -790,3 +790,138 @@ html[data-theme='light'] [data-look-preview='ink'] .look-card-label,
 html[data-theme='light'] [data-look-preview='noir'] .look-card-label {
 	color: var(--text);
 }
+
+
+/* ==========================================================================
+   Motion
+   --------------------------------------------------------------------------
+   This is the screen people come to in order to try things on, so it gets the
+   most attention: swatches cascade in, selection lands with a spring, and the
+   live preview reacts to every change. The palette itself cross-fades — that
+   part lives in motion.css, driven by lib/theme.ts.
+   ========================================================================== */
+
+/* ── Grids ──────────────────────────────────────────────────────────────────
+   Two columns of cards reading as one wave. The delay ladder is short so the
+   whole grid has settled before a thumb can reach it. */
+.look-card,
+.wallpaper-card {
+	animation: pop-rise var(--motion-slow) var(--ease-spring) both;
+	transition:
+		transform var(--motion) var(--ease-spring),
+		border-color var(--motion) var(--ease-soft),
+		box-shadow var(--motion) var(--ease-soft);
+}
+
+.look-grid > *:nth-child(2),
+.wallpaper-grid > *:nth-child(2) {
+	animation-delay: 30ms;
+}
+.look-grid > *:nth-child(3),
+.wallpaper-grid > *:nth-child(3) {
+	animation-delay: 60ms;
+}
+.look-grid > *:nth-child(4),
+.wallpaper-grid > *:nth-child(4) {
+	animation-delay: 90ms;
+}
+.look-grid > *:nth-child(5),
+.wallpaper-grid > *:nth-child(5) {
+	animation-delay: 120ms;
+}
+.look-grid > *:nth-child(6),
+.wallpaper-grid > *:nth-child(6) {
+	animation-delay: 150ms;
+}
+.look-grid > *:nth-child(7),
+.wallpaper-grid > *:nth-child(7) {
+	animation-delay: 180ms;
+}
+.look-grid > *:nth-child(8),
+.wallpaper-grid > *:nth-child(8) {
+	animation-delay: 210ms;
+}
+.look-grid > *:nth-child(n + 9),
+.wallpaper-grid > *:nth-child(n + 9) {
+	animation-delay: 240ms;
+}
+
+.look-card:active,
+.wallpaper-card:active {
+	transform: scale(0.95);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.look-card:hover,
+	.wallpaper-card:hover {
+		transform: translate3d(0, -2px, 0);
+	}
+}
+
+/* The checkmark is the confirmation, so it gets the overshoot. */
+.look-check {
+	animation: pop-in var(--motion-slow) var(--ease-bounce) both;
+}
+
+/* Miniature chrome inside each card, so a card previews motion too. */
+.look-card-preview,
+.wallpaper-sample {
+	transition: transform var(--motion-slow) var(--ease-out);
+}
+
+.look-card:active .look-card-preview,
+.wallpaper-card:active .wallpaper-sample {
+	transform: scale(1.04);
+}
+
+.look-swatch {
+	transition: transform var(--motion) var(--ease-spring);
+}
+
+.look-card:active .look-swatch {
+	transform: scale(1.12);
+}
+
+
+/* ── Tabs ───────────────────────────────────────────────────────────────────*/
+.appearance-tab {
+	transition:
+		background-color var(--motion) var(--ease-soft),
+		color var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-out);
+}
+
+.appearance-tab:active {
+	transform: scale(0.96);
+}
+
+
+/* ── Live preview ───────────────────────────────────────────────────────────
+   Sits above the pickers and shows the result. Its bubbles re-enter whenever
+   the section is re-rendered, which is what makes a change feel applied. */
+.appearance-live {
+	animation: rise-in var(--motion-enter) var(--ease-out) both;
+}
+
+.appearance-live-bubble {
+	animation: pop-rise var(--motion-slow) var(--ease-spring) both;
+}
+
+.appearance-live-bubble:nth-of-type(2) {
+	animation-delay: 70ms;
+}
+.appearance-live-bubble:nth-of-type(3) {
+	animation-delay: 140ms;
+}
+
+/* A slow breath, so the preview reads as live rather than as a screenshot. */
+.appearance-live-dot {
+	animation: breathe 2.4s var(--ease-soft) infinite;
+}
+
+.appearance-live-chat,
+.appearance-live-bar {
+	transition:
+		background-color var(--motion-slow) var(--ease-soft),
+		border-color var(--motion-slow) var(--ease-soft);
+}

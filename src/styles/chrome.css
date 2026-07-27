@@ -49,7 +49,10 @@
 .topbar {
 	--topbar-pad-x: 10px;
 	height: calc(var(--header-h) + var(--safe-top));
-	padding: var(--safe-top) var(--topbar-pad-x) 0;
+	/* Side insets are 0 in portrait and on the web; they only matter in
+	   landscape on a phone with a cutout or side gesture area. */
+	padding: var(--safe-top) calc(var(--topbar-pad-x) + var(--safe-right)) 0
+		calc(var(--topbar-pad-x) + var(--safe-left));
 	display: flex;
 	align-items: center;
 	gap: 4px;
@@ -303,7 +306,7 @@
 	display: flex;
 	align-items: stretch;
 	gap: 2px;
-	padding: 6px 6px var(--safe-bottom);
+	padding: 6px calc(6px + var(--safe-right)) var(--safe-bottom) calc(6px + var(--safe-left));
 	background: var(--surface-glass);
 	backdrop-filter: blur(20px);
 	-webkit-backdrop-filter: blur(20px);
@@ -651,7 +654,7 @@
 .msg-sheet {
 	position: fixed;
 	left: 50%;
-	bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+	bottom: calc(84px + var(--safe-bottom));
 	transform: translateX(-50%);
 	z-index: 300;
 	width: min(340px, calc(100% - 32px));
@@ -731,4 +734,140 @@
 	backdrop-filter: blur(12px);
 	-webkit-backdrop-filter: blur(12px);
 	border-bottom-color: color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+
+/* ==========================================================================
+   Motion
+   --------------------------------------------------------------------------
+   Chrome is on screen constantly, so it gets the least movement of anything:
+   only what confirms a tap. Entrances belong to the content, not the frame.
+   ========================================================================== */
+
+/* ── Tab bar ────────────────────────────────────────────────────────────────
+   The icon carries the selection, so it is what moves. The label only shifts
+   weight, which reads at a glance without drawing the eye. */
+.tab-ico {
+	transition:
+		transform var(--motion-slow) var(--ease-spring),
+		color var(--motion) var(--ease-soft);
+}
+
+.tab:active .tab-ico {
+	transform: scale(0.88);
+}
+
+.tab.active .tab-ico {
+	transform: translate3d(0, -1px, 0) scale(1.06);
+}
+
+.tab-label {
+	transition:
+		color var(--motion) var(--ease-soft),
+		opacity var(--motion) var(--ease-soft);
+}
+
+.tabbar {
+	transition:
+		background-color var(--motion-slow) var(--ease-soft),
+		border-color var(--motion-slow) var(--ease-soft);
+}
+
+
+/* ── Top bar ────────────────────────────────────────────────────────────────*/
+.topbar {
+	transition:
+		background-color var(--motion-slow) var(--ease-soft),
+		border-color var(--motion-slow) var(--ease-soft),
+		box-shadow var(--motion-slow) var(--ease-soft);
+}
+
+.icon-btn,
+.icon-btn-glass {
+	transition:
+		background-color var(--motion) var(--ease-soft),
+		color var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-spring);
+}
+
+.icon-btn:not(:disabled):active,
+.icon-btn-glass:not(:disabled):active {
+	transform: scale(0.88);
+}
+
+
+/* ── Sheets ─────────────────────────────────────────────────────────────────
+   The container already rises in. Its rows follow, so a menu reads as a list
+   being dealt rather than a block appearing. */
+.msg-menu > button {
+	animation: rise-in var(--motion) var(--ease-out) both;
+	transition: background-color var(--motion-fast) var(--ease-soft);
+}
+
+.msg-menu > button:nth-child(2) {
+	animation-delay: 24ms;
+}
+.msg-menu > button:nth-child(3) {
+	animation-delay: 48ms;
+}
+.msg-menu > button:nth-child(4) {
+	animation-delay: 72ms;
+}
+.msg-menu > button:nth-child(5) {
+	animation-delay: 96ms;
+}
+.msg-menu > button:nth-child(n + 6) {
+	animation-delay: 120ms;
+}
+
+.sheet-row-ico {
+	transition: transform var(--motion) var(--ease-spring);
+}
+
+.msg-menu > button:active .sheet-row-ico {
+	transform: scale(1.14);
+}
+
+
+/* ── Floating action button ─────────────────────────────────────────────────*/
+.fab {
+	transition:
+		transform var(--motion) var(--ease-spring),
+		background-color var(--motion) var(--ease-soft),
+		box-shadow var(--motion-slow) var(--ease-soft);
+}
+
+.fab:active {
+	transform: scale(0.9);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.fab:hover {
+		transform: translate3d(0, -2px, 0);
+	}
+}
+
+
+/* ── Small dismissables ─────────────────────────────────────────────────────*/
+.banner-dismiss,
+.chip-dismiss,
+.install-dismiss,
+.app-toast-x,
+.pin-banner-clear {
+	transition:
+		opacity var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-spring);
+}
+
+.banner-dismiss:active,
+.chip-dismiss:active,
+.install-dismiss:active,
+.app-toast-x:active,
+.pin-banner-clear:active {
+	transform: scale(0.85);
+}
+
+/* The unread count is a live number — it should land, not appear. */
+.tab-badge {
+	transition: transform var(--motion) var(--ease-bounce);
 }

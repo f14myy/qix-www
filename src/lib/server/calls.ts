@@ -4,7 +4,7 @@ import { createId } from './id';
 import { db } from './db';
 import { users } from './schema';
 import { getPeer, isChatMember } from './chats';
-import { publishToUser } from './events';
+import { countUserStreams, onUserStreamsClosed, publishToUser } from './events';
 import { sendPushToUser } from './push';
 import { isBlockedEither } from './settings';
 
@@ -37,6 +37,15 @@ const byUser = new Map<string, string>();
 const RING_TIMEOUT_MS = 45_000;
 const ringTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+/**
+ * Grace period before a call is torn down after its participant's event stream
+ * disappears. Long enough to survive a page navigation, a network hiccup or the
+ * Android app being swapped out; short enough that the other side is not left
+ * staring at a dead call.
+ */
+const DROP_GRACE_MS = 25_000;
+const dropTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
 function iceServers(): Array<{ urls: string | string[]; username?: string; credential?: string }> {
 	const servers: Array<{ urls: string | string[]; username?: string; credential?: string }> = [
 		{ urls: 'stun:stun.l.google.com:19302' },
@@ -67,10 +76,44 @@ function detachUser(userId: string, callId: string) {
 	if (byUser.get(userId) === callId) byUser.delete(userId);
 }
 
+function clearDropTimer(userId: string) {
+	const t = dropTimers.get(userId);
+	if (t) clearTimeout(t);
+	dropTimers.delete(userId);
+}
+
+/**
+ * A participant's last event stream closed.
+ *
+ * Until this existed, a browser that was closed mid-call left the call `active`
+ * forever: `byUser` still pointed at it, so both people were permanently "busy"
+ * and could never start or receive another call. Only ringing calls had a
+ * timeout. The check is repeated when the timer fires so a quick reconnect —
+ * navigating between pages re-opens the stream — does not kill a live call.
+ */
+onUserStreamsClosed((userId) => {
+	const call = getUserCall(userId);
+	if (!call || call.status === 'ended') return;
+
+	clearDropTimer(userId);
+	const timer = setTimeout(() => {
+		dropTimers.delete(userId);
+		if (countUserStreams(userId) > 0) return;
+		const current = getUserCall(userId);
+		if (current && current.status !== 'ended') {
+			endCallInternal(current, 'disconnected', userId);
+		}
+	}, DROP_GRACE_MS);
+	timer.unref?.();
+	dropTimers.set(userId, timer);
+});
+
 function endCallInternal(call: CallRecord, reason: string, byUserId?: string) {
 	if (call.status === 'ended') return call;
 	call.status = 'ended';
 	clearRingTimer(call.id);
+	clearDropTimer(call.callerId);
+	clearDropTimer(call.calleeId);
 	detachUser(call.callerId, call.id);
 	detachUser(call.calleeId, call.id);
 	const payload = { callId: call.id, chatId: call.chatId, reason, byUserId: byUserId ?? null };
@@ -122,6 +165,9 @@ export function startCall(chatId: string, callerId: string, video: boolean): Cal
 	calls.set(call.id, call);
 	byUser.set(callerId, call.id);
 	byUser.set(peer.id, call.id);
+	// Both are demonstrably reachable right now; drop any stale teardown timer.
+	clearDropTimer(callerId);
+	clearDropTimer(peer.id);
 
 	publishToUser(peer.id, 'call_invite', {
 		callId: call.id,

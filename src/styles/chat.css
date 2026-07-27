@@ -97,7 +97,7 @@
 .messages {
 	flex: 1;
 	overflow-y: auto;
-	padding: calc(var(--header-h) + var(--safe-top) + 12px) 12px calc(92px + env(safe-area-inset-bottom, 0px));
+	padding: calc(var(--header-h) + var(--safe-top) + 12px) 12px calc(92px + var(--safe-bottom));
 	display: flex;
 	flex-direction: column;
 	gap: 3px;
@@ -901,7 +901,7 @@
 	display: flex;
 	justify-content: space-around;
 	align-items: center;
-	padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+	padding: 10px 16px calc(10px + var(--safe-bottom));
 	background: var(--bg-elevated);
 	border-top: 1px solid var(--hairline);
 }

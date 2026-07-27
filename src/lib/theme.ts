@@ -321,26 +321,60 @@ export function applyTheme(pref: ThemePreference): 'light' | 'dark' {
 	return resolved;
 }
 
+/**
+ * Cross-fades the palette instead of cutting to it.
+ *
+ * Changing theme or look rewrites dozens of custom properties in one frame, and
+ * the whole app used to snap to the new colours — worst of all on the appearance
+ * screen, which exists for trying them on. `.palette-switching` turns on a
+ * colour-only transition for the length of the change; see motion.css. The class
+ * is removed afterwards so it never taxes ordinary interaction, and the timer is
+ * shared so rapid taps through the swatches do not end it early.
+ */
+const PALETTE_FADE_MS = 320;
+let paletteFadeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function withPaletteFade(apply: () => void) {
+	const root = typeof document !== 'undefined' ? document.documentElement : null;
+	if (!root) {
+		apply();
+		return;
+	}
+
+	root.classList.add('palette-switching');
+	apply();
+
+	if (paletteFadeTimer) clearTimeout(paletteFadeTimer);
+	paletteFadeTimer = setTimeout(() => {
+		paletteFadeTimer = null;
+		root.classList.remove('palette-switching');
+	}, PALETTE_FADE_MS);
+}
+
 export function setThemePreference(pref: ThemePreference): 'light' | 'dark' {
 	localStorage.setItem(MODE_KEY, pref);
 	void patchSettings({ theme: pref }).catch(() => null);
-	return applyTheme(pref);
+	let resolved: 'light' | 'dark' = 'light';
+	withPaletteFade(() => {
+		resolved = applyTheme(pref);
+	});
+	return resolved;
 }
 
 export function setLookPreference(look: LookId) {
 	localStorage.setItem(LOOK_KEY, look);
 	void patchSettings({ look }).catch(() => null);
-	applyLook(look);
+	withPaletteFade(() => applyLook(look));
 }
 
 export function setWallpaperPreference(wallpaper: WallpaperId) {
 	localStorage.setItem(WALLPAPER_KEY, wallpaper);
-	applyWallpaper(wallpaper);
+	withPaletteFade(() => applyWallpaper(wallpaper));
 }
 
 export function setIntensityPreference(intensity: WallpaperIntensity) {
 	localStorage.setItem(INTENSITY_KEY, intensity);
-	applyIntensity(intensity);
+	withPaletteFade(() => applyIntensity(intensity));
 }
 
 export function setBubblePreference(style: BubbleStyle) {

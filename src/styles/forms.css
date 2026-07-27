@@ -417,3 +417,124 @@ p.hint {
 	border-color: color-mix(in srgb, var(--accent) 60%, transparent);
 	background: var(--bg-elevated);
 }
+
+
+/* ==========================================================================
+   Motion
+   --------------------------------------------------------------------------
+   Controls should confirm they heard you. The switch is the one element here
+   that carries real state, so it gets the most detailed treatment.
+   ========================================================================== */
+
+/* ── Switch ─────────────────────────────────────────────────────────────────
+   The knob overshoots slightly on its way across, which is what makes the
+   toggle feel mechanical instead of like a colour swap. */
+/* Keeps the original background-color and transform legs — a shorter list here
+   would silently drop them, since this rule replaces the one further up. */
+.switch {
+	transition:
+		background-color var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-spring),
+		box-shadow var(--motion) var(--ease-soft);
+}
+
+.switch::after,
+.switch::before {
+	transition:
+		transform var(--motion-slow) var(--ease-spring),
+		background-color var(--motion) var(--ease-soft);
+}
+
+.switch:active::after {
+	/* Squashes under the thumb, then springs back. */
+	transform: scale(0.9);
+}
+
+.toggle-row {
+	transition:
+		background-color var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-out);
+}
+
+.toggle-row:active {
+	transform: scale(0.99);
+}
+
+
+/* ── Buttons ────────────────────────────────────────────────────────────────*/
+.btn {
+	transition:
+		background-color var(--motion) var(--ease-soft),
+		border-color var(--motion) var(--ease-soft),
+		color var(--motion) var(--ease-soft),
+		box-shadow var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-out);
+}
+
+.btn:not(:disabled):active {
+	transform: scale(0.97);
+}
+
+.btn:disabled {
+	transition:
+		opacity var(--motion) var(--ease-soft),
+		background-color var(--motion) var(--ease-soft);
+}
+
+
+/* ── Fields ─────────────────────────────────────────────────────────────────
+   The focus ring grows in rather than snapping on, and the character counter
+   only draws attention when it changes. */
+.field input,
+.field textarea,
+.field select,
+.app-prompt-input,
+.profile-bio-input {
+	transition:
+		border-color var(--motion) var(--ease-soft),
+		box-shadow var(--motion) var(--ease-soft),
+		background-color var(--motion) var(--ease-soft);
+}
+
+.field-count {
+	transition: color var(--motion) var(--ease-soft);
+}
+
+/* Errors slide in from the field they belong to, so the eye follows. */
+.error,
+.auth-error {
+	animation: drop-in var(--motion) var(--ease-out) both;
+}
+
+.eye-btn {
+	transition:
+		color var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-spring);
+}
+
+.eye-btn:active {
+	transform: scale(0.88);
+}
+
+
+/* ── Pills ──────────────────────────────────────────────────────────────────*/
+/* box-shadow stays in the list: it is what draws the selected ring on a
+   swatch, and this rule overrides the one that used to carry it. */
+.theme-pill,
+.accent-swatch {
+	transition:
+		background-color var(--motion) var(--ease-soft),
+		color var(--motion) var(--ease-soft),
+		border-color var(--motion) var(--ease-soft),
+		box-shadow var(--motion) var(--ease-soft),
+		transform var(--motion) var(--ease-spring);
+}
+
+.theme-pill:active,
+.accent-swatch:active {
+	transform: scale(0.94);
+}
+
+.ok-dot {
+	animation: pop-in var(--motion) var(--ease-bounce) both;
+}

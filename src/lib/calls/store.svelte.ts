@@ -20,7 +20,64 @@ function bump() {
 	tick += 1;
 }
 
-function stopRingVibrate() {
+/* ── Ringing ────────────────────────────────────────────────────────────────
+   Synthesised rather than shipped as an audio file: two short tones for an
+   incoming call, one softer tone for the caller's ringback, so a call is
+   audible and not just a vibration. Autoplay policy can leave the context
+   suspended when there was no user gesture (an incoming call); the vibration
+   still carries in that case. */
+
+let ringCtx: AudioContext | null = null;
+let ringTimer: ReturnType<typeof setInterval> | null = null;
+
+function audioContext(): AudioContext | null {
+	if (typeof window === 'undefined') return null;
+	try {
+		const Ctx =
+			window.AudioContext ||
+			(window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+		if (!Ctx) return null;
+		ringCtx ??= new Ctx();
+		if (ringCtx.state === 'suspended') void ringCtx.resume().catch(() => {});
+		return ringCtx;
+	} catch {
+		return null;
+	}
+}
+
+function tone(ctx: AudioContext, freq: number, at: number, duration: number, peak: number) {
+	const osc = ctx.createOscillator();
+	const gain = ctx.createGain();
+	osc.type = 'sine';
+	osc.frequency.value = freq;
+	// Ramped rather than switched, so it does not click.
+	gain.gain.setValueAtTime(0.0001, at);
+	gain.gain.exponentialRampToValueAtTime(peak, at + 0.04);
+	gain.gain.setValueAtTime(peak, at + duration - 0.06);
+	gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
+	osc.connect(gain);
+	gain.connect(ctx.destination);
+	osc.start(at);
+	osc.stop(at + duration + 0.02);
+}
+
+function ringPulse(kind: 'incoming' | 'outgoing') {
+	const ctx = audioContext();
+	if (!ctx) return;
+	const t = ctx.currentTime;
+	if (kind === 'incoming') {
+		tone(ctx, 660, t, 0.34, 0.08);
+		tone(ctx, 880, t + 0.42, 0.34, 0.08);
+	} else {
+		tone(ctx, 440, t, 0.5, 0.035);
+	}
+}
+
+function stopRinging() {
+	if (ringTimer) {
+		clearInterval(ringTimer);
+		ringTimer = null;
+	}
 	if (ringVibrate) {
 		clearInterval(ringVibrate);
 		ringVibrate = null;
@@ -32,12 +89,20 @@ function stopRingVibrate() {
 	}
 }
 
-function startRingVibrate() {
-	stopRingVibrate();
-	haptic([180, 120, 180, 520]);
-	ringVibrate = setInterval(() => {
+function startRinging(kind: 'incoming' | 'outgoing') {
+	stopRinging();
+
+	const period = kind === 'incoming' ? 2400 : 3600;
+	ringPulse(kind);
+	ringTimer = setInterval(() => ringPulse(kind), period);
+
+	// Only the callee's phone buzzes; the caller is already holding it.
+	if (kind === 'incoming') {
 		haptic([180, 120, 180, 520]);
-	}, 1600);
+		ringVibrate = setInterval(() => {
+			haptic([180, 120, 180, 520]);
+		}, 1600);
+	}
 }
 
 export function getCallTick() {
@@ -55,7 +120,7 @@ export function getCallPhase(): CallPhase {
 }
 
 function setSession(next: CallSession | null) {
-	if (!next) stopRingVibrate();
+	if (!next) stopRinging();
 	session?.dispose();
 	session = next;
 	bump();
@@ -90,6 +155,9 @@ export async function startOutgoingCall(chatId: string, video: boolean) {
 		await hangupCall();
 		throw e instanceof Error ? e : new Error('permission');
 	}
+	// Ringback, so the caller can hear that it is actually ringing. Stopped by
+	// onCallAccepted / onCallRejected / hangup.
+	startRinging('outgoing');
 	return s;
 }
 
@@ -115,7 +183,7 @@ export async function handleIncomingInvite(invite: InvitePayload) {
 	};
 	const s = new CallSession(call, 'incoming', bump);
 	setSession(s);
-	startRingVibrate();
+	startRinging('incoming');
 
 	// refresh ice servers from server
 	try {
@@ -132,33 +200,33 @@ export async function handleIncomingInvite(invite: InvitePayload) {
 
 export async function acceptCall() {
 	if (!session || session.phase !== 'incoming') return;
-	stopRingVibrate();
+	stopRinging();
 	await session.acceptIncoming();
 }
 
 export async function rejectCall() {
 	if (!session) return;
-	stopRingVibrate();
+	stopRinging();
 	await session.rejectIncoming();
 	setSession(null);
 }
 
 export async function hangupCall() {
 	if (!session) return;
-	stopRingVibrate();
+	stopRinging();
 	await session.hangup();
 	setSession(null);
 }
 
 export async function onCallAccepted(callId: string) {
 	if (!session || session.call.id !== callId) return;
-	stopRingVibrate();
+	stopRinging();
 	await session.onAccepted();
 }
 
 export function onCallEnded(callId: string) {
 	if (!session || session.call.id !== callId) return;
-	stopRingVibrate();
+	stopRinging();
 	session.phase = 'ended';
 	session.dispose();
 	setSession(null);
@@ -166,7 +234,7 @@ export function onCallEnded(callId: string) {
 
 export function onCallRejected(callId: string) {
 	if (!session || session.call.id !== callId) return;
-	stopRingVibrate();
+	stopRinging();
 	session.phase = 'ended';
 	session.dispose();
 	setSession(null);
@@ -200,10 +268,18 @@ export async function resumeActiveCall() {
 				: 'connecting';
 		const s = new CallSession(call, phase, bump);
 		setSession(s);
-		if (phase === 'incoming') startRingVibrate();
+		if (phase === 'incoming') startRinging('incoming');
+		if (phase === 'outgoing') startRinging('outgoing');
 		if (phase === 'outgoing' || phase === 'connecting') {
 			await s.startMedia();
-			if (call.role === 'caller' && call.status === 'active') await s.onAccepted();
+			/*
+			 * A call already in progress has to be re-negotiated from scratch: the
+			 * old peer connection died with the page. Previously only the caller
+			 * did this, which left a returning callee stuck on "connecting"
+			 * forever. Perfect negotiation makes it safe for either side to offer,
+			 * so whoever came back drives it.
+			 */
+			if (call.status === 'active') await s.renegotiate();
 		}
 	} catch {
 		/* ignore */

@@ -693,3 +693,135 @@
 .badge-label-title {
 	white-space: nowrap;
 }
+
+
+/* ==========================================================================
+   Motion
+   --------------------------------------------------------------------------
+   A profile is read top to bottom, so it assembles in that order: banner,
+   then identity, then the cards. Editing controls answer the press.
+   ========================================================================== */
+
+/* ── Assembly ───────────────────────────────────────────────────────────────
+   Layered delays over the existing banner-reveal / profile-rise, so the
+   sequence reads as one movement rather than several starting at once. */
+.profile-identity {
+	animation: rise-in var(--motion-enter) 80ms var(--ease-out) both;
+}
+
+.profile-badges-card {
+	animation: rise-in var(--motion-enter) 120ms var(--ease-out) both;
+}
+
+.profile-bio-card {
+	animation: rise-in var(--motion-enter) 160ms var(--ease-out) both;
+}
+
+.profile-info-card {
+	animation: rise-in var(--motion-enter) 200ms var(--ease-out) both;
+}
+
+.profile-actions {
+	animation: rise-in var(--motion-enter) 240ms var(--ease-out) both;
+}
+
+/* Rows inside the info card fill in after it has landed. */
+.profile-info-row {
+	animation: fade-in var(--motion) both;
+}
+
+.profile-info-row:nth-child(1) {
+	animation-delay: 240ms;
+}
+.profile-info-row:nth-child(2) {
+	animation-delay: 280ms;
+}
+.profile-info-row:nth-child(n + 3) {
+	animation-delay: 320ms;
+}
+
+
+/* ── Badges ─────────────────────────────────────────────────────────────────
+   Earned marks, so they land with a spring rather than fading in. */
+.badge-mark {
+	animation: pop-in var(--motion-slow) var(--ease-bounce) both;
+	transition: transform var(--motion) var(--ease-spring);
+}
+
+.profile-badges .badge-mark:nth-child(2) {
+	animation-delay: 60ms;
+}
+.profile-badges .badge-mark:nth-child(3) {
+	animation-delay: 120ms;
+}
+.profile-badges .badge-mark:nth-child(n + 4) {
+	animation-delay: 180ms;
+}
+
+.badge-mark:active {
+	transform: scale(1.14);
+}
+
+.badge-label-chip {
+	animation: pop-in var(--motion) var(--ease-spring) both;
+}
+
+
+/* ── Actions ────────────────────────────────────────────────────────────────*/
+.profile-action-block,
+.profile-action-secondary,
+.profile-user-btn {
+	transition:
+		background-color var(--motion) var(--ease-soft),
+		border-color var(--motion) var(--ease-soft),
+		color var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-out);
+}
+
+.profile-action-block:active,
+.profile-action-secondary:active,
+.profile-user-btn:active {
+	transform: scale(0.97);
+}
+
+
+/* ── Editing ────────────────────────────────────────────────────────────────
+   The camera affordances sit on top of the image, so they scale rather than
+   change colour — colour would fight whatever is underneath. */
+.profile-avatar-cam,
+.profile-banner-cam,
+.profile-avatar-edit,
+.profile-banner-edit,
+.profile-remove-avatar {
+	transition:
+		transform var(--motion) var(--ease-spring),
+		background-color var(--motion) var(--ease-soft),
+		opacity var(--motion) var(--ease-soft);
+}
+
+.profile-avatar-cam:active,
+.profile-banner-cam:active,
+.profile-remove-avatar:active {
+	transform: scale(0.9);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.profile-avatar-cam:hover,
+	.profile-banner-cam:hover {
+		transform: scale(1.08);
+	}
+}
+
+.profile-avatar-preview,
+.profile-avatar-stage {
+	transition: transform var(--motion-slow) var(--ease-out);
+}
+
+/* Saving feedback should be impossible to miss but not loud. */
+.profile-flash {
+	animation: drop-in var(--motion) var(--ease-out) both;
+}
+
+.profile-flash-error {
+	animation: nudge-x var(--motion-slow) var(--ease-soft) both;
+}

@@ -96,18 +96,26 @@
 		return () => clearInterval(id);
 	});
 
+	/**
+	 * Setting `srcObject` is not enough on its own: an element that was attached
+	 * while the overlay was still mounting stays paused, and the call is silent
+	 * with no error anywhere. Playback is (re)started explicitly, and only when
+	 * the stream actually changed so this does not fight the user.
+	 */
+	function attach(el: HTMLMediaElement | undefined, stream: MediaStream | null) {
+		if (!el || !stream || el.srcObject === stream) return;
+		el.srcObject = stream;
+		void el.play().catch(() => {
+			/* autoplay policy — the accept button is a gesture, so this is rare */
+		});
+	}
+
 	$effect(() => {
 		const s = session;
 		if (!s) return;
-		if (localEl && s.localStream) {
-			localEl.srcObject = s.localStream;
-		}
-		if (remoteEl && s.remoteStream) {
-			remoteEl.srcObject = s.remoteStream;
-		}
-		if (remoteAudio && s.remoteStream) {
-			remoteAudio.srcObject = s.remoteStream;
-		}
+		attach(localEl, s.localStream);
+		attach(remoteEl, s.remoteStream);
+		attach(remoteAudio, s.remoteStream);
 	});
 
 	async function onAccept() {

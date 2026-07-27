@@ -153,24 +153,45 @@
 					/* ignore */
 				}
 			});
+			startHeartbeat();
+		}
+
+		function startHeartbeat() {
+			stopHeartbeat();
 			beat = setInterval(() => fetch('/api/presence', { method: 'POST' }), 30000);
 		}
 
-		function disconnectCalls() {
-			es?.close();
-			es = null;
+		function stopHeartbeat() {
 			if (beat) {
 				clearInterval(beat);
 				beat = undefined;
 			}
 		}
 
+		function disconnectCalls() {
+			es?.close();
+			es = null;
+			stopHeartbeat();
+		}
+
+		/**
+		 * The event stream stays open in the background.
+		 *
+		 * It used to be closed whenever the tab was hidden, which meant a
+		 * `call_invite` never arrived and an incoming call simply did not ring —
+		 * by the time you looked at the app the 45s ring timeout had usually
+		 * passed. One idle SSE connection is cheap; only the presence heartbeat
+		 * stops, since nobody is actually looking at the screen.
+		 */
 		const onVisibility = () => {
-			if (document.hidden) disconnectCalls();
-			else {
-				connectCalls();
-				void resumeActiveCall();
+			if (document.hidden) {
+				stopHeartbeat();
+				return;
 			}
+			if (!es || es.readyState === EventSource.CLOSED) connectCalls();
+			else startHeartbeat();
+			fetch('/api/presence', { method: 'POST' });
+			void resumeActiveCall();
 		};
 
 		if (page.data.user) {

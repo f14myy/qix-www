@@ -160,3 +160,68 @@
 .auth-card .brand-title {
 	animation: brand-in 480ms var(--ease) both;
 }
+
+
+/* ==========================================================================
+   Motion
+   --------------------------------------------------------------------------
+   The first screen anyone sees. The card arrives as one piece, then its
+   contents fill in — enough to feel considered, short enough not to delay
+   someone who just wants to type a password.
+   ========================================================================== */
+
+.auth-card > * {
+	animation: rise-in var(--motion-enter) var(--ease-out) both;
+}
+
+.auth-card > *:nth-child(1) {
+	animation-delay: 60ms;
+}
+.auth-card > *:nth-child(2) {
+	animation-delay: 100ms;
+}
+.auth-card > *:nth-child(3) {
+	animation-delay: 140ms;
+}
+.auth-card > *:nth-child(n + 4) {
+	animation-delay: 180ms;
+}
+
+/* Fields inside the form get their own, shorter ladder. */
+.auth-form .field {
+	animation: rise-in var(--motion-enter) var(--ease-out) both;
+}
+
+.auth-form .field:nth-of-type(2) {
+	animation-delay: 60ms;
+}
+
+.auth-lang-toggle {
+	animation: fade-in var(--motion-slower) 200ms var(--ease-soft) both;
+}
+
+.auth-lang-btn {
+	transition:
+		background-color var(--motion) var(--ease-soft),
+		color var(--motion) var(--ease-soft),
+		transform var(--motion-fast) var(--ease-spring);
+}
+
+.auth-lang-btn:active {
+	transform: scale(0.92);
+}
+
+.auth-links a {
+	transition:
+		color var(--motion) var(--ease-soft),
+		opacity var(--motion) var(--ease-soft);
+}
+
+/*
+ * The shake already exists for a rejected sign-in. Suppress the entrance
+ * animation while it plays: two transforms on the same element cancel each
+ * other and the card would sit still on the one occasion it must not.
+ */
+.auth-card.auth-shake > * {
+	animation: none;
+}
