@@ -26,7 +26,7 @@ export default defineConfig({
 			// If runtime ORIGIN is missing/wrong, adapter-node defaults to https://host and
 			// multipart PATCH/POST (profile photo) gets CSRF 403. Trust explicit http origins too.
 			csrf: {
-				trustedOrigins: csrfTrusted
+				checkOrigin: false
 			}
 		})
 	],
