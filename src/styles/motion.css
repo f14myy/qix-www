@@ -335,6 +335,476 @@ html.palette-switching .chat-view::before {
 }
 
 
+
+/* ==========================================================================
+   Motion, second pass
+   --------------------------------------------------------------------------
+   Everything above is the original system: entrances, cascades, the palette
+   cross-fade. What follows widens it — more ways for something to arrive, a
+   set of ambient loops, and the small reactions that make a surface feel
+   answerable rather than painted on.
+
+   Same rules as above: transform, opacity and filter only, nothing that
+   triggers layout, and every entrance carries `both` so it holds its first
+   frame through any delay.
+   ========================================================================== */
+
+
+/* ── More ways to arrive ────────────────────────────────────────────────── */
+
+/*
+ * Focus pulling into place. Costs a filter pass, so it is reserved for one or
+ * two elements at a time — a hero, a dialog — never a list.
+ */
+@keyframes blur-in {
+	from {
+		opacity: 0;
+		filter: blur(10px);
+		transform: scale(1.02);
+	}
+	to {
+		opacity: 1;
+		filter: blur(0);
+		transform: none;
+	}
+}
+
+/* A card that turns to face you. The perspective is on the keyframe rather
+   than the parent so the element stays independent of its container. */
+@keyframes swing-in {
+	from {
+		opacity: 0;
+		transform: perspective(900px) rotateX(-8deg) translate3d(0, 12px, 0);
+	}
+	to {
+		opacity: 1;
+		transform: perspective(900px) rotateX(0) translate3d(0, 0, 0);
+	}
+}
+
+@keyframes tilt-in {
+	from {
+		opacity: 0;
+		transform: rotate(-1.6deg) scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* For rules, underlines and progress fills — anything that should be drawn
+   rather than revealed. Needs `transform-origin: left` at the call site. */
+@keyframes sweep-x {
+	from {
+		transform: scaleX(0);
+	}
+	to {
+		transform: scaleX(1);
+	}
+}
+
+@keyframes sweep-y {
+	from {
+		transform: scaleY(0);
+	}
+	to {
+		transform: scaleY(1);
+	}
+}
+
+/* An expanding panel that has a height to grow into. */
+@keyframes unfurl {
+	from {
+		opacity: 0;
+		transform: translate3d(0, -6px, 0) scaleY(0.94);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes bounce-in {
+	0% {
+		opacity: 0;
+		transform: scale(0.6);
+	}
+	45% {
+		opacity: 1;
+		transform: scale(1.08);
+	}
+	70% {
+		transform: scale(0.97);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+/* Something that came from a specific place — a menu from its trigger, a
+   tooltip from its anchor. Set `transform-origin` at the call site. */
+@keyframes emerge {
+	from {
+		opacity: 0;
+		transform: scale(0.9) translate3d(0, 4px, 0);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+
+/* ── Ambient loops ──────────────────────────────────────────────────────── */
+
+/* Slow enough to be felt rather than watched. Anything faster than a second
+   in a loop becomes a distraction on a screen someone is reading. */
+@keyframes glow-pulse {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 34%, transparent);
+	}
+	50% {
+		box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent);
+	}
+}
+
+@keyframes pulse-soft {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* A large, very slow drift for background washes. The scale keeps the edges
+   of the gradient off-screen through the whole cycle. */
+@keyframes drift {
+	0% {
+		transform: translate3d(-2%, -1%, 0) scale(1.08);
+	}
+	50% {
+		transform: translate3d(2%, 2%, 0) scale(1.14);
+	}
+	100% {
+		transform: translate3d(-2%, -1%, 0) scale(1.08);
+	}
+}
+
+@keyframes stripe-flow {
+	from {
+		background-position: 0 0;
+	}
+	to {
+		background-position: 32px 0;
+	}
+}
+
+
+/* ── Reactions ──────────────────────────────────────────────────────────── */
+
+@keyframes shake-y {
+	0%,
+	100% {
+		transform: translate3d(0, 0, 0);
+	}
+	30% {
+		transform: translate3d(0, -3px, 0);
+	}
+	70% {
+		transform: translate3d(0, 3px, 0);
+	}
+}
+
+@keyframes wobble {
+	0%,
+	100% {
+		transform: rotate(0);
+	}
+	25% {
+		transform: rotate(-4deg);
+	}
+	75% {
+		transform: rotate(4deg);
+	}
+}
+
+/* A value that changed. The old number leaves upward, the new one follows —
+   applied to the incoming element only, so it reads as a roll. */
+@keyframes roll-up {
+	from {
+		opacity: 0;
+		transform: translate3d(0, 60%, 0);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* Confirmation. Draws the tick rather than showing it, which is worth the
+   dash arithmetic for the one moment somebody is watching for it. */
+@keyframes draw-check {
+	from {
+		stroke-dashoffset: 24;
+	}
+	to {
+		stroke-dashoffset: 0;
+	}
+}
+
+
+/* ==========================================================================
+   Utilities, second pass
+   ========================================================================== */
+
+.anim-blur {
+	animation: blur-in var(--motion-slower) var(--ease-out) both;
+}
+
+.anim-swing {
+	animation: swing-in var(--motion-slow) var(--ease-out) both;
+}
+
+.anim-tilt {
+	animation: tilt-in var(--motion-slow) var(--ease-spring) both;
+}
+
+.anim-bounce {
+	animation: bounce-in var(--motion-slow) var(--ease-spring) both;
+}
+
+.anim-emerge {
+	animation: emerge var(--motion) var(--ease-out) both;
+}
+
+.anim-unfurl {
+	animation: unfurl var(--motion) var(--ease-out) both;
+	transform-origin: top;
+}
+
+.anim-slide-left {
+	animation: slide-in-left var(--motion-enter) var(--ease-out) both;
+}
+
+.anim-slide-right {
+	animation: slide-in-right var(--motion-enter) var(--ease-out) both;
+}
+
+/* Hand-placed delays, for the two or three elements on a screen that should
+   arrive in a set order but are not siblings in one list. */
+.anim-delay-1 {
+	animation-delay: calc(var(--stagger) * 1);
+}
+.anim-delay-2 {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.anim-delay-3 {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.anim-delay-4 {
+	animation-delay: calc(var(--stagger) * 4);
+}
+.anim-delay-5 {
+	animation-delay: calc(var(--stagger) * 5);
+}
+.anim-delay-6 {
+	animation-delay: calc(var(--stagger) * 6);
+}
+.anim-delay-8 {
+	animation-delay: calc(var(--stagger) * 8);
+}
+.anim-delay-12 {
+	animation-delay: calc(var(--stagger) * 12);
+}
+
+
+/* ── Cascade variants ───────────────────────────────────────────────────────
+   The base `.stagger` rises its children. These change what they do without
+   restating the delays, so a container can pick a flavour by swapping one
+   class. Each is (0,2,0) against the base rule's (0,1,1), so it wins. */
+
+.stagger.stagger-fade > * {
+	animation-name: fade-in;
+}
+
+.stagger.stagger-scale > * {
+	animation-name: scale-in;
+}
+
+.stagger.stagger-pop > * {
+	animation-name: pop-in;
+	animation-timing-function: var(--ease-spring);
+}
+
+.stagger.stagger-side > * {
+	animation-name: slide-in-left;
+}
+
+.stagger.stagger-drop > * {
+	animation-name: drop-in;
+}
+
+/* Two containers wanted a different rhythm than the default 26ms: a short
+   toolbar of four things reads better tighter, a page of cards looser. */
+.stagger-tight {
+	--stagger: 16ms;
+}
+
+.stagger-loose {
+	--stagger: 44ms;
+}
+
+/*
+ * The base cascade caps at eight children. Long lists — sessions, blocked
+ * users, admin rows — have more than that, and the flat tail past eight is a
+ * visible seam when only ten rows are on screen. Carry the ramp to fourteen
+ * for containers that opt in, then flatten.
+ */
+.stagger.stagger-long > *:nth-child(9) {
+	animation-delay: calc(var(--stagger) * 8);
+}
+.stagger.stagger-long > *:nth-child(10) {
+	animation-delay: calc(var(--stagger) * 9);
+}
+.stagger.stagger-long > *:nth-child(11) {
+	animation-delay: calc(var(--stagger) * 10);
+}
+.stagger.stagger-long > *:nth-child(12) {
+	animation-delay: calc(var(--stagger) * 11);
+}
+.stagger.stagger-long > *:nth-child(13) {
+	animation-delay: calc(var(--stagger) * 12);
+}
+.stagger.stagger-long > *:nth-child(n + 14) {
+	animation-delay: calc(var(--stagger) * 13);
+}
+
+
+/* ── Loading ────────────────────────────────────────────────────────────────
+   Two shapes of "not yet": a spinner where one thing is pending, a shimmer
+   where the shape of what is coming is already known. */
+
+.spinner {
+	display: inline-block;
+	width: 18px;
+	height: 18px;
+	border: 2px solid color-mix(in srgb, currentColor 22%, transparent);
+	border-top-color: currentColor;
+	border-radius: 50%;
+	animation: spin 640ms linear infinite;
+}
+
+.spinner-lg {
+	width: 28px;
+	height: 28px;
+	border-width: 3px;
+}
+
+/*
+ * A skeleton is a promise about layout, so it must be the size of the thing it
+ * stands in for — height and width come from the call site, only the surface
+ * is here.
+ */
+.skeleton {
+	position: relative;
+	overflow: hidden;
+	border-radius: var(--radius-sm);
+	background: var(--surface-sunken);
+}
+
+.skeleton::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		90deg,
+		transparent 0%,
+		color-mix(in srgb, var(--text) 7%, transparent) 50%,
+		transparent 100%
+	);
+	background-size: 220% 100%;
+	animation: shimmer-sweep 1.4s var(--ease-soft) infinite;
+}
+
+
+/* ==========================================================================
+   Interaction polish, second pass
+   --------------------------------------------------------------------------
+   Broad rules at `:where()` specificity — zero — so any component that has an
+   opinion about hover, press or transition keeps it untouched and these only
+   reach the elements nobody has styled yet.
+   ========================================================================== */
+
+/*
+ * Hover lift for card-shaped things. Pointer-gated: on a touchscreen `:hover`
+ * sticks after a tap and leaves the card raised until something else is
+ * touched, which reads as a rendering fault.
+ */
+@media (hover: hover) and (pointer: fine) {
+	:where(a, button, [role='button']):where(.pressable, .lift):not(:disabled):hover {
+		transform: translate3d(0, -1px, 0);
+	}
+}
+
+:where(.pressable, .lift):not(:disabled) {
+	transition:
+		transform var(--motion) var(--ease-spring),
+		box-shadow var(--motion) var(--ease-soft),
+		background-color var(--motion) var(--ease-soft);
+}
+
+:where(.pressable, .lift):not(:disabled):active {
+	transform: scale(0.985);
+}
+
+/*
+ * Icons inside a control should not scale with it — a 16px glyph shrinking by
+ * 1.5% is noise, and at small sizes it lands between pixels and blurs. Hold
+ * them still and let the surface do the moving.
+ */
+:where(button, a):active > svg {
+	transform: none;
+}
+
+/* Links underline from the left rather than appearing underlined. */
+:where(.link-anim) {
+	position: relative;
+	text-decoration: none;
+}
+
+:where(.link-anim)::after {
+	content: '';
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: -2px;
+	height: 1px;
+	background: currentColor;
+	transform: scaleX(0);
+	transform-origin: left;
+	transition: transform var(--motion) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	:where(.link-anim):hover::after {
+		transform: scaleX(1);
+	}
+}
+
+:where(.link-anim):focus-visible::after {
+	transform: scaleX(1);
+}
+
 /* ==========================================================================
    Reduced motion
    --------------------------------------------------------------------------
@@ -419,9 +889,34 @@ html[data-reduce-motion='1']::view-transition-new(root) {
 	.anim-scale,
 	.anim-pop,
 	.anim-pop-rise,
+	.anim-blur,
+	.anim-swing,
+	.anim-tilt,
+	.anim-bounce,
+	.anim-emerge,
+	.anim-unfurl,
+	.anim-slide-left,
+	.anim-slide-right,
+	.spinner,
+	.skeleton::after,
 	.avatar,
 	.att-image {
 		animation: none !important;
+	}
+
+	/* A skeleton with no shimmer still has to read as pending, so the sunken
+	   surface stays and only the sweep goes. */
+	.skeleton::after {
+		opacity: 0;
+	}
+
+	:where(.pressable, .lift):hover,
+	:where(.pressable, .lift):active {
+		transform: none !important;
+	}
+
+	:where(.link-anim)::after {
+		transition: none !important;
 	}
 
 	.icon-btn:active,
@@ -483,9 +978,35 @@ html[data-reduce-motion='1'] .anim-drop,
 html[data-reduce-motion='1'] .anim-scale,
 html[data-reduce-motion='1'] .anim-pop,
 html[data-reduce-motion='1'] .anim-pop-rise,
+html[data-reduce-motion='1'] .anim-blur,
+html[data-reduce-motion='1'] .anim-swing,
+html[data-reduce-motion='1'] .anim-tilt,
+html[data-reduce-motion='1'] .anim-bounce,
+html[data-reduce-motion='1'] .anim-emerge,
+html[data-reduce-motion='1'] .anim-unfurl,
+html[data-reduce-motion='1'] .anim-slide-left,
+html[data-reduce-motion='1'] .anim-slide-right,
+html[data-reduce-motion='1'] .spinner,
+html[data-reduce-motion='1'] .skeleton::after,
 html[data-reduce-motion='1'] .avatar,
 html[data-reduce-motion='1'] .att-image {
 	animation: none !important;
+}
+
+
+html[data-reduce-motion='1'] .skeleton::after {
+	opacity: 0;
+}
+
+
+html[data-reduce-motion='1'] :where(.pressable, .lift):hover,
+html[data-reduce-motion='1'] :where(.pressable, .lift):active {
+	transform: none !important;
+}
+
+
+html[data-reduce-motion='1'] :where(.link-anim)::after {
+	transition: none !important;
 }
 
 
@@ -522,4 +1043,27 @@ html[data-reduce-motion='1'] .onboard-title,
 html[data-reduce-motion='1'] .onboard-lead,
 html[data-reduce-motion='1'] .onboard-bullets li {
 	animation: none !important;
+}
+
+/* A light bar crossing a solid surface — used by the primary button on hover. */
+@keyframes sheen {
+	from {
+		transform: translate3d(-130%, 0, 0);
+	}
+	to {
+		transform: translate3d(130%, 0, 0);
+	}
+}
+
+/* Picking a colour swatch: overshoot, then settle on the selected resting size. */
+@keyframes swatch-pick {
+	0% {
+		transform: scale(1.06);
+	}
+	45% {
+		transform: scale(1.24);
+	}
+	100% {
+		transform: scale(1.06);
+	}
 }

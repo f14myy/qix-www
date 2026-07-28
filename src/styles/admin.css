@@ -943,7 +943,7 @@
 
 /* ── Stats ──────────────────────────────────────────────────────────────────*/
 .admin-stat-tile {
-	animation: pop-rise var(--motion-slow) var(--ease-spring) both;
+	animation: pop-rise var(--motion-slow) var(--ease-spring) backwards;
 	transition:
 		transform var(--motion) var(--ease-spring),
 		border-color var(--motion) var(--ease-soft);
@@ -1025,7 +1025,7 @@
 .admin-msg-row,
 .admin-block-row,
 .admin-badge-card {
-	animation: rise-in var(--motion) var(--ease-out) both;
+	animation: rise-in var(--motion) var(--ease-out) backwards;
 	transition:
 		background-color var(--motion) var(--ease-soft),
 		transform var(--motion-fast) var(--ease-out);
@@ -1117,4 +1117,127 @@
 .admin-empty,
 .admin-empty-card {
 	animation: rise-in-far var(--motion-slower) var(--ease-out) both;
+}
+
+/* ── Admin in motion, second pass ────────────────────────────────────────── */
+
+.admin-tabs {
+	transform-origin: top center;
+	animation: unfurl var(--motion) var(--ease-out) backwards;
+}
+.admin-tab {
+	--stagger: 26ms;
+	animation: fade-in var(--motion) var(--ease-soft) backwards;
+}
+.admin-tab:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.admin-tab:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.admin-tab:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.admin-tab:nth-child(n + 5) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+.admin-tab.active {
+	animation: pop-in var(--motion) var(--ease-spring);
+}
+
+.admin-page-head h2,
+.admin-section h2 {
+	animation: slide-in-left var(--motion-enter) var(--ease-out) backwards;
+}
+.admin-page-head .admin-lead {
+	animation: fade-in var(--motion-enter) calc(var(--stagger) * 2) var(--ease-soft) backwards;
+}
+
+/* Search and filter chrome unrolls under the header it hangs from. */
+.admin-search {
+	transform-origin: top center;
+	animation: unfurl var(--motion) var(--ease-out) backwards;
+}
+.admin-filter-row > *,
+.admin-sort-row > * {
+	--stagger: 24ms;
+	animation: pop-in var(--motion) var(--ease-spring) backwards;
+}
+.admin-filter-row > *:nth-child(2),
+.admin-sort-row > *:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.admin-filter-row > *:nth-child(3),
+.admin-sort-row > *:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.admin-filter-row > *:nth-child(4),
+.admin-sort-row > *:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.admin-filter-row > *:nth-child(n + 5),
+.admin-sort-row > *:nth-child(n + 5) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+
+/* The chart's labels catch up with the bars that already grow. */
+.admin-chart-label {
+	animation: fade-in var(--motion-slower) 260ms var(--ease-soft) backwards;
+}
+.admin-chart-count {
+	animation: pop-in var(--motion) 320ms var(--ease-spring) backwards;
+}
+
+.admin-quick > * {
+	--stagger: 34ms;
+	animation: rise-in var(--motion-enter) var(--ease-out) backwards;
+}
+.admin-quick > *:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.admin-quick > *:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.admin-quick > *:nth-child(n + 4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+
+/* Detail view: the hero assembles before the cards below it. */
+.admin-detail-hero {
+	animation: rise-in var(--motion-enter) var(--ease-out) backwards;
+}
+.admin-detail-avatar-wrap {
+	animation: pop-in var(--motion-slower) 80ms var(--ease-spring) backwards;
+}
+.admin-detail-hero h2 {
+	animation: rise-in var(--motion-enter) 140ms var(--ease-out) backwards;
+}
+.admin-detail-hero p {
+	animation: fade-in var(--motion-enter) 200ms var(--ease-soft) backwards;
+}
+
+/* Small controls answer the pointer. */
+.admin-toast-x,
+.admin-pager > * {
+	transition: opacity var(--motion) var(--ease-soft), transform var(--motion-fast)
+			var(--ease-spring), background-color var(--motion) var(--ease-soft);
+}
+.admin-toast-x:active {
+	transform: scale(0.86) rotate(90deg);
+}
+.admin-pager > *:active {
+	transform: scale(0.94);
+}
+.admin-color-swatch.active {
+	animation: bounce-in var(--motion) var(--ease-spring);
+}
+
+.admin-confirm-text {
+	animation: rise-in var(--motion-enter) calc(var(--stagger) * 2) var(--ease-out) backwards;
+}
+.admin-confirm-actions > * {
+	animation: pop-rise var(--motion) calc(var(--stagger) * 4) var(--ease-spring) backwards;
+}
+.admin-confirm-actions > *:last-child {
+	animation-delay: calc(var(--stagger) * 5);
 }

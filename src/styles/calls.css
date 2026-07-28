@@ -509,7 +509,7 @@
 
 .call-name,
 .call-kind {
-	animation: rise-in var(--motion-slow) var(--ease-out) both;
+	animation: rise-in var(--motion-slow) var(--ease-out) backwards;
 }
 
 .call-name {
@@ -523,7 +523,7 @@
 }
 
 .call-avatar-wrap {
-	animation: pop-in var(--motion-slower) var(--ease-spring) both;
+	animation: pop-in var(--motion-slower) var(--ease-spring) backwards;
 	transition: transform var(--motion-slower) var(--ease-out);
 }
 
@@ -573,7 +573,7 @@
 }
 
 .call-local-video {
-	animation: pop-in var(--motion-slow) 160ms var(--ease-spring) both;
+	animation: pop-in var(--motion-slow) 160ms var(--ease-spring) backwards;
 	transition:
 		opacity var(--motion-slow) var(--ease-soft),
 		transform var(--motion-slow) var(--ease-out);
@@ -586,4 +586,43 @@
 
 .call-local-placeholder {
 	animation: scale-in var(--motion) var(--ease-out) both;
+}
+
+/* ── Calls in motion, second pass ────────────────────────────────────────── */
+
+.call-head-btn {
+	transition: color var(--motion) var(--ease-soft), transform var(--motion-fast) var(--ease-spring);
+}
+.call-head-btn:active {
+	transform: scale(0.88);
+}
+
+/* Each action column arrives after the row it sits in. */
+.call-action {
+	--stagger: 60ms;
+	animation: pop-rise var(--motion-slow) var(--ease-spring) backwards;
+	animation-delay: 160ms;
+}
+.call-action:nth-child(2) {
+	animation-delay: calc(160ms + var(--stagger));
+}
+.call-action:nth-child(3) {
+	animation-delay: calc(160ms + var(--stagger) * 2);
+}
+.call-action:nth-child(4) {
+	animation-delay: calc(160ms + var(--stagger) * 3);
+}
+.call-action:nth-child(n + 5) {
+	animation-delay: calc(160ms + var(--stagger) * 4);
+}
+.call-btn-label {
+	animation: fade-in var(--motion-slower) 320ms var(--ease-soft) backwards;
+}
+
+.call-end-link {
+	animation: fade-in var(--motion-slower) 400ms var(--ease-soft) backwards;
+	transition: color var(--motion) var(--ease-soft), transform var(--motion-fast) var(--ease-soft);
+}
+.call-end-link:active {
+	transform: scale(0.96);
 }

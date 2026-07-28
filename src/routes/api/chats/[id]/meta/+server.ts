@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getMessageById, isChatMember } from '$lib/server/chats';
 import { getChatMeta, setDisappearAfter, setPinnedMessage } from '$lib/server/features';
 import { publishToChat } from '$lib/server/events';
+import { canManageGroup, isGroupChat } from '$lib/server/groups';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
@@ -24,6 +25,14 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	const chatId = params.id;
 	if (!isChatMember(chatId, locals.user.id)) {
 		return json({ error: 'Not found' }, { status: 404 });
+	}
+
+	/*
+	 * Pinning and disappearing messages are chat-wide, so in a group they belong to
+	 * whoever moderates it. In a DM both people already share every consequence.
+	 */
+	if (isGroupChat(chatId) && !canManageGroup(chatId, locals.user.id)) {
+		return json({ error: 'Only admins can change this' }, { status: 403 });
 	}
 
 	const body = await request.json().catch(() => null);

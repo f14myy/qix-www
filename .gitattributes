@@ -1,0 +1,5 @@
+# The deploy scripts are executed on a Linux VPS. A CRLF sneaking in from a
+# Windows checkout turns the shebang into `/usr/bin/env bash\r` and the script
+# dies with "bad interpreter", so pin these to LF regardless of core.autocrlf.
+deploy/*.sh text eol=lf
+deploy/*.conf text eol=lf

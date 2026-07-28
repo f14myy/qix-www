@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { createId } from './id';
@@ -46,24 +47,68 @@ const ringTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const DROP_GRACE_MS = 25_000;
 const dropTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-function iceServers(): Array<{ urls: string | string[]; username?: string; credential?: string }> {
-	const servers: Array<{ urls: string | string[]; username?: string; credential?: string }> = [
+type IceServer = { urls: string | string[]; username?: string; credential?: string };
+
+/**
+ * Lifetime of a TURN credential.
+ *
+ * Longer than any plausible call, because an ICE restart halfway through one
+ * (switching from Wi-Fi to mobile data) has to be able to allocate a fresh
+ * relay with the credential the client already holds. Short enough that a
+ * credential lifted out of devtools is not worth much.
+ */
+const TURN_TTL_SECONDS = 12 * 60 * 60;
+
+function turnUrls(): string[] {
+	return (env.TURN_URL ?? '')
+		.split(',')
+		.map((u) => u.trim())
+		.filter(Boolean);
+}
+
+/**
+ * Time-limited TURN credentials, per coturn's REST-API scheme
+ * (`use-auth-secret` + `static-auth-secret`): the username is an expiry
+ * timestamp and the password is its HMAC, which the TURN server verifies with
+ * the same secret. Nothing long-lived leaves the server.
+ *
+ * `TURN_USERNAME`/`TURN_CREDENTIAL` still work for a quick local coturn, but a
+ * shared password is handed to every client that starts or receives a call and
+ * stays valid until it is rotated — see docs/turn.md.
+ */
+function turnCredentials(userId: string): { username: string; credential: string } | null {
+	const secret = env.TURN_SECRET?.trim();
+	if (secret) {
+		const username = `${Math.floor(Date.now() / 1000) + TURN_TTL_SECONDS}:${userId}`;
+		return {
+			username,
+			credential: createHmac('sha1', secret).update(username).digest('base64')
+		};
+	}
+	const username = env.TURN_USERNAME?.trim();
+	const credential = env.TURN_CREDENTIAL?.trim();
+	return username && credential ? { username, credential } : null;
+}
+
+function iceServers(userId: string): IceServer[] {
+	const servers: IceServer[] = [
 		{ urls: 'stun:stun.l.google.com:19302' },
 		{ urls: 'stun:stun1.l.google.com:19302' }
 	];
-	const turn = env.TURN_URL?.trim();
-	const user = env.TURN_USERNAME?.trim();
-	const pass = env.TURN_CREDENTIAL?.trim();
-	if (turn) {
-		servers.push(
-			user && pass ? { urls: turn, username: user, credential: pass } : { urls: turn }
-		);
-	}
+	const urls = turnUrls();
+	if (!urls.length) return servers;
+	const creds = turnCredentials(userId);
+	// An unauthenticated TURN server only wastes time failing to allocate, so a
+	// misconfigured secret degrades to STUN-only rather than to broken calls.
+	if (!creds) return servers;
+	// One entry with every transport: the browser tries them in order and keeps
+	// whichever gets through.
+	servers.push({ urls, ...creds });
 	return servers;
 }
 
-export function getIceServers() {
-	return iceServers();
+export function getIceServers(userId: string) {
+	return iceServers(userId);
 }
 
 function clearRingTimer(callId: string) {
@@ -257,6 +302,6 @@ export function toCallDTO(call: CallRecord, viewerId: string) {
 		role: call.callerId === viewerId ? ('caller' as const) : ('callee' as const),
 		peer: publicUser(peerId),
 		createdAt: call.createdAt,
-		iceServers: getIceServers()
+		iceServers: getIceServers(viewerId)
 	};
 }

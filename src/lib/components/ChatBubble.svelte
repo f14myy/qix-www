@@ -5,6 +5,7 @@
 	import Lock from '@lucide/svelte/icons/lock';
 	import Reply from '@lucide/svelte/icons/reply';
 	import Smile from '@lucide/svelte/icons/smile';
+	import Avatar from './Avatar.svelte';
 	import LinkCard from './LinkCard.svelte';
 	import VoicePlayer from './VoicePlayer.svelte';
 	import { decryptAttachmentUrl } from '$lib/e2ee/messages';
@@ -26,6 +27,8 @@
 		tail = true,
 		selected = false,
 		selectMode = false,
+		showSender = false,
+		canModerate = false,
 		e2ee = null as null | { myUserId: string; peerUserId: string; peerPublicKey: string },
 		onreply,
 		onedit,
@@ -37,7 +40,8 @@
 		onforward,
 		onpin,
 		ontoggleSelect,
-		onenterSelect
+		onenterSelect,
+		onopenSender
 	}: {
 		message: MessageDTO;
 		mine: boolean;
@@ -49,6 +53,10 @@
 		tail?: boolean;
 		selected?: boolean;
 		selectMode?: boolean;
+		/** Groups only: draw the author's avatar and name on incoming bubbles. */
+		showSender?: boolean;
+		/** Groups only: the viewer is an admin, so they may delete anyone's message. */
+		canModerate?: boolean;
 		e2ee?: null | { myUserId: string; peerUserId: string; peerPublicKey: string };
 		onreply: (m: MessageDTO) => void;
 		onedit: (m: MessageDTO) => void;
@@ -61,6 +69,7 @@
 		onpin?: (m: MessageDTO) => void;
 		ontoggleSelect?: (m: MessageDTO) => void;
 		onenterSelect?: (m: MessageDTO) => void;
+		onopenSender?: (m: MessageDTO) => void;
 	} = $props();
 
 	let menuOpen = $state(false);
@@ -82,6 +91,19 @@
 	const deleted = $derived(!!message.deletedAt);
 	const failed = $derived(message.sendStatus === 'failed');
 	const encrypted = $derived(message.attachments.some((a) => !!a.e2eeMeta));
+	/*
+	 * Group authorship. The name comes with the message rather than from the member
+	 * list, so a bubble written by someone who has since left still says who wrote
+	 * it. The tone is keyed off the id so one person keeps one colour for the whole
+	 * conversation, the way the avatar palette already works.
+	 */
+	const senderName = $derived(
+		message.sender ? message.sender.displayName || message.sender.username : ''
+	);
+	const senderTone = $derived(((message.senderId.charCodeAt(0) || 0) % 7) + 1);
+	const withSender = $derived(showSender && !mine && !!message.sender);
+	/** Author's own delete, or a moderator removing someone else's. */
+	const mayDelete = $derived((mine || canModerate) && !message.id.startsWith('tmp-'));
 	const read = $derived(
 		mine &&
 			!!peerLastReadAt &&
@@ -295,6 +317,7 @@
 	class:failed
 	class:selected
 	class:select-mode={selectMode}
+	class:with-sender={withSender}
 	id="msg-{message.id}"
 	role="group"
 	oncontextmenu={(e) => e.preventDefault()}
@@ -332,6 +355,31 @@
 		</span>
 	{/if}
 
+	{#if withSender}
+		<!-- Kept in the layout on grouped rows so a run of bubbles stays aligned. -->
+		<span class="bubble-gutter">
+			{#if tail}
+				<button
+					type="button"
+					class="bubble-gutter-btn"
+					aria-label={senderName}
+					onclick={(e) => {
+						e.stopPropagation();
+						if (moveGuard > 8 || selectMode) return;
+						onopenSender?.(message);
+					}}
+				>
+					<Avatar
+						name={senderName}
+						size={28}
+						avatarPath={message.sender?.avatarPath ?? null}
+						userId={message.senderId}
+					/>
+				</button>
+			{/if}
+		</span>
+	{/if}
+
 	<div
 		class="bubble"
 		class:me={mine}
@@ -348,6 +396,20 @@
 		oncontextmenu={(e) => e.preventDefault()}
 		role="group"
 	>
+		{#if withSender && !grouped}
+			<button
+				type="button"
+				class="bubble-sender"
+				data-tone={senderTone}
+				onclick={(e) => {
+					e.stopPropagation();
+					if (moveGuard > 8 || selectMode) return;
+					onopenSender?.(message);
+				}}
+			>
+				{senderName}
+			</button>
+		{/if}
 		{#if message.forwardedFromId}
 			<p class="fwd-label">{t('chat.forwarded')}</p>
 		{/if}
@@ -578,6 +640,8 @@
 							onedit(message);
 						}}>{t('chat.edit')}</button
 					>
+				{/if}
+				{#if mayDelete}
 					<button
 						type="button"
 						class="danger"

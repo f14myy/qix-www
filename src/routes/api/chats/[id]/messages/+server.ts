@@ -15,6 +15,7 @@ import {
 } from '$lib/server/chats';
 import { getChatMeta } from '$lib/server/features';
 import { canPostInChat } from '$lib/server/channels';
+import { getGroupSummary } from '$lib/server/groups';
 import { publishToChat, publishToChatMembers } from '$lib/server/events';
 import { extractFirstUrl, fetchLinkPreview } from '$lib/server/linkPreview';
 import { sendPushToUser } from '$lib/server/push';
@@ -204,27 +205,51 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const message = toMessageDTO(row, locals.user.id);
 
 	publishToChat(chatId, 'message', message);
-	publishToChatMembers(getChatMemberIds(chatId), 'chat_update', { chatId });
+	const allMembers = getChatMemberIds(chatId);
+	publishToChatMembers(allMembers, 'chat_update', { chatId });
+
+	const senderName = locals.user.displayName || locals.user.username;
+	let preview = isE2ee ? 'Encrypted message' : body;
+	if (!isE2ee && !preview) {
+		if (kind === 'voice') preview = 'Voice message';
+		else if (kind === 'video') preview = 'Video';
+		else if (files.length) preview = 'Photo';
+		else preview = 'New message';
+	}
 
 	if (peer) {
-		const title = locals.user.displayName || locals.user.username;
-		let preview = isE2ee ? 'Encrypted message' : body;
-		if (!isE2ee && !preview) {
-			if (kind === 'voice') preview = 'Voice message';
-			else if (kind === 'video') preview = 'Video';
-			else if (files.length) preview = 'Photo';
-			else preview = 'New message';
-		}
 		void sendPushToUser(
 			peer.id,
 			{
-				title,
+				title: senderName,
 				body: preview.slice(0, 120),
 				href: `/chat/${chatId}`,
 				tag: `qix-chat-${chatId}`
 			},
 			{ chatId, kind: 'message' }
 		);
+	} else {
+		/*
+		 * A group notification names the room, not the sender — otherwise fifteen
+		 * groups all look like one stream of unfamiliar names. The sender moves into
+		 * the body, where it disambiguates instead of misleading.
+		 */
+		const group = getGroupSummary(chatId);
+		if (group) {
+			for (const memberId of allMembers) {
+				if (memberId === locals.user.id) continue;
+				void sendPushToUser(
+					memberId,
+					{
+						title: group.title,
+						body: `${senderName}: ${preview}`.slice(0, 160),
+						href: `/chat/${chatId}`,
+						tag: `qix-chat-${chatId}`
+					},
+					{ chatId, kind: 'message' }
+				);
+			}
+		}
 	}
 
 	return json({ message }, { status: 201 });

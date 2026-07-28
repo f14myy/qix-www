@@ -9,6 +9,7 @@ import {
 	toMessageDTO
 } from '$lib/server/chats';
 import { publishToChat, publishToChatMembers } from '$lib/server/events';
+import { canManageGroup } from '$lib/server/groups';
 import { and, eq } from 'drizzle-orm';
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
@@ -24,6 +25,8 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (msg.senderId !== locals.user.id) return json({ error: 'Forbidden' }, { status: 403 });
 	if (msg.deletedAt) return json({ error: 'Deleted' }, { status: 400 });
 	if (msg.kind === 'voice') return json({ error: 'Cannot edit voice' }, { status: 400 });
+	// System lines are a record of what happened; the actor does not get to rewrite it.
+	if (msg.kind === 'system') return json({ error: 'Cannot edit' }, { status: 400 });
 
 	const body = await request.json().catch(() => null);
 	const text = String((body as { body?: unknown })?.body ?? '').trim();
@@ -49,7 +52,14 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
 	const msg = getMessageById(mid);
 	if (!msg || msg.chatId !== chatId) return json({ error: 'Not found' }, { status: 404 });
-	if (msg.senderId !== locals.user.id) return json({ error: 'Forbidden' }, { status: 403 });
+	/*
+	 * Anyone may delete their own message. In a group, moderators may also delete
+	 * someone else's — a room with no way to remove abuse is not moderatable. They
+	 * still cannot touch system lines, which are the record of their own actions.
+	 */
+	const isAuthor = msg.senderId === locals.user.id;
+	const canModerate = msg.kind !== 'system' && canManageGroup(chatId, locals.user.id);
+	if (!isAuthor && !canModerate) return json({ error: 'Forbidden' }, { status: 403 });
 
 	db.update(messages)
 		.set({ deletedAt: new Date(), body: '' })

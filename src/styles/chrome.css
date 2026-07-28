@@ -443,7 +443,7 @@
 	transition:
 		background-color var(--motion) var(--ease-soft),
 		transform var(--motion-fast) var(--ease-soft);
-	animation: fab-in var(--motion-slow) var(--ease-out) both;
+	animation: fab-in var(--motion-slow) var(--ease-out) backwards;
 }
 
 
@@ -870,4 +870,303 @@
 /* The unread count is a live number — it should land, not appear. */
 .tab-badge {
 	transition: transform var(--motion) var(--ease-bounce);
+}
+
+
+/* ==========================================================================
+   Chrome in motion, second pass
+   --------------------------------------------------------------------------
+   The section above deliberately kept the frame still. That was right while
+   the frame was a bar and a row of tabs on a phone; on a full-window desktop
+   build the chrome is a third of what is on screen, and a static frame around
+   animated content reads as a picture the app was drawn inside.
+
+   So the frame now arrives too — but it arrives *first* and it arrives once.
+   Nothing here loops, and nothing here moves after the screen has settled
+   except in answer to a press.
+   ========================================================================== */
+
+
+/* ── Top bar ────────────────────────────────────────────────────────────── */
+
+/*
+ * The bar settles down onto the screen, and the title follows a beat later.
+ * `title-in` has been sitting at the top of this file unused since the bar was
+ * written — this is what it was for.
+ */
+.topbar {
+	animation: drop-in var(--motion-enter) var(--ease-out) both;
+}
+
+
+.topbar h1 {
+	animation: title-in var(--motion-enter) calc(var(--stagger) * 2) var(--ease-out) both;
+}
+
+
+/*
+ * Actions cascade in from the trailing edge — the direction the eye is already
+ * travelling once it has read the title.
+ *
+ * `backwards`, not `both`, and the same everywhere below that an element also
+ * has a press transform. A filled-forwards animation keeps ownership of every
+ * property it touched for as long as the element lives, so `both` here would
+ * silently disable `.icon-btn:active { transform: scale(0.88) }`. `backwards`
+ * still holds the first frame through the stagger delay — which is the only
+ * reason the fill was there — and hands the transform back at the end.
+ */
+.topbar > .icon-btn,
+.topbar-actions > * {
+	animation: scale-in var(--motion) var(--ease-spring) backwards;
+}
+
+
+.topbar-actions > *:nth-child(1) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+
+
+.topbar-actions > *:nth-child(2) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+
+
+.topbar-actions > *:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 5);
+}
+
+
+.topbar-actions > *:nth-child(n + 4) {
+	animation-delay: calc(var(--stagger) * 6);
+}
+
+
+/* ── Tab bar ────────────────────────────────────────────────────────────── */
+
+/*
+ * The bar fades and the tabs rise. Not both moving: a translate on the bar
+ * compounds with a translate on its children, and the tabs would travel twice
+ * as far as anything else on the screen.
+ */
+.tabbar {
+	animation: fade-in var(--motion-enter) var(--ease-soft) both;
+}
+
+
+.tabbar > .tab {
+	animation: rise-in var(--motion-enter) var(--ease-out) backwards;
+}
+
+
+.tabbar > .tab:nth-child(1) {
+	animation-delay: calc(var(--stagger) * 1);
+}
+
+
+.tabbar > .tab:nth-child(2) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+
+
+.tabbar > .tab:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+
+
+.tabbar > .tab:nth-child(n + 4) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+
+
+/*
+ * The label of the newly selected tab rolls up into place. It is the icon that
+ * carries selection — but the icon's lift is a `transform` declaration, and an
+ * animation with `both` would fill over it and hold the icon flat forever, so
+ * the label is what animates here.
+ */
+.tab.active .tab-label {
+	animation: roll-up var(--motion) var(--ease-out) both;
+}
+
+
+/* On the wide rail the tabs are a vertical column, so they arrive from the
+   side they live on rather than from below. */
+@media (min-width: 1280px) {
+	.tabbar > .tab {
+		animation-name: slide-in-left;
+	}
+}
+
+
+/* ── Floating action button ─────────────────────────────────────────────── */
+
+/*
+ * The FAB already had an entrance, but nothing happened while it was held: a
+ * press that only shrinks reads as a dead key on a surface this prominent.
+ * The ring is a pseudo-element rather than the button's own box-shadow because
+ * the button's shadow is its elevation, and elevation should not flicker.
+ *
+ * `position: absolute` matters — .fab is a grid container, and a static
+ * pseudo-element would become a second grid item and shove the icon off-centre.
+ */
+.fab::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
+	transition: box-shadow var(--motion-slow) var(--ease-out);
+}
+
+
+.fab:active::after {
+	box-shadow: 0 0 0 12px color-mix(in srgb, var(--accent) 0%, transparent);
+	transition-duration: var(--motion-instant);
+}
+
+
+@media (hover: hover) and (pointer: fine) {
+	.fab:hover::after {
+		box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent);
+	}
+}
+
+
+/* ── Sheets and menus ───────────────────────────────────────────────────── */
+
+/*
+ * A sheet slides up as one piece, and its contents used to be legible the
+ * instant it started moving — which means reading text that is still in
+ * flight. Holding them back until the sheet has nearly landed is the whole
+ * difference between a panel arriving and a panel that was already there.
+ *
+ * Only the three heading elements are listed. A blanket `> *` would also put a
+ * delay on rows that have an animation of their own, and a delay on an
+ * animation with `both` freezes the element on its first frame for that long.
+ */
+.pad-sheet > .sheet-title {
+	animation: rise-in var(--motion) calc(var(--stagger) * 2) var(--ease-out) both;
+}
+
+
+.pad-sheet > .sheet-desc {
+	animation: rise-in var(--motion) calc(var(--stagger) * 3) var(--ease-out) both;
+}
+
+
+.pad-sheet > .sheet-section {
+	animation: fade-in var(--motion) calc(var(--stagger) * 4) var(--ease-soft) both;
+}
+
+
+/*
+ * Menu rows cascade from the top — the direction the menu grew from. Tighter
+ * than the default rhythm: a menu is read in one glance, and 26ms a row makes a
+ * seven-item menu take longer to assemble than to choose from.
+ */
+.msg-menu button {
+	--stagger: 18ms;
+	animation: slide-in-left var(--motion) var(--ease-out) backwards;
+}
+
+
+.msg-menu button:nth-child(1) {
+	animation-delay: 0ms;
+}
+
+
+.msg-menu button:nth-child(2) {
+	animation-delay: calc(var(--stagger) * 1);
+}
+
+
+.msg-menu button:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+
+
+.msg-menu button:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+
+
+.msg-menu button:nth-child(5) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+
+
+.msg-menu button:nth-child(6) {
+	animation-delay: calc(var(--stagger) * 5);
+}
+
+
+.msg-menu button:nth-child(n + 7) {
+	animation-delay: calc(var(--stagger) * 6);
+}
+
+
+/* The icon leads the row's hover rather than following it. */
+.msg-menu button .sheet-row-ico {
+	transition: transform var(--motion) var(--ease-spring);
+}
+
+
+@media (hover: hover) and (pointer: fine) {
+	.msg-menu button:hover .sheet-row-ico {
+		transform: scale(1.1);
+	}
+}
+
+
+.msg-menu button:active .sheet-row-ico {
+	transform: scale(0.92);
+}
+
+
+/*
+ * The reaction row is the one place a bounce belongs: the emoji are round, coin
+ * sized, and the gesture is playful by nature.
+ */
+.react-bar button {
+	--stagger: 22ms;
+	animation: bounce-in var(--motion-slow) var(--ease-spring) backwards;
+}
+
+
+.react-bar button:nth-child(1) {
+	animation-delay: 0ms;
+}
+
+
+.react-bar button:nth-child(2) {
+	animation-delay: calc(var(--stagger) * 1);
+}
+
+
+.react-bar button:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+
+
+.react-bar button:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+
+
+.react-bar button:nth-child(5) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+
+
+.react-bar button:nth-child(n + 6) {
+	animation-delay: calc(var(--stagger) * 5);
+}
+
+
+/* ── Version stamp ──────────────────────────────────────────────────────── */
+
+/* Last thing on the settings screen, so it is the last thing to arrive. */
+.app-version {
+	animation: fade-in var(--motion-slower) calc(var(--stagger) * 8) var(--ease-soft) both;
 }

@@ -210,8 +210,8 @@
 </script>
 
 <svelte:head>
-	<title>Qix</title>
-	<meta name="description" content="Light messenger for your privacy" />
+	<title>Qix — Приватный и быстрый мессенджер</title>
+	<meta name="description" content="Безопасный мессенджер с поддержкой сквозного шифрования (E2EE), личных и групповых чатов, голосовых и видеозвонков." />
 	<meta name="theme-color" content={themeColor} />
 	<meta name="mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-capable" content="yes" />
@@ -220,6 +220,31 @@
 	<link rel="manifest" href="/manifest.webmanifest" />
 	<link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
 	<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+	<link rel="canonical" href={page.url.href} />
+
+	<!-- Open Graph / Telegram / VK / WhatsApp -->
+	<meta property="og:site_name" content="Qix" />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={page.url.href} />
+	<meta property="og:title" content="Qix — Приватный и быстрый мессенджер" />
+	<meta property="og:description" content="Безопасный мессенджер с поддержкой сквозного шифрования (E2EE), личных и групповых чатов, голосовых и видеозвонков." />
+	<meta property="og:locale" content="ru_RU" />
+
+	<!-- Twitter Cards -->
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Qix — Приватный и быстрый мессенджер" />
+	<meta name="twitter:description" content="Безопасный мессенджер с поддержкой сквозного шифрования (E2EE), личных и групповых чатов, голосовых и видеозвонков." />
+
+	<!-- Schema.org Structured Data -->
+	<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "WebSite",
+			"name": "Qix",
+			"alternateName": "Qix Messenger",
+			"url": "https://qix.chat"
+		}
+	</script>
 </svelte:head>
 
 <div class="app-shell">

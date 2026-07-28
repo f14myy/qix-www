@@ -538,3 +538,103 @@ p.hint {
 .ok-dot {
 	animation: pop-in var(--motion) var(--ease-bounce) both;
 }
+
+/* ── Forms in motion, second pass ────────────────────────────────────────── */
+
+/*
+ * A light sheen crosses solid buttons on hover. Ghost and quiet variants sit on
+ * pale surfaces where it would only read as noise, so they are left out — and
+ * with them the `overflow: hidden` that the sweep needs.
+ */
+@media (hover: hover) and (pointer: fine) {
+	.btn:not(.btn-ghost):not(.btn-quiet):not(:disabled) {
+		position: relative;
+		overflow: hidden;
+	}
+	.btn:not(.btn-ghost):not(.btn-quiet):not(:disabled)::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: linear-gradient(
+			105deg,
+			transparent 32%,
+			rgba(255, 255, 255, 0.22) 50%,
+			transparent 68%
+		);
+		transform: translate3d(-130%, 0, 0);
+	}
+	.btn:not(.btn-ghost):not(.btn-quiet):not(:disabled):hover::after {
+		animation: sheen 760ms var(--ease-out);
+	}
+	.btn-danger-outline:hover {
+		box-shadow: 0 6px 18px -10px color-mix(in srgb, var(--danger) 60%, transparent);
+	}
+}
+
+/* Segmented controls acknowledge the switch instead of just recolouring. */
+.theme-pill.active {
+	animation: pop-in var(--motion) var(--ease-spring);
+}
+.stacked-pills .theme-pill {
+	--stagger: 26ms;
+	animation: rise-in var(--motion-enter) var(--ease-out) backwards;
+}
+.stacked-pills .theme-pill:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.stacked-pills .theme-pill:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.stacked-pills .theme-pill:nth-child(n + 4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+
+/* The accent grid deals itself out, and the chosen swatch bounces on selection. */
+.accent-grid > .accent-swatch {
+	--stagger: 22ms;
+	animation: pop-in var(--motion) var(--ease-spring) backwards;
+}
+.accent-grid > .accent-swatch:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.accent-grid > .accent-swatch:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.accent-grid > .accent-swatch:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.accent-grid > .accent-swatch:nth-child(5) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+.accent-grid > .accent-swatch:nth-child(6) {
+	animation-delay: calc(var(--stagger) * 5);
+}
+.accent-grid > .accent-swatch:nth-child(7) {
+	animation-delay: calc(var(--stagger) * 6);
+}
+.accent-grid > .accent-swatch:nth-child(n + 8) {
+	animation-delay: calc(var(--stagger) * 7);
+}
+.accent-swatch.active {
+	animation: bounce-in var(--motion-slow) var(--ease-spring);
+}
+
+/* Fields in a stacked card arrive one after another. */
+.settings-form-stack > .field {
+	--stagger: 34ms;
+	animation: rise-in var(--motion-enter) var(--ease-out) backwards;
+}
+.settings-form-stack > .field:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.settings-form-stack > .field:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.settings-form-stack > .field:nth-child(n + 4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.field-hint,
+.field-count {
+	animation: fade-in var(--motion-slower) var(--ease-soft) backwards;
+}

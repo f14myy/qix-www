@@ -161,7 +161,7 @@
 	box-shadow: var(--elev-2);
 	display: grid;
 	place-items: center;
-	animation: jump-in var(--motion-slow) var(--ease-out) both;
+	animation: jump-in var(--motion-slow) var(--ease-out) backwards;
 	transition:
 		transform var(--motion-fast) var(--ease-soft),
 		background-color var(--motion) var(--ease-soft);
@@ -1332,7 +1332,7 @@
 	padding: 2px 8px;
 	font-size: var(--fs-xs);
 	color: var(--text);
-	animation: chip-pop var(--motion) var(--ease-spring) both;
+	animation: chip-pop var(--motion) var(--ease-spring) backwards;
 }
 
 
@@ -1605,7 +1605,7 @@
 	height: 34px;
 	border-radius: 50%;
 	transition: transform var(--motion-fast) var(--ease-spring), background-color var(--motion) ease;
-	animation: chip-pop 280ms var(--ease-spring) both;
+	animation: chip-pop 280ms var(--ease-spring) backwards;
 }
 
 
@@ -1624,7 +1624,7 @@
 	display: grid;
 	place-items: center;
 	transition: transform var(--motion-fast) var(--ease-spring);
-	animation: chip-pop 320ms var(--ease-spring) both;
+	animation: chip-pop 320ms var(--ease-spring) backwards;
 }
 
 
@@ -2054,3 +2054,556 @@
 	font-size: var(--fs-sm);
 	font-weight: var(--fw-semi);
 }
+
+/* ── Chat in motion, second pass ─────────────────────────────────────────── */
+
+/*
+ * The unread rule draws itself: the hairline sweeps out from the middle and the
+ * label lands on top of it a beat later.
+ */
+.unread-divider::before {
+	transform-origin: center;
+	animation: sweep-x var(--motion-slower) var(--ease-out) backwards;
+}
+.unread-divider span {
+	animation: bounce-in var(--motion-slow) calc(var(--stagger) * 2) var(--ease-spring) backwards;
+}
+
+/* Counters and shields arrive with a hop rather than blinking into place. */
+.top-badge {
+	animation: pop-in var(--motion-slow) var(--ease-bounce) backwards;
+}
+.e2ee-badge,
+.e2ee-status {
+	animation: fade-in var(--motion-slower) var(--ease-soft) backwards;
+}
+
+/* A tick turning blue is worth a beat of attention. */
+.receipt.read {
+	animation: pop-in var(--motion) var(--ease-spring) backwards;
+}
+
+/* Failure asks twice: the chip pops in, then leans on you. */
+.retry-chip {
+	animation: chip-pop var(--motion) var(--ease-spring) backwards;
+	transition: transform var(--motion-fast) var(--ease-spring);
+}
+.retry-chip:active {
+	transform: scale(0.94);
+}
+
+/* Selection: the circle fills with a bounce the moment it is checked. */
+.select-check.on {
+	animation: bounce-in var(--motion) var(--ease-spring);
+}
+.select-bar {
+	animation: rise-in var(--motion-slow) var(--ease-out) backwards;
+}
+.select-bar > button {
+	--stagger: 26ms;
+	animation: pop-in var(--motion) var(--ease-spring) backwards;
+}
+.select-bar > button:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.select-bar > button:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.select-bar > button:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.select-bar > button:nth-child(n + 5) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+
+/* Pinned banner: the clear button answers the tap it is most likely to get. */
+.pin-banner-clear {
+	transition: transform var(--motion-fast) var(--ease-spring), color var(--motion) var(--ease-soft);
+}
+.pin-banner-clear:active {
+	transform: scale(0.88) rotate(-8deg);
+}
+
+/* Attachments queued for send file in one after another. */
+.pending-chip {
+	--stagger: 30ms;
+	animation: emerge var(--motion) var(--ease-spring) backwards;
+	transition: transform var(--motion-fast) var(--ease-soft);
+}
+.pending-chip:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.pending-chip:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.pending-chip:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.pending-chip:nth-child(n + 5) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+.pending-remove:active {
+	transform: scale(0.86);
+}
+
+/* Voice notes: the play button presses, the active bar breathes. */
+.voice-btn {
+	transition: transform var(--motion-fast) var(--ease-spring), background-color var(--motion)
+			var(--ease-soft);
+}
+.voice-btn:active {
+	transform: scale(0.9);
+}
+.voice-bars span.active {
+	animation: pulse-soft 1.6s var(--ease-soft) infinite;
+}
+
+/* Link previews: the thumbnail eases in behind the card that owns the press. */
+.link-card-img {
+	transition: transform var(--motion-slow) var(--ease-soft);
+}
+@media (hover: hover) and (pointer: fine) {
+	.link-card:hover .link-card-img {
+		transform: scale(1.04);
+	}
+}
+
+/* Bubble style picker in appearance-inside-chat. */
+@media (hover: hover) and (pointer: fine) {
+	.bubble-style-card:hover {
+		transform: translate3d(0, -2px, 0);
+	}
+}
+.bubble-rail > .bubble-style-card {
+	--stagger: 34ms;
+	animation: pop-rise var(--motion-slow) var(--ease-spring) backwards;
+}
+.bubble-rail > .bubble-style-card:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.bubble-rail > .bubble-style-card:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.bubble-rail > .bubble-style-card:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.bubble-rail > .bubble-style-card:nth-child(n + 5) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+
+/* Search / gallery overlays: results cascade instead of appearing as a block. */
+.overlay-hit {
+	--stagger: 22ms;
+	animation: row-in var(--motion-enter) var(--ease-out) backwards;
+}
+.overlay-hit:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.overlay-hit:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.overlay-hit:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.overlay-hit:nth-child(5) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+.overlay-hit:nth-child(6) {
+	animation-delay: calc(var(--stagger) * 5);
+}
+.overlay-hit:nth-child(n + 7) {
+	animation-delay: calc(var(--stagger) * 6);
+}
+.overlay-empty {
+	animation: empty-rise var(--motion-slower) var(--ease-out) backwards;
+}
+.gallery-cell {
+	--stagger: 16ms;
+	animation: scale-in var(--motion) var(--ease-out) backwards;
+}
+.gallery-cell:nth-child(3n + 2) {
+	animation-delay: var(--stagger);
+}
+.gallery-cell:nth-child(3n) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+
+/* Lightbox chrome fades up around the photo. */
+.lightbox-count {
+	animation: fade-in var(--motion-slower) calc(var(--stagger) * 3) var(--ease-soft) backwards;
+}
+
+/* Spoilers un-blur rather than snapping open. */
+.msg-formatted .msg-spoiler.revealed {
+	animation: fade-in var(--motion) var(--ease-soft);
+}
+
+/* The chip pops in, then answers a tap of its own. */
+.reaction-chip {
+	transition: transform var(--motion-fast) var(--ease-spring), background-color var(--motion)
+			var(--ease-soft), border-color var(--motion) var(--ease-soft);
+}
+.reaction-chip:active {
+	transform: scale(0.9);
+}
+
+/* ── Group UI & System Messages ────────────────────────────────────────── */
+
+/* System message lines (e.g. "Alice created the group", "Bob joined") */
+.sys-line {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	margin: 12px 16px;
+	text-align: center;
+	clear: both;
+}
+
+.sys-line span {
+	display: inline-block;
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--text-secondary, #b0a99f);
+	background: color-mix(in srgb, var(--bg-elevated, #2a2824) 85%, transparent);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	padding: 5px 14px;
+	border-radius: 9999px;
+	border: 1px solid color-mix(in srgb, var(--border-subtle, #3d3933) 60%, transparent);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+	max-width: 88%;
+	word-break: break-word;
+	line-height: 1.4;
+}
+
+/* Group creation header box */
+.group-create-head {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 12px 16px;
+	padding: 10px 14px;
+	background: var(--bg-elevated, #23211c);
+	border: 1px solid var(--border-subtle, #38342d);
+	border-radius: 14px;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.group-create-head:focus-within {
+	border-color: var(--accent, #e5a93c);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #e5a93c) 20%, transparent);
+}
+
+.group-create-ico {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--accent, #e5a93c) 15%, transparent);
+	color: var(--accent, #e5a93c);
+	flex-shrink: 0;
+}
+
+.group-name-input {
+	flex: 1;
+	background: transparent !important;
+	border: none !important;
+	outline: none !important;
+	box-shadow: none !important;
+	font-family: inherit;
+	font-size: 15px;
+	font-weight: 500;
+	color: var(--text-primary, #ffffff);
+	padding: 4px 0;
+}
+
+.group-name-input::placeholder {
+	color: var(--text-tertiary, #888278);
+}
+
+/* Picked member chips */
+.picked-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 8px 16px;
+	max-height: 120px;
+	overflow-y: auto;
+}
+
+.picked-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 10px 4px 6px;
+	background: color-mix(in srgb, var(--accent, #e5a93c) 18%, var(--bg-elevated, #23211c));
+	border: 1px solid color-mix(in srgb, var(--accent, #e5a93c) 35%, transparent);
+	border-radius: 100px;
+	color: var(--text-primary, #ffffff);
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.picked-chip:hover {
+	background: color-mix(in srgb, var(--accent, #e5a93c) 28%, var(--bg-elevated, #23211c));
+}
+
+.picked-chip:active {
+	transform: scale(0.96);
+}
+
+/* Group create bottom bar */
+.group-create-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px;
+	background: var(--bg-elevated, #23211c);
+	border-top: 1px solid var(--border-subtle, #38342d);
+	position: sticky;
+	bottom: 0;
+	z-index: 10;
+}
+
+.group-create-count {
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--text-secondary, #b0a99f);
+}
+
+/* Member pick list items */
+.pick-row {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	padding: 10px 16px;
+	gap: 12px;
+	border: none;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	text-align: left;
+	transition: background 0.15s ease;
+}
+
+.pick-row:hover {
+	background: color-mix(in srgb, var(--bg-elevated, #23211c) 50%, transparent);
+}
+
+.pick-row.picked {
+	background: color-mix(in srgb, var(--accent, #e5a93c) 10%, transparent);
+}
+
+.pick-check {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	border: 2px solid var(--border-subtle, #4a453d);
+	margin-left: auto;
+	flex-shrink: 0;
+	transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.pick-check.on {
+	border-color: var(--accent, #e5a93c);
+	background: var(--accent, #e5a93c);
+	color: #000;
+}
+
+/* File input MUST be hidden */
+input.hidden-file,
+.hidden-file {
+	display: none !important;
+	position: absolute !important;
+	opacity: 0 !important;
+	pointer-events: none !important;
+	width: 0 !important;
+	height: 0 !important;
+}
+
+/* Group Info Hero & Edit Mode */
+.group-hero {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	padding: 24px 16px 16px;
+}
+
+.group-hero-photo {
+	position: relative;
+	margin-bottom: 12px;
+}
+
+.group-hero-img {
+	border-radius: 50%;
+	object-fit: cover;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.group-hero-cam {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: var(--accent, #e5a93c);
+	color: #000000;
+	border: 3px solid var(--bg-surface, #181714);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.group-hero-cam:hover {
+	transform: scale(1.08);
+}
+
+.group-hero-title {
+	font-size: 20px;
+	font-weight: 700;
+	color: var(--text-primary, #ffffff);
+	margin: 4px 0 2px;
+}
+
+.group-hero-sub {
+	font-size: 13px;
+	color: var(--text-tertiary, #888278);
+	margin: 0 0 8px;
+}
+
+.group-hero-desc {
+	font-size: 14px;
+	color: var(--text-secondary, #c4bebc);
+	max-width: 340px;
+	line-height: 1.45;
+	margin: 6px 0 0;
+}
+
+.group-hero-desc.muted {
+	color: var(--text-tertiary, #888278);
+	font-style: italic;
+}
+
+.group-hero-input {
+	width: 100% !important;
+	max-width: 380px;
+	padding: 10px 14px !important;
+	background: var(--bg-elevated, #23211c) !important;
+	border: 1px solid var(--border-subtle, #38342d) !important;
+	border-radius: 12px !important;
+	font-size: 16px !important;
+	font-weight: 600 !important;
+	color: var(--text-primary, #ffffff) !important;
+	outline: none !important;
+	text-align: center;
+	margin-top: 10px;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.group-hero-input:focus {
+	border-color: var(--accent, #e5a93c) !important;
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #e5a93c) 20%, transparent) !important;
+}
+
+.group-desc-input {
+	width: 100%;
+	max-width: 380px;
+	padding: 10px 14px;
+	background: var(--bg-elevated, #23211c);
+	border: 1px solid var(--border-subtle, #38342d);
+	border-radius: 12px;
+	font-size: 14px;
+	font-family: inherit;
+	color: var(--text-primary, #ffffff);
+	outline: none;
+	resize: none;
+	margin-top: 10px;
+	line-height: 1.4;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.group-desc-input:focus {
+	border-color: var(--accent, #e5a93c);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #e5a93c) 20%, transparent);
+}
+
+.group-edit-actions {
+	display: flex;
+	gap: 10px;
+	justify-content: center;
+	margin-top: 14px;
+	flex-wrap: wrap;
+	width: 100%;
+	max-width: 380px;
+}
+
+.role-chip {
+	font-size: 11px;
+	font-weight: 600;
+	padding: 2px 8px;
+	border-radius: 100px;
+	background: color-mix(in srgb, var(--text-tertiary, #888278) 20%, transparent);
+	color: var(--text-secondary, #c4bebc);
+	margin-left: auto;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.role-chip.owner {
+	background: color-mix(in srgb, var(--accent, #e5a93c) 20%, transparent);
+	color: var(--accent, #e5a93c);
+	border: 1px solid color-mix(in srgb, var(--accent, #e5a93c) 40%, transparent);
+}
+
+.new-group-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 16px;
+	width: 100%;
+	text-decoration: none;
+	color: inherit;
+	transition: background 0.15s ease;
+	border-bottom: 1px solid color-mix(in srgb, var(--border-subtle, #38342d) 40%, transparent);
+}
+
+.new-group-row:hover {
+	background: color-mix(in srgb, var(--bg-elevated, #23211c) 60%, transparent);
+}
+
+.group-avatar-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in srgb, var(--accent, #e5a93c) 20%, transparent) !important;
+	color: var(--accent, #e5a93c) !important;
+}
+
+.invite-link-value {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+	color: var(--text-secondary, #b0a99f);
+	word-break: break-all;
+}
+
+.invite-link-value code {
+	font-family: var(--font-mono, monospace);
+	color: var(--accent, #e5a93c);
+	background: color-mix(in srgb, var(--accent, #e5a93c) 12%, transparent);
+	padding: 4px 8px;
+	border-radius: 6px;
+}
+

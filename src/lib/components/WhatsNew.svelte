@@ -22,20 +22,16 @@
 	}
 
 	const entries = $derived([
-		{ icon: '🎨', text: i18n.t('whatsnew.e1') },
-		{ icon: '📞', text: i18n.t('whatsnew.e2') },
-		{ icon: '📱', text: i18n.t('whatsnew.e3') },
-		{ icon: '📱', text: i18n.t('whatsnew.e4') },
-		{ icon: '📱', text: i18n.t('whatsnew.e5') },
-		{ icon: '🎉', text: i18n.t('whatsnew.e6') },
-		{ icon: '🖼️', text: i18n.t('whatsnew.e7') },
-		{ icon: '🖼️', text: i18n.t('whatsnew.e8') },
-		{ icon: '🎯', text: i18n.t('whatsnew.e9') },
-		{ icon: '🎯', text: i18n.t('whatsnew.e10') },
-		{ icon: '🎯', text: i18n.t('whatsnew.e11') },
-		{ icon: '🔧', text: i18n.t('whatsnew.e12') },
-		{ icon: '🔧', text: i18n.t('whatsnew.e13') },
-		{ icon: '🔧', text: i18n.t('whatsnew.e14') },
+		{ icon: '🖥️', text: i18n.t('whatsnew.e1') },
+		{ icon: '🎨', text: i18n.t('whatsnew.e2') },
+		{ icon: '🌈', text: i18n.t('whatsnew.e3') },
+		{ icon: '✨', text: i18n.t('whatsnew.e4') },
+		{ icon: '🎬', text: i18n.t('whatsnew.e5') },
+		{ icon: '👆', text: i18n.t('whatsnew.e6') },
+		{ icon: '💫', text: i18n.t('whatsnew.e7') },
+		{ icon: '🔧', text: i18n.t('whatsnew.e8') },
+		{ icon: '📞', text: i18n.t('whatsnew.e9') },
+		{ icon: '♿', text: i18n.t('whatsnew.e10') },
 	]);
 </script>
 

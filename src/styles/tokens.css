@@ -71,6 +71,11 @@
 	--header-h: 54px;
 	--row-h: 72px;
 	--row-actions-w: 186px;
+	/* Widescreen measures. The desktop build fills the whole window, so on a
+	   large monitor nothing else stops a line of text or a list row from running
+	   the width of the desk — these are what stop it. See desktop.css. */
+	--read-max: 760px;
+	--list-max: 900px;
 	/* Read everywhere as `var(--safe-*)`, never as raw env(): the Android app
 	   overwrites these four at runtime from the real window insets, because its
 	   WebView reports env(safe-area-inset-*) inconsistently — usually as 0,

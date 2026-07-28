@@ -43,6 +43,16 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Вход — Qix</title>
+	<meta name="description" content="Войдите в свой аккаунт Qix для приватного общения, звонков и шифрованных сообщений." />
+	<meta property="og:title" content="Вход в Qix Messenger" />
+	<meta property="og:description" content="Войдите в свой аккаунт Qix для общения и звонков." />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Вход в Qix Messenger" />
+	<meta name="twitter:description" content="Войдите в свой аккаунт Qix для общения и звонков." />
+</svelte:head>
+
 <div class="screen auth-screen">
 	<div class="auth-top-bar">
 		<div class="auth-lang-toggle" aria-label="Language">

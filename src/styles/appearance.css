@@ -806,7 +806,7 @@ html[data-theme='light'] [data-look-preview='noir'] .look-card-label {
    whole grid has settled before a thumb can reach it. */
 .look-card,
 .wallpaper-card {
-	animation: pop-rise var(--motion-slow) var(--ease-spring) both;
+	animation: pop-rise var(--motion-slow) var(--ease-spring) backwards;
 	transition:
 		transform var(--motion) var(--ease-spring),
 		border-color var(--motion) var(--ease-soft),
@@ -924,4 +924,43 @@ html[data-theme='light'] [data-look-preview='noir'] .look-card-label {
 	transition:
 		background-color var(--motion-slow) var(--ease-soft),
 		border-color var(--motion-slow) var(--ease-soft);
+}
+
+/* ── Appearance in motion, second pass ───────────────────────────────────── */
+
+.look-card-label,
+.wallpaper-label {
+	animation: fade-in var(--motion-slower) 120ms var(--ease-soft) backwards;
+}
+
+/*
+ * The colour bar under a look swells when you reach for it. `:not(:active)`
+ * keeps the press feedback below from being outranked on a hovering pointer.
+ */
+@media (hover: hover) and (pointer: fine) {
+	.look-card:hover:not(:active) .look-swatch {
+		transform: scaleY(1.8);
+	}
+}
+
+/* Section tabs unroll, and the chosen one acknowledges the tap. */
+.appearance-tabs {
+	transform-origin: top center;
+	animation: unfurl var(--motion) var(--ease-out) backwards;
+}
+.appearance-tab {
+	--stagger: 30ms;
+	animation: fade-in var(--motion) var(--ease-soft) backwards;
+}
+.appearance-tab:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.appearance-tab:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.appearance-tab:nth-child(n + 4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.appearance-tab.active {
+	animation: pop-in var(--motion) var(--ease-spring);
 }

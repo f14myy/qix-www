@@ -14,6 +14,7 @@
 	import { confirmDialog, toast } from '$lib/flash.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
 	import { goBack } from '$lib/nav';
+	import { profileThemeVars, resolveProfileTheme } from '$lib/profileTheme';
 	import { formatLastSeen, isOnlineIso } from '$lib/time';
 	import type { PageData } from './$types';
 
@@ -30,6 +31,12 @@
 
 	const title = $derived(data.profile.displayName || data.profile.username);
 	const online = $derived(isOnlineIso(data.profile.lastSeenAt));
+	/**
+	 * The owner's own colour for this page — sampled from their banner, or picked
+	 * by them. Null when they have none, in which case the page keeps the viewer's
+	 * look untouched.
+	 */
+	const tint = $derived(resolveProfileTheme(data.profile));
 	const status = $derived(
 		online
 			? i18n.t('chat.online')
@@ -126,6 +133,43 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{title} (@{data.profile.username}) — Qix</title>
+	<meta
+		name="description"
+		content={data.profile.bio || `Профиль пользователя ${title} (@${data.profile.username}) в Qix Messenger.`}
+	/>
+	<meta property="og:type" content="profile" />
+	<meta property="profile:username" content={data.profile.username} />
+	<meta property="og:title" content={`${title} (@${data.profile.username}) — Qix`} />
+	<meta
+		property="og:description"
+		content={data.profile.bio || `Профиль пользователя ${title} (@${data.profile.username}) в Qix Messenger.`}
+	/>
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content={`${title} (@${data.profile.username}) — Qix`} />
+	<meta
+		name="twitter:description"
+		content={data.profile.bio || `Профиль пользователя ${title} (@${data.profile.username}) в Qix Messenger.`}
+	/>
+	{#if data.profile.avatarPath}
+		<meta property="og:image" content={data.profile.avatarPath} />
+	{/if}
+
+	<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "ProfilePage",
+			"mainEntity": {
+				"@type": "Person",
+				"name": {JSON.stringify(title)},
+				"alternateName": {JSON.stringify(`@${data.profile.username}`)},
+				"description": {JSON.stringify(data.profile.bio || "")}
+			}
+		}
+	</script>
+</svelte:head>
+
 <div class="screen profile-screen">
 	<header class="topbar topbar-over-media">
 		<button type="button" class="icon-btn icon-btn-glass" aria-label={i18n.t('back')} onclick={() => goBack('/')}>
@@ -137,8 +181,13 @@
 		</button>
 	</header>
 
-	<div class="profile-page">
-		<div class="profile-banner" data-banner={data.profile.bannerKey} aria-hidden="true">
+	<div class="profile-page" class:is-tinted={!!tint} style={profileThemeVars(tint)}>
+		<div
+			class="profile-banner"
+			class:is-tinted={!!tint}
+			data-banner={data.profile.bannerKey}
+			aria-hidden="true"
+		>
 			{#if data.profile.bannerPath}
 				<img
 					class="profile-banner-img"

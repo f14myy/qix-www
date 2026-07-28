@@ -58,14 +58,27 @@ function isPermissionError(e: unknown) {
 
 export class CallSession {
 	call: CallDTO;
-	phase: CallPhase;
-	localStream: MediaStream | null = null;
-	remoteStream: MediaStream | null = null;
-	muted = false;
-	cameraOff = false;
-	error: CallErrorCode | '' = '';
-	reconnecting = false;
-	connectedAt: number | null = null;
+
+	/*
+	 * Everything the overlay renders is `$state` — which is why this module is
+	 * `.svelte.ts`.
+	 *
+	 * The store's `bump()` counter cannot carry these on its own: the overlay
+	 * reads the session through a `$derived`, and a derived that recomputes to
+	 * the same object reference counts as unchanged, so the template is never
+	 * invalidated. Mutating a plain field showed nothing on screen — pressing
+	 * Accept started the media and the negotiation, then left the overlay
+	 * ringing forever with the remote stream attached to nothing. `bump()` is
+	 * still what makes a session appearing or disappearing reactive.
+	 */
+	phase: CallPhase = $state<CallPhase>('idle');
+	localStream: MediaStream | null = $state(null);
+	remoteStream: MediaStream | null = $state(null);
+	muted = $state(false);
+	cameraOff = $state(false);
+	error: CallErrorCode | '' = $state<CallErrorCode | ''>('');
+	reconnecting = $state(false);
+	connectedAt: number | null = $state(null);
 	/** True once this side has agreed to the call; gates SDP handling for the callee. */
 	accepted = false;
 
@@ -271,20 +284,33 @@ export class CallSession {
 
 	async acceptIncoming() {
 		await this.startMedia();
-		this.ensurePc();
-		this.accepted = true;
 		this.phase = 'connecting';
 		const res = await fetch(`/api/calls/${this.call.id}`, {
 			method: 'PATCH',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ action: 'accept' })
 		});
-		const json = await res.json().catch(() => ({}));
+		const json = (await res.json().catch(() => ({}))) as {
+			error?: string;
+			call?: { iceServers?: RTCIceServer[] };
+		};
 		if (!res.ok) {
 			this.error = 'acceptFailed';
 			this.notify();
-			throw new Error((json as { error?: string }).error || 'Accept failed');
+			throw new Error(json.error || 'Accept failed');
 		}
+		/*
+		 * The invite itself carries no ICE config, so the session was built with
+		 * the cached one — STUN-only on the first call of a session, and with a
+		 * TURN credential that may have expired on a later one. The accept
+		 * response carries a fresh list, and it has to be applied *before* the
+		 * peer connection exists: `iceServers` is read when the connection is
+		 * constructed, so a callee who answered quickly would otherwise spend the
+		 * whole call without a relay and fail behind a strict NAT.
+		 */
+		if (json.call?.iceServers?.length) this.call.iceServers = json.call.iceServers;
+		this.ensurePc();
+		this.accepted = true;
 		this.notify();
 		// An offer may have been buffered while we were still ringing.
 		await this.flushPendingSdp();

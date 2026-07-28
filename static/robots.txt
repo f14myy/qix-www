@@ -1,3 +1,18 @@
-# allow crawling everything by default
+# allow crawling public pages, disallow private/app routes
 User-agent: *
-Disallow:
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /recover
+Allow: /u/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /settings/
+Disallow: /chat/
+Disallow: /archive/
+Disallow: /requests/
+Disallow: /new/
+Disallow: /onboarding/
+Disallow: /invite/
+
+Sitemap: https://qix.chat/sitemap.xml

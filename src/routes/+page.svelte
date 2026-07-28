@@ -15,6 +15,7 @@
 	import X from '@lucide/svelte/icons/x';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import ChannelAvatar from '$lib/components/ChannelAvatar.svelte';
+	import GroupAvatar from '$lib/components/GroupAvatar.svelte';
 	import CoachTip from '$lib/components/CoachTip.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
 	import { decryptMessageBody } from '$lib/e2ee/messages';
@@ -77,6 +78,7 @@
 				avatarPath: string | null;
 			} | null;
 			channel: { key: string; title: string } | null;
+			group: { title: string; avatarPath: string | null } | null;
 		}>
 	>([]);
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -195,10 +197,12 @@
 		if (chat.kind === 'channel' && chat.channel) {
 			return i18n.t(`channel.${chat.channel.key}.title`);
 		}
+		if (chat.kind === 'group' && chat.group) return chat.group.title;
 		return chat.peer?.displayName || chat.peer?.username || '';
 	}
 
 	function peerOnline(chat: PageData['chats'][number]) {
+		if (chat.kind !== 'dm') return false;
 		if (!chat.peer) return false;
 		const seen = presenceMap[chat.peer.id] ?? chat.peer.lastSeenAt;
 		return isOnlineIso(seen);
@@ -578,6 +582,16 @@
 	}); // end onMount
 </script>
 
+<svelte:head>
+	<title>Qix — Чаты и мгновенные сообщения</title>
+	<meta name="description" content="Qix — быстрый и легкий мессенджер с поддержкой личных сообщений, групповых чатов, каналов и сквозного шифрования (E2EE)." />
+	<meta property="og:title" content="Qix — Приватный мессенджер для общения и звонков" />
+	<meta property="og:description" content="Общайтесь безопасно в Qix с шифрованием E2EE, голосовыми и видеозвонками." />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Qix — Приватный мессенджер для общения и звонков" />
+	<meta name="twitter:description" content="Общайтесь безопасно в Qix с шифрованием E2EE, голосовыми и видеозвонками." />
+</svelte:head>
+
 <svelte:window onfocus={refresh} onkeydown={onMenuKeydown} />
 
 <div class="screen chats-screen">
@@ -710,6 +724,17 @@
 								<ChannelAvatar channelKey={hit.channel.key} size={44} />
 								<span class="search-user-meta">
 									<span class="name">{i18n.t(`channel.${hit.channel.key}.title`)}</span>
+									<span class="hint msg-snippet">{snippet(hit.body, q)}</span>
+								</span>
+							{:else if hit.group}
+								<GroupAvatar
+									title={hit.group.title}
+									chatId={hit.chatId}
+									avatarPath={hit.group.avatarPath}
+									size={44}
+								/>
+								<span class="search-user-meta">
+									<span class="name">{hit.group.title}</span>
 									<span class="hint msg-snippet">{snippet(hit.body, q)}</span>
 								</span>
 							{:else if hit.peer}
@@ -913,6 +938,13 @@
 		>
 			{#if chat.kind === 'channel' && chat.channel}
 				<ChannelAvatar channelKey={chat.channel.key} size={48} />
+			{:else if chat.kind === 'group' && chat.group}
+				<GroupAvatar
+					title={chat.group.title}
+					chatId={chat.id}
+					avatarPath={chat.group.avatarPath}
+					size={48}
+				/>
 			{:else if chat.peer}
 				<Avatar
 					name={displayName(chat)}
@@ -927,7 +959,7 @@
 						{#if chat.pinned}
 							<span class="pin-icon"><Pin size={12} /></span>
 						{/if}
-						{#if chat.kind === 'channel'}
+						{#if chat.kind === 'channel' || chat.kind === 'group'}
 							{displayName(chat)}
 						{:else}
 							<NameWithBadges

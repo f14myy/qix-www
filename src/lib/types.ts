@@ -43,13 +43,68 @@ export type MessageDTO = {
 	attachments: AttachmentDTO[];
 	linkPreview: LinkPreviewDTO | null;
 	reactions: ReactionDTO[];
+	/**
+	 * Present only when `kind === 'system'`. Names are resolved server-side so a
+	 * client can render "Alice added Bob" without holding a directory of everyone
+	 * who has ever been in the group.
+	 */
+	system?: import('$lib/systemMessage').SystemMessageMeta | null;
+	/**
+	 * Who wrote it, attached only in group chats — a DM bubble needs no name and a
+	 * channel post speaks for the channel. Sent with the message rather than looked
+	 * up client-side against the member list, so a bubble from someone who has since
+	 * left still shows their name.
+	 */
+	sender?: MessageSenderDTO | null;
 	/** Client-only: optimistic send state */
 	sendStatus?: 'pending' | 'failed';
 };
 
+export type MessageSenderDTO = {
+	id: string;
+	username: string;
+	displayName: string | null;
+	avatarPath: string | null;
+};
+
+export type GroupRole = 'owner' | 'admin' | 'member';
+
+export type GroupMemberDTO = {
+	id: string;
+	username: string;
+	displayName: string | null;
+	avatarPath: string | null;
+	lastSeenAt: string | null;
+	role: GroupRole;
+	joinedAt: string | null;
+	badges: import('$lib/badges').BadgeDTO[];
+};
+
+/** The group half of a chat — its identity and what the viewer may do in it. */
+export type GroupInfoDTO = {
+	id: string;
+	title: string;
+	description: string | null;
+	avatarPath: string | null;
+	ownerId: string;
+	memberCount: number;
+	/** Who may send messages: everyone, or owner + admins only. */
+	posting: 'members' | 'admins';
+	/** Who may add members: everyone, or owner + admins only. */
+	inviting: 'members' | 'admins';
+	/** The viewer's own role, and the permissions that follow from it. */
+	myRole: GroupRole;
+	canPost: boolean;
+	canInvite: boolean;
+	canManage: boolean;
+	/** Only handed to members who may invite — it is a working join link. */
+	inviteCode: string | null;
+	createdAt: string;
+};
+
 export type ChatListItem = {
 	id: string;
-	kind: 'dm' | 'channel';
+	kind: 'dm' | 'group' | 'channel';
 	peer: {
 		id: string;
 		username: string;
@@ -64,6 +119,12 @@ export type ChatListItem = {
 		title: string;
 		posting: 'admin' | 'none' | 'members';
 	} | null;
+	/** Set for `kind === 'group'` — just enough to draw the row. */
+	group: {
+		title: string;
+		avatarPath: string | null;
+		memberCount: number;
+	} | null;
 	unreadCount: number;
 	pinned: boolean;
 	muted: boolean;
@@ -76,6 +137,8 @@ export type ChatListItem = {
 		hasAttachment: boolean;
 		kind: string;
 		deleted: boolean;
+		/** Groups only, and only for other people's messages: who wrote it. */
+		senderName: string | null;
 	} | null;
 };
 
@@ -89,6 +152,12 @@ export type PublicProfile = {
 	lastSeenAt: string | null;
 	createdAt: string;
 	bannerKey: string;
+	/** How the owner wants their profile page coloured — see $lib/profileTheme. */
+	profileStyle: import('$lib/profileTheme').ProfileStyle;
+	profileColor: string | null;
+	profileColor2: string | null;
+	/** Sampled from the banner, or the avatar when there is no banner. */
+	profileAutoColor: string | null;
 	badges: import('$lib/badges').BadgeDTO[];
 	inviteCode: string | null;
 	e2eePublicKey: string | null;

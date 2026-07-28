@@ -211,6 +211,28 @@ ensureColumn('chats', 'kind', "kind TEXT NOT NULL DEFAULT 'dm'");
 ensureColumn('chats', 'channel_key', 'channel_key TEXT');
 ensureColumn('chats', 'title', 'title TEXT');
 ensureColumn('chats', 'posting', "posting TEXT NOT NULL DEFAULT 'members'");
+ensureColumn('users', 'profile_style', "profile_style TEXT NOT NULL DEFAULT 'auto'");
+ensureColumn('users', 'profile_color', 'profile_color TEXT');
+ensureColumn('users', 'profile_color2', 'profile_color2 TEXT');
+ensureColumn('users', 'profile_auto_banner', 'profile_auto_banner TEXT');
+ensureColumn('users', 'profile_auto_avatar', 'profile_auto_avatar TEXT');
+ensureColumn('chats', 'owner_id', 'owner_id TEXT');
+ensureColumn('chats', 'avatar_path', 'avatar_path TEXT');
+ensureColumn('chats', 'invite_code', 'invite_code TEXT');
+ensureColumn('chats', 'inviting', "inviting TEXT NOT NULL DEFAULT 'members'");
+ensureColumn('chats', 'description', 'description TEXT');
+ensureColumn('chat_members', 'role', "role TEXT NOT NULL DEFAULT 'member'");
+ensureColumn('chat_members', 'joined_at', 'joined_at INTEGER');
+
+/*
+ * Group join links are looked up by code on every /g/<code> visit, and the code
+ * must be unique across groups or a link would be ambiguous. Partial so the many
+ * DMs and channels with a NULL code do not collide with each other.
+ */
+sqlite.exec(
+	`CREATE UNIQUE INDEX IF NOT EXISTS idx_chats_invite_code
+		ON chats(invite_code) WHERE invite_code IS NOT NULL`
+);
 
 export const db = drizzle(sqlite, { schema });
 export { uploadsDir };

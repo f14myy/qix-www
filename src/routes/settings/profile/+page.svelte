@@ -6,7 +6,16 @@
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
+	import { sampleImageColor } from '$lib/imageColor';
 	import { goBack } from '$lib/nav';
+	import {
+		normalizeProfileStyle,
+		profileThemeVars,
+		resolveProfileTheme,
+		PROFILE_STYLES,
+		PROFILE_SWATCHES,
+		type ProfileStyle
+	} from '$lib/profileTheme';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -15,7 +24,14 @@
 	const NAME_MAX = 40;
 	const BIO_MAX = 160;
 
+	const MODE_LABELS: Record<ProfileStyle, string> = {
+		auto: 'profile.colorAuto',
+		solid: 'profile.colorSolid',
+		gradient: 'profile.colorGradient'
+	};
+
 	const seed = untrack(() => data.profile);
+	const autoSeed = untrack(() => data.auto);
 	let displayName = $state(seed.displayName ?? '');
 	let bio = $state(seed.bio ?? '');
 	let avatarPath = $state(seed.avatarPath);
@@ -34,13 +50,48 @@
 	let fileInput = $state<HTMLInputElement | null>(null);
 	let bannerInput = $state<HTMLInputElement | null>(null);
 
+	/* ── Page colour ────────────────────────────────────────────────────────── */
+
+	let profileStyle = $state<ProfileStyle>(normalizeProfileStyle(seed.profileStyle));
+	let color1 = $state(seed.profileColor ?? '');
+	let color2 = $state(seed.profileColor2 ?? '');
+	let baselineStyle = $state<ProfileStyle>(normalizeProfileStyle(seed.profileStyle));
+	let baselineColor1 = $state(seed.profileColor ?? '');
+	let baselineColor2 = $state(seed.profileColor2 ?? '');
+	/*
+	 * Sampled here, in the uploader's browser, from the local File — a canvas can
+	 * read that without tainting, which it cannot do for an image fetched from the
+	 * API. The hex rides along with the upload so viewers never pay for it.
+	 */
+	let autoBanner = $state(autoSeed.banner);
+	let autoAvatar = $state(autoSeed.avatar);
+	/* Sampling is async; only the newest pick per image may write its result. */
+	let bannerSampleId = 0;
+	let avatarSampleId = 0;
+
+	/** The banner's colour wins; the photo is the fallback when there is none. */
+	const autoColor = $derived(autoBanner ?? autoAvatar);
+
+	/** What the current selection actually resolves to — drives the preview. */
+	const theme = $derived(
+		resolveProfileTheme({
+			profileStyle,
+			profileColor: color1,
+			profileColor2: color2,
+			profileAutoColor: autoColor
+		})
+	);
+
 	const dirty = $derived(
 		displayName.trim() !== baselineName.trim() ||
 			bio.trim() !== baselineBio.trim() ||
 			!!avatarFile ||
 			!!bannerFile ||
 			removeAvatar ||
-			removeBanner
+			removeBanner ||
+			profileStyle !== baselineStyle ||
+			color1 !== baselineColor1 ||
+			color2 !== baselineColor2
 	);
 
 	const showPhoto = $derived(!!previewUrl || (!removeAvatar && !!avatarPath));
@@ -49,6 +100,18 @@
 		bannerPreviewUrl ||
 			(showBanner && bannerPath ? `/api/banners/${data.profile.id}?v=${bannerPath}` : null)
 	);
+
+	async function sampleAvatarColor(file: File) {
+		const id = ++avatarSampleId;
+		const hex = await sampleImageColor(file);
+		if (id === avatarSampleId) autoAvatar = hex;
+	}
+
+	async function sampleBannerColor(file: File) {
+		const id = ++bannerSampleId;
+		const hex = await sampleImageColor(file);
+		if (id === bannerSampleId) autoBanner = hex;
+	}
 
 	function onAvatar(e: Event) {
 		const f = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
@@ -67,6 +130,7 @@
 		removeAvatar = false;
 		if (previewUrl) URL.revokeObjectURL(previewUrl);
 		previewUrl = URL.createObjectURL(f);
+		void sampleAvatarColor(f);
 	}
 
 	function onBanner(e: Event) {
@@ -86,6 +150,7 @@
 		removeBanner = false;
 		if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
 		bannerPreviewUrl = URL.createObjectURL(f);
+		void sampleBannerColor(f);
 	}
 
 	function clearAvatar() {
@@ -94,6 +159,9 @@
 		if (previewUrl) URL.revokeObjectURL(previewUrl);
 		previewUrl = null;
 		if (fileInput) fileInput.value = '';
+		// The sampled colour described an image that is on its way out.
+		avatarSampleId++;
+		autoAvatar = null;
 	}
 
 	function clearBanner() {
@@ -102,6 +170,8 @@
 		if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl);
 		bannerPreviewUrl = null;
 		if (bannerInput) bannerInput.value = '';
+		bannerSampleId++;
+		autoBanner = null;
 	}
 
 	async function save(e: Event) {
@@ -118,6 +188,12 @@
 			if (removeAvatar) form.set('removeAvatar', '1');
 			if (bannerFile) form.set('banner', bannerFile);
 			if (removeBanner) form.set('removeBanner', '1');
+			form.set('profileStyle', profileStyle);
+			form.set('profileColor', color1);
+			form.set('profileColor2', color2);
+			// Always sent, so an empty value clears a stale sample server-side.
+			form.set('autoBannerColor', autoBanner ?? '');
+			form.set('autoAvatarColor', autoAvatar ?? '');
 			const res = await fetch('/api/me/profile', { method: 'PATCH', body: form });
 			const text = await res.text();
 			let json: {
@@ -127,7 +203,11 @@
 					bio: string | null;
 					avatarPath: string | null;
 					bannerPath: string | null;
+					profileStyle?: ProfileStyle;
+					profileColor?: string | null;
+					profileColor2?: string | null;
 				};
+				auto?: { banner: string | null; avatar: string | null };
 			} = {};
 			try {
 				json = text ? JSON.parse(text) : {};
@@ -150,6 +230,16 @@
 			bannerPath = p.bannerPath;
 			baselineName = displayName;
 			baselineBio = bio;
+			profileStyle = normalizeProfileStyle(p.profileStyle);
+			color1 = p.profileColor ?? '';
+			color2 = p.profileColor2 ?? '';
+			baselineStyle = profileStyle;
+			baselineColor1 = color1;
+			baselineColor2 = color2;
+			if (json.auto) {
+				autoBanner = json.auto.banner;
+				autoAvatar = json.auto.avatar;
+			}
 			avatarFile = null;
 			bannerFile = null;
 			removeAvatar = false;
@@ -167,7 +257,7 @@
 	}
 </script>
 
-<div class="screen">
+<div class="screen profile-page" class:is-tinted={!!theme} style={profileThemeVars(theme)}>
 	<header class="topbar">
 		<button
 			type="button"
@@ -184,10 +274,11 @@
 	</header>
 
 	<form class="settings-body profile-edit" onsubmit={save}>
-		<section class="profile-edit-cover">
+		<section class="profile-edit-cover" style={profileThemeVars(theme)}>
 			<button
 				type="button"
 				class="profile-banner profile-banner-edit"
+				class:is-tinted={!!theme}
 				data-banner={data.profile.bannerKey}
 				aria-label={i18n.t('profile.changeBanner')}
 				onclick={() => bannerInput?.click()}
@@ -275,6 +366,64 @@
 			</div>
 		</section>
 
+		<section class="settings-section">
+			<h2>{i18n.t('profile.pageColor')}</h2>
+			<p class="settings-section-hint">{i18n.t('profile.pageColorHint')}</p>
+			<div class="settings-card soft pad settings-form-stack" style={profileThemeVars(theme)}>
+				<div class="profile-color-preview" class:is-tinted={!!theme} aria-hidden="true">
+					{#if !theme}
+						<span class="profile-color-preview-empty">
+							{profileStyle === 'auto'
+								? i18n.t('profile.colorAutoEmpty')
+								: i18n.t('profile.colorNone')}
+						</span>
+					{/if}
+				</div>
+
+				<div class="profile-color-modes" role="group" aria-label={i18n.t('profile.pageColor')}>
+					{#each PROFILE_STYLES as mode}
+						<button
+							type="button"
+							class="profile-color-mode"
+							class:active={profileStyle === mode}
+							aria-pressed={profileStyle === mode}
+							onclick={() => (profileStyle = mode)}
+						>
+							{i18n.t(MODE_LABELS[mode])}
+						</button>
+					{/each}
+				</div>
+
+				{#key profileStyle}
+					<div class="profile-color-body">
+						{#if profileStyle === 'auto'}
+							<p class="profile-color-auto">
+								<span class="profile-color-auto-dot" aria-hidden="true"></span>
+								{autoBanner
+									? i18n.t('profile.colorAutoBanner')
+									: autoAvatar
+										? i18n.t('profile.colorAutoAvatar')
+										: i18n.t('profile.colorAutoEmpty')}
+							</p>
+						{:else if profileStyle === 'solid'}
+							{@render swatches(color1, (hex) => (color1 = hex))}
+						{:else}
+							<div class="profile-color-stops">
+								<div class="profile-color-stop">
+									<span class="profile-color-stop-label">{i18n.t('profile.colorFrom')}</span>
+									{@render swatches(color1, (hex) => (color1 = hex))}
+								</div>
+								<div class="profile-color-stop">
+									<span class="profile-color-stop-label">{i18n.t('profile.colorTo')}</span>
+									{@render swatches(color2, (hex) => (color2 = hex))}
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/key}
+			</div>
+		</section>
+
 		{#if error}
 			<p class="profile-flash profile-flash-error">{error}</p>
 		{:else if status}
@@ -288,3 +437,32 @@
 		</section>
 	</form>
 </div>
+
+<!--
+  One swatch row, reused by the solid mode and by each stop of the gradient. The
+  selected ring is drawn with `currentColor`, so the row sets `color` to the
+  swatch's own colour alongside its background.
+-->
+{#snippet swatches(value: string, pick: (hex: string) => void)}
+	<div class="profile-swatches">
+		{#each PROFILE_SWATCHES as hex}
+			<button
+				type="button"
+				class="profile-swatch"
+				class:selected={value === hex}
+				style="background:{hex};color:{hex}"
+				aria-label={hex}
+				aria-pressed={value === hex}
+				onclick={() => pick(hex)}
+			></button>
+		{/each}
+		<span class="profile-color-input" title={i18n.t('profile.colorCustom')}>
+			<input
+				type="color"
+				value={value || PROFILE_SWATCHES[0]}
+				aria-label={i18n.t('profile.colorCustom')}
+				oninput={(e) => pick(e.currentTarget.value)}
+			/>
+		</span>
+	</div>
+{/snippet}

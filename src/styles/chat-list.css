@@ -116,7 +116,7 @@
 	--row-actions-w: 132px;
 	position: relative;
 	overflow: hidden;
-	animation: row-in var(--motion-enter) var(--ease-out) both;
+	animation: row-in var(--motion-enter) var(--ease-out) backwards;
 	touch-action: pan-y;
 	user-select: none;
 	-webkit-user-select: none;
@@ -685,7 +685,7 @@
 	transition:
 		background-color var(--motion) var(--ease-soft),
 		transform var(--motion-fast) var(--ease-soft);
-	animation: row-in var(--motion-enter) var(--ease-out) both;
+	animation: row-in var(--motion-enter) var(--ease-out) backwards;
 }
 
 
@@ -868,4 +868,71 @@
 	gap: 2px;
 	padding-right: 8px;
 	flex-shrink: 0;
+}
+
+/* ── List in motion, second pass ─────────────────────────────────────────── */
+
+.list-section-label {
+	animation: slide-in-left var(--motion-enter) var(--ease-out) backwards;
+}
+
+/* The filter bar unrolls from under the header it hangs beneath. */
+.list-filter {
+	animation: unfurl var(--motion) var(--ease-out) backwards;
+	transform-origin: top center;
+}
+.list-filter-clear {
+	animation: scale-in var(--motion-fast) var(--ease-spring);
+	transition: transform var(--motion-fast) var(--ease-spring), color var(--motion) var(--ease-soft),
+		background-color var(--motion) var(--ease-soft);
+}
+.list-filter-clear:active {
+	transform: scale(0.86);
+}
+.list-filter:focus-within .list-filter-ico {
+	animation: pop-in var(--motion) var(--ease-spring);
+}
+
+/* Empty states: the medallion lands first, the copy and the call to action follow. */
+.empty-icon {
+	animation: bounce-in var(--motion-slower) var(--ease-spring) backwards;
+}
+.empty p,
+.empty strong {
+	animation: rise-in var(--motion-enter) calc(var(--stagger) * 3) var(--ease-out) backwards;
+}
+.empty .btn {
+	animation: pop-rise var(--motion-slow) calc(var(--stagger) * 5) var(--ease-spring) backwards;
+}
+.search-hint {
+	animation: fade-in var(--motion-slower) calc(var(--stagger) * 2) var(--ease-soft) backwards;
+}
+
+/* Row furniture pops rather than blinks when a row changes state. */
+.pin-icon,
+.preview-ico {
+	animation: pop-in var(--motion) var(--ease-spring) backwards;
+}
+.avatar-online {
+	animation: bounce-in var(--motion-slow) var(--ease-spring) backwards;
+}
+
+/* Swipe actions answer the pointer on desktop too. */
+@media (hover: hover) and (pointer: fine) {
+	.row-action:hover {
+		filter: brightness(1.06);
+	}
+	.channel-avatar {
+		transition: transform var(--motion) var(--ease-spring);
+	}
+	.user-row:hover .channel-avatar,
+	.chat-row:hover .channel-avatar {
+		transform: scale(1.05) rotate(-2deg);
+	}
+}
+.archive-row-actions > * {
+	transition: transform var(--motion-fast) var(--ease-spring);
+}
+.archive-row-actions > *:active {
+	transform: scale(0.9);
 }

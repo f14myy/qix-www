@@ -13,6 +13,21 @@ export const users = sqliteTable('users', {
 	bannedAt: integer('banned_at', { mode: 'timestamp_ms' }),
 	bannedReason: text('banned_reason'),
 	bannerKey: text('banner_key').notNull().default('default'),
+	/**
+	 * How the profile page is coloured: 'auto' derives it from the banner (or
+	 * the avatar when there is no banner), 'solid' and 'gradient' use the colours
+	 * the owner picked below.
+	 */
+	profileStyle: text('profile_style').notNull().default('auto'),
+	profileColor: text('profile_color'),
+	profileColor2: text('profile_color2'),
+	/**
+	 * Dominant colours sampled from the banner and the avatar when they were
+	 * uploaded. Two columns rather than one so removing the banner falls back to
+	 * the avatar's colour instead of keeping a stale one.
+	 */
+	profileAutoBanner: text('profile_auto_banner'),
+	profileAutoAvatar: text('profile_auto_avatar'),
 	inviteCode: text('invite_code'),
 	e2eePublicKey: text('e2ee_public_key'),
 	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
@@ -65,10 +80,20 @@ export const chats = sqliteTable('chats', {
 	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 	pinnedMessageId: text('pinned_message_id'),
 	disappearAfterSec: integer('disappear_after_sec').notNull().default(0),
+	/** 'dm' | 'group' | 'channel' — channels are the two built-in ones only. */
 	kind: text('kind').notNull().default('dm'),
 	channelKey: text('channel_key'),
 	title: text('title'),
-	posting: text('posting').notNull().default('members')
+	posting: text('posting').notNull().default('members'),
+	/** Groups only: who created it. Owners cannot be demoted or removed. */
+	ownerId: text('owner_id'),
+	/** Groups only: the group photo, stored like a user avatar. */
+	avatarPath: text('avatar_path'),
+	/** Groups only: the join-link token, rotatable by an admin. */
+	inviteCode: text('invite_code'),
+	/** Groups only: 'admins' restricts adding members to owner + admins. */
+	inviting: text('inviting').notNull().default('members'),
+	description: text('description')
 });
 
 export const chatMembers = sqliteTable(
@@ -83,7 +108,10 @@ export const chatMembers = sqliteTable(
 		lastReadAt: integer('last_read_at', { mode: 'timestamp_ms' }),
 		pinnedAt: integer('pinned_at', { mode: 'timestamp_ms' }),
 		archivedAt: integer('archived_at', { mode: 'timestamp_ms' }),
-		muted: integer('muted', { mode: 'boolean' }).notNull().default(false)
+		muted: integer('muted', { mode: 'boolean' }).notNull().default(false),
+		/** Groups only: 'owner' | 'admin' | 'member'. Ignored for DMs and channels. */
+		role: text('role').notNull().default('member'),
+		joinedAt: integer('joined_at', { mode: 'timestamp_ms' })
 	},
 	(t) => [primaryKey({ columns: [t.chatId, t.userId] })]
 );

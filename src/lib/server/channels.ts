@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { isAdmin } from '$lib/admin';
 import { db } from './db';
+import { canPostInGroup, isGroupChat } from './groups';
 import { chatMembers, chats, messages, users } from './schema';
 import { createId } from './id';
 
@@ -174,9 +175,13 @@ export function canPostInChat(
 ): boolean {
 	if (!user) return false;
 	const channel = getChannelByChatId(chatId);
-	if (!channel) return true;
-	if (channel.posting === 'none') return false;
-	if (channel.posting === 'admin') return isAdmin(user);
+	if (channel) {
+		if (channel.posting === 'none') return false;
+		if (channel.posting === 'admin') return isAdmin(user);
+		return true;
+	}
+	// Groups carry their own posting rule; DMs have none.
+	if (isGroupChat(chatId)) return canPostInGroup(chatId, user.id);
 	return true;
 }
 

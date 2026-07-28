@@ -1,5 +1,6 @@
 import { and, desc, eq, gt, ne, sql } from 'drizzle-orm';
 import { normalizeBannerKey, type BadgeDTO } from '$lib/badges';
+import { normalizeHex, normalizeProfileStyle, type ProfileStyle } from '$lib/profileTheme';
 import type {
 	AttachmentDTO,
 	ChatListItem,
@@ -22,6 +23,7 @@ import {
 import { createId } from './id';
 import { getUserBadges } from './badges';
 import { getChannelByChatId, ensureUserInBuiltInChannels } from './channels';
+import { getGroupSummary, groupSenderOf, systemMeta } from './groups';
 import {
 	canSeeLastSeen,
 	getBlockedIdsForUser,
@@ -38,6 +40,35 @@ export type {
 	ReplyPreviewDTO
 };
 export { REACTION_EMOJIS } from '$lib/types';
+
+/**
+ * The profile-colour half of a PublicProfile.
+ *
+ * The two sampled colours are stored separately so that removing a banner falls
+ * back to the avatar's colour rather than keeping the banner's, but viewers only
+ * need the resolved one — collapse them here, once, instead of teaching every
+ * consumer the precedence rule. Values are re-validated on the way out: they
+ * were written by a client, and they end up in a style attribute.
+ */
+function profileThemeFields(row: {
+	profileStyle: string | null;
+	profileColor: string | null;
+	profileColor2: string | null;
+	profileAutoBanner: string | null;
+	profileAutoAvatar: string | null;
+}): {
+	profileStyle: ProfileStyle;
+	profileColor: string | null;
+	profileColor2: string | null;
+	profileAutoColor: string | null;
+} {
+	return {
+		profileStyle: normalizeProfileStyle(row.profileStyle),
+		profileColor: normalizeHex(row.profileColor),
+		profileColor2: normalizeHex(row.profileColor2),
+		profileAutoColor: normalizeHex(row.profileAutoBanner) ?? normalizeHex(row.profileAutoAvatar)
+	};
+}
 
 export function isOnline(lastSeenAt: Date | null | undefined, now = Date.now()): boolean {
 	if (!lastSeenAt) return false;
@@ -73,7 +104,9 @@ export function findDmChatId(userA: string, userB: string): string | null {
 		// Built-in channels enroll everyone — never treat them as a DM.
 		if (getChannelByChatId(mine.chatId)) continue;
 		const chat = db.select().from(chats).where(eq(chats.id, mine.chatId)).get();
-		if (!chat || chat.kind === 'channel' || chat.channelKey) continue;
+		// Anything that is not literally a DM is out, groups included: a two-person
+		// group looks exactly like a DM from the membership table alone.
+		if (!chat || chat.kind !== 'dm' || chat.channelKey) continue;
 
 		const members = getChatMemberIds(mine.chatId);
 		if (members.length === 2 && members.includes(userB)) {
@@ -118,6 +151,11 @@ export function getPeer(chatId: string, userId: string): PublicProfile | null {
 			lastSeenAt: users.lastSeenAt,
 			createdAt: users.createdAt,
 			bannerKey: users.bannerKey,
+			profileStyle: users.profileStyle,
+			profileColor: users.profileColor,
+			profileColor2: users.profileColor2,
+			profileAutoBanner: users.profileAutoBanner,
+			profileAutoAvatar: users.profileAutoAvatar,
 			inviteCode: users.inviteCode,
 			e2eePublicKey: users.e2eePublicKey
 		})
@@ -138,6 +176,7 @@ export function getPeer(chatId: string, userId: string): PublicProfile | null {
 		lastSeenAt: showSeen && row.lastSeenAt ? row.lastSeenAt.toISOString() : null,
 		createdAt: row.createdAt.toISOString(),
 		bannerKey: normalizeBannerKey(row.bannerKey),
+		...profileThemeFields(row),
 		badges: getUserBadges(row.id),
 		inviteCode: row.inviteCode ?? null,
 		e2eePublicKey: row.e2eePublicKey ?? null
@@ -238,8 +277,9 @@ export function listChatsForUser(userId: string, opts?: { archived?: boolean }):
 
 	for (const m of memberships) {
 		const channel = getChannelByChatId(m.chatId);
-		const peer = channel ? null : getPeer(m.chatId, userId);
-		if (!channel && !peer) continue;
+		const group = channel ? null : getGroupSummary(m.chatId);
+		const peer = channel || group ? null : getPeer(m.chatId, userId);
+		if (!channel && !group && !peer) continue;
 
 		const last = db
 			.select()
@@ -260,9 +300,24 @@ export function listChatsForUser(userId: string, opts?: { archived?: boolean }):
 			hasAttachment = !!att;
 		}
 
+		/*
+		 * Only groups need an author on the preview — a DM row already names the
+		 * one other person, and a channel post is written by the channel itself.
+		 * System lines are skipped too: they render as their own sentence.
+		 */
+		let senderName: string | null = null;
+		if (group && last && last.senderId !== userId && last.kind !== 'system' && !last.deletedAt) {
+			const author = db
+				.select({ username: users.username, displayName: users.displayName })
+				.from(users)
+				.where(eq(users.id, last.senderId))
+				.get();
+			senderName = author ? author.displayName || author.username : null;
+		}
+
 		items.push({
 			id: m.chatId,
-			kind: channel ? 'channel' : 'dm',
+			kind: channel ? 'channel' : group ? 'group' : 'dm',
 			peer: peer
 				? {
 						id: peer.id,
@@ -277,6 +332,7 @@ export function listChatsForUser(userId: string, opts?: { archived?: boolean }):
 			channel: channel
 				? { key: channel.key, title: channel.title, posting: channel.posting }
 				: null,
+			group,
 			unreadCount: countUnread(m.chatId, userId),
 			pinned: !!m.pinnedAt,
 			muted: !!m.muted,
@@ -289,7 +345,8 @@ export function listChatsForUser(userId: string, opts?: { archived?: boolean }):
 						senderId: last.senderId,
 						hasAttachment: last.deletedAt ? false : hasAttachment,
 						kind: last.kind,
-						deleted: !!last.deletedAt
+						deleted: !!last.deletedAt,
+						senderName
 					}
 				: null
 		});
@@ -408,7 +465,9 @@ export function toMessageDTO(
 		replyTo: deleted ? null : getReply(row.replyToId),
 		attachments: deleted ? [] : getMessageAttachments(row.id),
 		linkPreview: deleted ? null : getLinkPreview(row.id),
-		reactions: getReactions(row.id, viewerId)
+		reactions: getReactions(row.id, viewerId),
+		system: systemMeta(row),
+		sender: deleted ? null : groupSenderOf(row)
 	};
 }
 
@@ -478,6 +537,7 @@ export type MessageSearchHit = {
 		avatarPath: string | null;
 	} | null;
 	channel: { key: string; title: string } | null;
+	group: { title: string; avatarPath: string | null } | null;
 };
 
 export function searchMessages(userId: string, query: string, limit = 40): MessageSearchHit[] {
@@ -518,24 +578,39 @@ export function searchMessages(userId: string, query: string, limit = 40): Messa
 				body: row.body,
 				createdAt: row.createdAt.toISOString(),
 				peer: null,
-				channel: { key: channel.key, title: channel.title }
+				channel: { key: channel.key, title: channel.title },
+				group: null
 			});
 		} else {
-			const peer = getPeer(row.chatId, userId);
-			if (!peer || blocked.has(peer.id)) continue;
-			hits.push({
-				messageId: row.messageId,
-				chatId: row.chatId,
-				body: row.body,
-				createdAt: row.createdAt.toISOString(),
-				peer: {
-					id: peer.id,
-					username: peer.username,
-					displayName: peer.displayName,
-					avatarPath: peer.avatarPath
-				},
-				channel: null
-			});
+			const group = getGroupSummary(row.chatId);
+			if (group) {
+				hits.push({
+					messageId: row.messageId,
+					chatId: row.chatId,
+					body: row.body,
+					createdAt: row.createdAt.toISOString(),
+					peer: null,
+					channel: null,
+					group: { title: group.title, avatarPath: group.avatarPath }
+				});
+			} else {
+				const peer = getPeer(row.chatId, userId);
+				if (!peer || blocked.has(peer.id)) continue;
+				hits.push({
+					messageId: row.messageId,
+					chatId: row.chatId,
+					body: row.body,
+					createdAt: row.createdAt.toISOString(),
+					peer: {
+						id: peer.id,
+						username: peer.username,
+						displayName: peer.displayName,
+						avatarPath: peer.avatarPath
+					},
+					channel: null,
+					group: null
+				});
+			}
 		}
 		if (hits.length >= limit) break;
 	}
@@ -559,18 +634,21 @@ export function globalSearch(userId: string, query: string): GlobalSearchResult 
 
 	const allChats = listChatsForUser(userId);
 	const chats = allChats.filter((c) => {
+		const lastBodyMatches =
+			!!c.lastMessage && !c.lastMessage.deleted && c.lastMessage.body.toLowerCase().includes(q);
 		if (c.kind === 'channel' && c.channel) {
 			return (
-				c.channel.key.includes(q) ||
-				c.channel.title.toLowerCase().includes(q) ||
-				(c.lastMessage && !c.lastMessage.deleted && c.lastMessage.body.toLowerCase().includes(q))
+				c.channel.key.includes(q) || c.channel.title.toLowerCase().includes(q) || lastBodyMatches
 			);
+		}
+		if (c.kind === 'group' && c.group) {
+			return c.group.title.toLowerCase().includes(q) || lastBodyMatches;
 		}
 		if (!c.peer) return false;
 		return (
 			c.peer.username.includes(q) ||
 			(c.peer.displayName?.toLowerCase().includes(q) ?? false) ||
-			(c.lastMessage && !c.lastMessage.deleted && c.lastMessage.body.toLowerCase().includes(q))
+			lastBodyMatches
 		);
 	});
 
@@ -601,6 +679,7 @@ export function toPublicProfile(
 		lastSeenAt: showSeen && user.lastSeenAt ? user.lastSeenAt.toISOString() : null,
 		createdAt: user.createdAt.toISOString(),
 		bannerKey: normalizeBannerKey(user.bannerKey),
+		...profileThemeFields(user),
 		badges: getUserBadges(user.id),
 		inviteCode: user.inviteCode ?? null,
 		e2eePublicKey: user.e2eePublicKey ?? null

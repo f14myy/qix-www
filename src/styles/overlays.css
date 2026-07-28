@@ -393,3 +393,72 @@
 	from { opacity: 0; transform: translateY(10px); }
 	to { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Overlays in motion, second pass ─────────────────────────────────────── */
+
+/* Toasts: the dismiss cross shrinks under the thumb. */
+.app-toast-x {
+	transition: opacity var(--motion) var(--ease-soft), transform var(--motion-fast)
+			var(--ease-spring);
+}
+.app-toast-x:active {
+	transform: scale(0.86) rotate(90deg);
+}
+
+/* Confirm sheet: the question lands, then the two answers. */
+.app-confirm-text {
+	animation: rise-in var(--motion-enter) calc(var(--stagger) * 2) var(--ease-out) backwards;
+}
+.app-confirm-actions > * {
+	animation: pop-rise var(--motion) calc(var(--stagger) * 4) var(--ease-spring) backwards;
+}
+.app-confirm-actions > *:last-child {
+	animation-delay: calc(var(--stagger) * 5);
+}
+
+/* Coach tips read as a sentence, not a block. */
+.coach-tip-copy p {
+	animation: fade-in var(--motion-slower) calc(var(--stagger) * 2) var(--ease-soft) backwards;
+}
+
+/* What's new: the header assembles, then the entries fall in one at a time. */
+.wn-sparkle {
+	animation: bounce-in var(--motion-slower) 80ms var(--ease-spring) backwards;
+}
+.wn-title {
+	animation: slide-in-left var(--motion-enter) 140ms var(--ease-out) backwards;
+}
+.wn-entry {
+	--stagger: 46ms;
+	animation: rise-in var(--motion-enter) var(--ease-out) backwards;
+}
+.wn-entry:nth-child(1) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+.wn-entry:nth-child(2) {
+	animation-delay: calc(var(--stagger) * 5);
+}
+.wn-entry:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 6);
+}
+.wn-entry:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 7);
+}
+.wn-entry:nth-child(5) {
+	animation-delay: calc(var(--stagger) * 8);
+}
+.wn-entry:nth-child(n + 6) {
+	animation-delay: calc(var(--stagger) * 9);
+}
+.wn-entry-icon {
+	display: inline-block;
+	animation: wobble var(--motion-slower) 420ms var(--ease-spring) backwards;
+}
+.wn-dismiss {
+	animation: rise-in var(--motion-enter) 460ms var(--ease-out) backwards;
+	transition: transform var(--motion-fast) var(--ease-spring), background-color var(--motion)
+			var(--ease-soft), box-shadow var(--motion) var(--ease-soft);
+}
+.wn-dismiss:active {
+	transform: scale(0.98);
+}

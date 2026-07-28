@@ -4,6 +4,7 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Search from '@lucide/svelte/icons/search';
 	import UserPlus from '@lucide/svelte/icons/user-plus';
+	import Users from '@lucide/svelte/icons/users';
 	import X from '@lucide/svelte/icons/x';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { toast } from '$lib/flash.svelte';
@@ -120,7 +121,18 @@
 	<!-- `stagger` cascades the search results in as they replace one another -->
 	<div class="list stagger">
 		{#if q.length < 2}
-			<div class="empty empty-animate">
+			<a class="user-row new-group-row" href="/new/group">
+				<span class="avatar-wrap group-avatar-wrap" style="width:44px;height:44px">
+					<div class="avatar avatar-letter group-avatar-icon" data-tone="1" style="width:44px;height:44px">
+						<Users size={20} />
+					</div>
+				</span>
+				<span class="search-user-meta">
+					<span class="name">{i18n.t('group.newTitle')}</span>
+					<span class="hint">{i18n.t('group.newLead')}</span>
+				</span>
+			</a>
+			<div class="empty empty-animate" style="padding-top:24px">
 				<span class="empty-icon"><UserPlus size={28} /></span>
 				<strong>{i18n.t('chats.newTitle')}</strong>
 				<p>{i18n.t('chats.newLead')}</p>

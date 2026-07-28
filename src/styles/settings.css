@@ -692,12 +692,17 @@ button.settings-row.link-row .label {
 
 /* ── Row cascades ───────────────────────────────────────────────────────────
    Scoped to direct children so a nested card does not restart the cascade,
-   and capped at eight: past that the delay outlasts the person waiting. */
+   and capped at eight: past that the delay outlasts the person waiting.
+
+   `backwards`, not `both`. The fill is here to hold the first frame through the
+   stagger delay, and that is all `backwards` does; `both` also keeps the
+   animation in charge of `transform` forever afterwards, which silently
+   disabled the `:active` press below on every settings row in the app. */
 .settings-card > .settings-row,
 .settings-card > .settings-nav-row,
 .settings-section > .settings-row,
 .settings-section > .settings-nav-row {
-	animation: rise-in var(--motion-enter) var(--ease-out) both;
+	animation: rise-in var(--motion-enter) var(--ease-out) backwards;
 }
 
 .settings-card > *:nth-child(1),
@@ -848,7 +853,7 @@ button.settings-row.link-row .label {
 
 .invite-url,
 .invite-copy-btn {
-	animation: rise-in var(--motion-enter) 80ms var(--ease-out) both;
+	animation: rise-in var(--motion-enter) 80ms var(--ease-out) backwards;
 }
 
 .invite-copy-btn {
@@ -867,4 +872,162 @@ button.settings-row.link-row .label {
    lands on. */
 .danger-card {
 	animation: rise-in-far var(--motion-slower) 120ms var(--ease-out) both;
+}
+
+
+/* ==========================================================================
+   Settings motion, second pass
+   --------------------------------------------------------------------------
+   The cascade above moves the rows. What it never moved was everything
+   *between* the rows — the section headings, the hints, the profile card at
+   the top of the screen — so a settings page assembled itself around a set of
+   captions that were already there.
+   ========================================================================== */
+
+/*
+ * Headings lead their own section rather than arriving with it. The delay is
+ * shorter than the first row's, so the caption is readable by the time the
+ * rows underneath it settle.
+ */
+.settings-section h2 {
+	animation: slide-in-left var(--motion-enter) var(--ease-out) both;
+}
+
+
+.settings-section-hint {
+	animation: fade-in var(--motion-enter) calc(var(--stagger) * 2) var(--ease-soft) both;
+}
+
+
+/*
+ * The card at the top of the settings root is the only thing on the screen
+ * with a face on it, so it gets the entrance with depth rather than the flat
+ * rise every other card uses.
+ *
+ * `backwards` rather than `both`: the card is a link with a press transform of
+ * its own, and a forwards-filled animation would keep hold of `transform` for
+ * the life of the element and stop that press from ever registering. (It
+ * already did — the `card-in` this replaces was filled `both`.)
+ */
+.settings-profile-card {
+	animation: swing-in var(--motion-slower) var(--ease-out) backwards;
+	transform-origin: top center;
+}
+
+
+/*
+ * Hover states matter more than they used to: the desktop build fills the
+ * window, and settings is now a pointer-first screen rather than a thumb-first
+ * one. Gated on a fine pointer — on a touchscreen `:hover` sticks after a tap
+ * and leaves a row lit until something else is touched.
+ */
+@media (hover: hover) and (pointer: fine) {
+	.settings-nav-row:hover .settings-nav-icon {
+		transform: scale(1.06);
+	}
+
+	.settings-card:hover {
+		border-color: color-mix(in srgb, var(--accent) 18%, var(--hairline));
+	}
+}
+
+
+.settings-card {
+	transition:
+		border-color var(--motion-slow) var(--ease-soft),
+		background-color var(--motion-slow) var(--ease-soft),
+		box-shadow var(--motion-slow) var(--ease-soft);
+}
+
+
+/* ── Session and blocked lists ──────────────────────────────────────────────
+   Both are `.settings-row`s inside a card, so the cascade above already
+   carries their entrance. What they were missing is the press: they each hold
+   a destructive button, and a row that does not answer a tap invites a second
+   one. */
+
+.session-row .btn-ghost,
+.blocked-row .btn-ghost {
+	transition:
+		transform var(--motion-fast) var(--ease-spring),
+		background-color var(--motion) var(--ease-soft),
+		color var(--motion) var(--ease-soft);
+}
+
+
+.session-row .btn-ghost:active,
+.blocked-row .btn-ghost:active {
+	transform: scale(0.94);
+}
+
+
+/* ── Invite ─────────────────────────────────────────────────────────────────
+   The QR pops, the URL rises. The lead paragraph above them had nothing, which
+   left the one line explaining the screen as the only static element on it. */
+
+.invite-lead {
+	animation: rise-in var(--motion-enter) var(--ease-out) both;
+}
+
+
+.invite-landing-copy {
+	animation: rise-in var(--motion-enter) calc(var(--stagger) * 2) var(--ease-out) both;
+}
+
+
+/*
+ * No hover transform on the QR itself: `.invite-qr` enters with `pop-in` and
+ * `animation-fill-mode: both`, and a filled animation keeps ownership of every
+ * property it touched — a later `transform` on hover would simply never apply.
+ * The frame around it is free, so that is what reacts.
+ */
+.invite-qr {
+	transition: box-shadow var(--motion-slow) var(--ease-soft);
+}
+
+
+@media (hover: hover) and (pointer: fine) {
+	.invite-qr:hover {
+		box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent);
+	}
+}
+
+
+/* ── Recovery codes ─────────────────────────────────────────────────────────
+   Each code is copyable, and the only feedback for a copy was the toast. */
+
+.recovery-code-list code {
+	transition:
+		transform var(--motion-fast) var(--ease-spring),
+		background-color var(--motion) var(--ease-soft);
+}
+
+
+.recovery-code-list code:active {
+	transform: scale(0.96);
+}
+
+
+/* ── Destructive areas ──────────────────────────────────────────────────────
+   The danger card enters last and from further away. Its button now answers a
+   hover with warmth rather than only on press — on a screen this consequential
+   the control should be unmistakable before it is touched, not after. */
+
+.danger-card .btn {
+	transition:
+		transform var(--motion-fast) var(--ease-spring),
+		background-color var(--motion) var(--ease-soft),
+		box-shadow var(--motion-slow) var(--ease-soft);
+}
+
+
+@media (hover: hover) and (pointer: fine) {
+	.danger-card .btn:hover {
+		box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 14%, transparent);
+	}
+}
+
+
+.danger-card .btn:active {
+	transform: scale(0.97);
 }

@@ -10,12 +10,15 @@
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
 	import Forward from '@lucide/svelte/icons/forward';
 	import ImageIcon from '@lucide/svelte/icons/image';
+	import Info from '@lucide/svelte/icons/info';
 	import Lock from '@lucide/svelte/icons/lock';
+	import LogOut from '@lucide/svelte/icons/log-out';
 	import MessageCircle from '@lucide/svelte/icons/message-circle';
 	import Phone from '@lucide/svelte/icons/phone';
 	import Pin from '@lucide/svelte/icons/pin';
 	import Search from '@lucide/svelte/icons/search';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import UserPlus from '@lucide/svelte/icons/user-plus';
 	import Video from '@lucide/svelte/icons/video';
 	import Pointer from '@lucide/svelte/icons/pointer';
 	import Sparkles from '@lucide/svelte/icons/sparkles';
@@ -26,6 +29,7 @@
 	import CoachTip from '$lib/components/CoachTip.svelte';
 	import Composer from '$lib/components/Composer.svelte';
 	import DateSeparator from '$lib/components/DateSeparator.svelte';
+	import GroupAvatar from '$lib/components/GroupAvatar.svelte';
 	import ImageLightbox from '$lib/components/ImageLightbox.svelte';
 	import NameWithBadges from '$lib/components/NameWithBadges.svelte';
 	import { mapCallStartError, startOutgoingCall } from '$lib/calls/store.svelte';
@@ -46,8 +50,15 @@
 		removeQueued,
 		serializeFiles
 	} from '$lib/sendQueue';
+	import { formatSystemLine, SYSTEM_EVENT_KEYS } from '$lib/systemMessage';
 	import { dayKey, formatDayLabel, isOnlineIso, formatLastSeen } from '$lib/time';
-	import type { ChatListItem, MediaItemDTO, MessageDTO } from '$lib/types';
+	import type {
+		ChatListItem,
+		GroupInfoDTO,
+		GroupMemberDTO,
+		MediaItemDTO,
+		MessageDTO
+	} from '$lib/types';
 	import { startViewTransition } from '$lib/viewTransition';
 	import type { PageData } from './$types';
 
@@ -97,10 +108,22 @@
 	let messagesReady = $state(false);
 	let showGestureCoach = $state(false);
 	let showFormatCoach = $state(false);
+	/**
+	 * Group identity, live.
+	 *
+	 * Seeded from the server load but replaced wholesale whenever `group_update`
+	 * lands, which is why it is an override rather than a copy — an override keeps
+	 * the first render server-accurate instead of blank for one frame.
+	 */
+	let groupOverride = $state<{ group: GroupInfoDTO; members: GroupMemberDTO[] } | null>(null);
+	let typingUserId = $state<string | null>(null);
+	let showLeaveModal = $state(false);
+	let showDeleteGroupModal = $state(false);
 
 	type TimelineItem =
 		| { kind: 'sep'; key: string; label: string }
 		| { kind: 'unread'; key: string }
+		| { kind: 'sys'; key: string; text: string }
 		| {
 				kind: 'msg';
 				key: string;
@@ -126,16 +149,34 @@
 				});
 				lastDay = key;
 			}
+
+			/*
+			 * A system line is a caption, not a bubble: it gets no avatar, no author
+			 * and no grouping, and it breaks any run around it so "Alice added Bob"
+			 * never ends up tucked inside Alice's own messages.
+			 */
+			if (message.kind === 'system' && message.system) {
+				const template = i18n.t(SYSTEM_EVENT_KEYS[message.system.event]);
+				items.push({
+					kind: 'sys',
+					key: message.id,
+					text: formatSystemLine(template, message.system)
+				});
+				continue;
+			}
+
 			const prev = visible[i - 1];
 			const next = visible[i + 1];
 			const samePrev =
 				!!prev &&
+				prev.kind !== 'system' &&
 				prev.senderId === message.senderId &&
 				dayKey(prev.createdAt) === key &&
 				Math.abs(new Date(message.createdAt).getTime() - new Date(prev.createdAt).getTime()) <
 					GROUP_MS;
 			const sameNext =
 				!!next &&
+				next.kind !== 'system' &&
 				next.senderId === message.senderId &&
 				dayKey(next.createdAt) === key &&
 				Math.abs(new Date(next.createdAt).getTime() - new Date(message.createdAt).getTime()) <
@@ -154,23 +195,48 @@
 	});
 
 	const isChannel = $derived(data.kind === 'channel' && !!data.channel);
-	const canPost = $derived(!isChannel || !!data.channel?.canPost);
+	const group = $derived(groupOverride?.group ?? data.group);
+	const members = $derived(groupOverride?.members ?? data.members);
+	const isGroup = $derived(data.kind === 'group' && !!group);
+	const canPost = $derived(
+		isChannel ? !!data.channel?.canPost : isGroup ? !!group?.canPost : true
+	);
+	const memberCountText = $derived(
+		group
+			? group.memberCount === 1
+				? i18n.t('group.membersOne')
+				: i18n.t('group.members', { n: group.memberCount })
+			: ''
+	);
+	const typingName = $derived.by(() => {
+		if (!typingUserId) return '';
+		const who = members.find((m) => m.id === typingUserId);
+		return who ? who.displayName || who.username : '';
+	});
 	const peerTitle = $derived(
 		isChannel
 			? i18n.t(`channel.${data.channel!.key}.title`)
-			: data.peer!.displayName || data.peer!.username
+			: isGroup
+				? group!.title
+				: data.peer
+					? data.peer.displayName || data.peer.username
+					: ''
 	);
-	const online = $derived(!isChannel && (typing || isOnlineIso(peerSeen)));
+	const online = $derived(!isChannel && !isGroup && (typing || isOnlineIso(peerSeen)));
 	const statusText = $derived(
 		isChannel
 			? i18n.t(`channel.${data.channel!.key}.subtitle`)
-			: typing
-				? i18n.t('chat.typing')
-				: isOnlineIso(peerSeen)
-					? i18n.t('chat.online')
-					: peerSeen
-						? i18n.t('chat.lastSeen', { when: formatLastSeen(peerSeen, i18n.locale) })
-						: ''
+			: isGroup
+				? typing && typingName
+					? i18n.t('chat.typingName', { name: typingName })
+					: memberCountText
+				: typing
+					? i18n.t('chat.typing')
+					: isOnlineIso(peerSeen)
+						? i18n.t('chat.online')
+						: peerSeen
+							? i18n.t('chat.lastSeen', { when: formatLastSeen(peerSeen, i18n.locale) })
+							: ''
 	);
 
 	const showJumpUnread = $derived(
@@ -178,7 +244,10 @@
 	);
 
 	const e2eePeerKey = $derived(peerE2eeKey || (!isChannel && data.peer?.e2eePublicKey ? data.peer.e2eePublicKey : null));
-	const canE2ee = $derived(ENABLE_E2EE && !!e2eePeerKey && !!data.user && !isChannel);
+	// Pairwise keys only — a group has no single peer to agree a key with.
+	const canE2ee = $derived(
+		ENABLE_E2EE && !!e2eePeerKey && !!data.user && !isChannel && !isGroup
+	);
 
 	$effect(() => {
 		peerE2eeKey = data.peer?.e2eePublicKey ?? null;
@@ -615,6 +684,10 @@
 		selectedIds = new Set();
 		showMenu = false;
 		typing = false;
+		typingUserId = null;
+		groupOverride = null;
+		showLeaveModal = false;
+		showDeleteGroupModal = false;
 		pendingNewCount = 0;
 		highlightId = null;
 
@@ -691,8 +764,12 @@
 					const d = JSON.parse(ev.data) as { userId: string };
 					if (d.userId === data.user?.id) return;
 					typing = true;
+					typingUserId = d.userId;
 					clearTimeout(typingTimer);
-					typingTimer = setTimeout(() => (typing = false), 2500);
+					typingTimer = setTimeout(() => {
+						typing = false;
+						typingUserId = null;
+					}, 2500);
 				} catch {
 					/* ignore */
 				}
@@ -722,6 +799,20 @@
 				} catch {
 					/* ignore */
 				}
+			});
+			/*
+			 * The title, photo, roles or permissions moved. The event carries only the
+			 * chat id on purpose — a payload would have to be tailored per recipient,
+			 * since `canPost` and `inviteCode` differ by role. Everyone re-reads their
+			 * own view instead.
+			 */
+			es.addEventListener('group_update', () => {
+				void refreshGroup(chatId);
+			});
+			es.addEventListener('chat_deleted', () => {
+				if (cancelled) return;
+				toast(i18n.t('group.deletedForYou'), 'err');
+				void goto('/');
 			});
 
 			presenceEs = new EventSource('/api/events');
@@ -885,6 +976,71 @@
 		});
 		disappearAfterSec = sec;
 		showMenu = false;
+	}
+
+	/**
+	 * Re-reads the group after a `group_update`.
+	 *
+	 * A 404 here is not an error condition — it is how the viewer finds out they
+	 * were removed, or that the room is gone. Either way there is nothing left on
+	 * this screen for them, so they go back to the list.
+	 */
+	async function refreshGroup(chatId: string) {
+		if (data.kind !== 'group') return;
+		try {
+			const res = await fetch(`/api/chats/${chatId}/group`);
+			if (res.status === 404) {
+				toast(i18n.t('group.deletedForYou'), 'err');
+				await goto('/');
+				return;
+			}
+			const json = await res.json();
+			if (res.ok && json.group) {
+				groupOverride = { group: json.group, members: json.members ?? [] };
+			}
+		} catch {
+			/* offline — the next reconnect re-reads it */
+		}
+	}
+
+	async function leaveCurrentGroup() {
+		showLeaveModal = false;
+		showMenu = false;
+		try {
+			const res = await fetch(`/api/chats/${data.chatId}/leave`, { method: 'POST' });
+			if (!res.ok) {
+				const json = await res.json().catch(() => ({}));
+				hapticFail();
+				toast((json as { error?: string }).error || i18n.t('common.error'), 'err');
+				return;
+			}
+			hapticSuccess();
+			await goto('/');
+			toast(i18n.t('group.leaveDone'));
+		} catch {
+			hapticFail();
+			toast(i18n.t('common.error'), 'err');
+		}
+	}
+
+	async function deleteCurrentGroup() {
+		showDeleteGroupModal = false;
+		showMenu = false;
+		try {
+			const res = await fetch(`/api/chats/${data.chatId}/group`, { method: 'DELETE' });
+			if (!res.ok) {
+				const json = await res.json().catch(() => ({}));
+				hapticFail();
+				toast((json as { error?: string }).error || i18n.t('common.error'), 'err');
+				return;
+			}
+			hapticSuccess();
+			await goto('/');
+			toast(i18n.t('group.deleteDone'));
+		} catch {
+			hapticFail();
+			toast(i18n.t('common.error'), 'err');
+		}
 	}
 
 	async function archiveChat() {
@@ -1162,6 +1318,46 @@
 					<Ellipsis size={20} />
 				</button>
 			</div>
+		{:else if isGroup}
+			<a class="peer-link" href="/chat/{data.chatId}/group">
+				<GroupAvatar
+					title={group!.title}
+					chatId={data.chatId}
+					avatarPath={group!.avatarPath}
+					size={36}
+				/>
+				<div class="peer-meta">
+					<h1 class="peer-title">{peerTitle}</h1>
+					{#if statusText}
+						<span class="peer-status" class:online={typing}>
+							{#if typing}
+								<span class="typing-label">{statusText}</span>
+								<span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+							{:else}
+								{statusText}
+							{/if}
+						</span>
+					{/if}
+				</div>
+			</a>
+			<div class="topbar-actions">
+				<button
+					type="button"
+					class="icon-btn"
+					aria-label={i18n.t('chats.searchMessages')}
+					onclick={() => (showSearch = true)}
+				>
+					<Search size={20} />
+				</button>
+				<button
+					type="button"
+					class="icon-btn"
+					aria-label={i18n.t('chat.more')}
+					onclick={() => (showMenu = true)}
+				>
+					<Ellipsis size={20} />
+				</button>
+			</div>
 		{:else}
 			<a class="peer-link" href="/u/{data.peer!.username}">
 				<Avatar
@@ -1299,7 +1495,7 @@
 				<div class="empty empty-animate chat-empty">
 					<span class="empty-icon"><MessageCircle size={28} /></span>
 					<strong>{i18n.t('chat.emptyTitle')}</strong>
-					<p>{isChannel ? i18n.t('chat.emptyChannel') : i18n.t('chat.empty')}</p>
+					<p>{isChannel ? i18n.t('chat.emptyChannel') : isGroup ? i18n.t('group.empty') : i18n.t('chat.empty')}</p>
 				</div>
 			{/if}
 			{#each timeline as item (item.key)}
@@ -1309,6 +1505,8 @@
 					</div>
 				{:else if item.kind === 'unread'}
 					<div class="unread-divider"><span>{i18n.t('chat.unreadSince')}</span></div>
+				{:else if item.kind === 'sys'}
+					<div class="sys-line"><span>{item.text}</span></div>
 				{:else}
 					<ChatBubble
 						message={item.message}
@@ -1320,6 +1518,8 @@
 						grouped={item.grouped}
 						tail={item.tail}
 						{selectMode}
+						showSender={isGroup}
+						canModerate={isGroup && !!group?.canManage}
 						selected={selectedIds.has(item.message.id)}
 						e2ee={canE2ee && data.user && data.peer && e2eePeerKey
 							? {
@@ -1345,6 +1545,9 @@
 						onpin={pinMessage}
 						ontoggleSelect={toggleSelect}
 						onenterSelect={enterSelect}
+						onopenSender={(m: MessageDTO) => {
+							if (m.sender) goto(`/u/${m.sender.username}`);
+						}}
 					/>
 				{/if}
 			{/each}
@@ -1420,7 +1623,9 @@
 			<p class="channel-format-hint">{i18n.t('channel.formatHint')}</p>
 		{/if}
 	{:else}
-		<p class="channel-readonly">{i18n.t('channel.readonly')}</p>
+		<p class="channel-readonly">
+			{isGroup ? i18n.t('group.readonly') : i18n.t('channel.readonly')}
+		</p>
 	{/if}
 </div>
 
@@ -1450,7 +1655,66 @@
 				<span class="sheet-row-ico"><Archive size={18} /></span>
 				{i18n.t('chat.archive')}
 			</button>
-			{#if !isChannel}
+			{#if isGroup}
+				<button
+					type="button"
+					onclick={() => {
+						showMenu = false;
+						goto(`/chat/${data.chatId}/group`);
+					}}
+				>
+					<span class="sheet-row-ico"><Info size={18} /></span>
+					{i18n.t('group.info')}
+				</button>
+				{#if group!.canInvite}
+					<button
+						type="button"
+						onclick={() => {
+							showMenu = false;
+							goto(`/chat/${data.chatId}/group?add=1`);
+						}}
+					>
+						<span class="sheet-row-ico"><UserPlus size={18} /></span>
+						{i18n.t('group.addMembers')}
+					</button>
+				{/if}
+				{#if group!.canManage}
+					<p class="sheet-section"><Clock size={14} /> {i18n.t('chat.disappear')}</p>
+					<button type="button" class:active={disappearAfterSec === 0} onclick={() => setDisappear(0)}>
+						{i18n.t('chat.disappearOff')}
+					</button>
+					<button type="button" class:active={disappearAfterSec === 86400} onclick={() => setDisappear(86400)}>
+						{i18n.t('chat.disappear24h')}
+					</button>
+					<button type="button" class:active={disappearAfterSec === 604800} onclick={() => setDisappear(604800)}>
+						{i18n.t('chat.disappear7d')}
+					</button>
+				{/if}
+				<button
+					type="button"
+					class="danger"
+					onclick={() => {
+						showMenu = false;
+						showLeaveModal = true;
+					}}
+				>
+					<span class="sheet-row-ico"><LogOut size={18} /></span>
+					{i18n.t('group.leave')}
+				</button>
+				{#if group!.myRole === 'owner'}
+					<button
+						type="button"
+						class="danger"
+						onclick={() => {
+							showMenu = false;
+							showDeleteGroupModal = true;
+						}}
+					>
+						<span class="sheet-row-ico"><Trash2 size={18} /></span>
+						{i18n.t('group.delete')}
+					</button>
+				{/if}
+			{:else if !isChannel}
 				<p class="sheet-section"><Clock size={14} /> {i18n.t('chat.disappear')}</p>
 				<button type="button" class:active={disappearAfterSec === 0} onclick={() => setDisappear(0)}>
 					{i18n.t('chat.disappearOff')}
@@ -1502,6 +1766,54 @@
 				onclick={() => (showDeleteModal = false)}
 			>
 				{i18n.t('chat.keep')}
+			</button>
+		</div>
+	</div>
+{/if}
+
+{#if showLeaveModal}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="menu-backdrop" onclick={() => (showLeaveModal = false)}></div>
+	<div class="msg-sheet delete-dialog-sheet">
+		<div class="msg-menu pad-sheet">
+			<h3 class="sheet-title">{i18n.t('group.leaveTitle')}</h3>
+			<p class="sheet-desc">
+				{group?.myRole === 'owner'
+					? i18n.t('group.leaveOwnerPrompt')
+					: i18n.t('group.leavePrompt')}
+			</p>
+			<button type="button" class="btn btn-block btn-danger-outline" onclick={leaveCurrentGroup}>
+				{i18n.t('group.leave')}
+			</button>
+			<button
+				type="button"
+				class="btn btn-ghost btn-block"
+				onclick={() => (showLeaveModal = false)}
+			>
+				{i18n.t('dialog.cancel')}
+			</button>
+		</div>
+	</div>
+{/if}
+
+{#if showDeleteGroupModal}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="menu-backdrop" onclick={() => (showDeleteGroupModal = false)}></div>
+	<div class="msg-sheet delete-dialog-sheet">
+		<div class="msg-menu pad-sheet">
+			<h3 class="sheet-title">{i18n.t('group.deleteTitle')}</h3>
+			<p class="sheet-desc">{i18n.t('group.deletePrompt')}</p>
+			<button type="button" class="btn btn-block btn-danger-outline" onclick={deleteCurrentGroup}>
+				{i18n.t('group.delete')}
+			</button>
+			<button
+				type="button"
+				class="btn btn-ghost btn-block"
+				onclick={() => (showDeleteGroupModal = false)}
+			>
+				{i18n.t('dialog.cancel')}
 			</button>
 		</div>
 	</div>
@@ -1605,6 +1917,14 @@
 					{#if chat.kind === 'channel' && chat.channel}
 						<ChannelAvatar channelKey={chat.channel.key} size={36} />
 						<span>{i18n.t(`channel.${chat.channel.key}.title`)}</span>
+					{:else if chat.kind === 'group' && chat.group}
+						<GroupAvatar
+							title={chat.group.title}
+							chatId={chat.id}
+							avatarPath={chat.group.avatarPath}
+							size={36}
+						/>
+						<span>{chat.group.title}</span>
 					{:else if chat.peer}
 						<Avatar
 							name={chat.peer.displayName || chat.peer.username}

@@ -16,5 +16,6 @@ Open the app on your phone (same Wi‑Fi) via the LAN URL Vite prints, or use br
 - Username (3–9 English letters/digits) + password auth
 - 1:1 chats with realtime delivery (SSE)
 - Photo/file attachments (up to 10 MB)
+- 1:1 voice and video calls (WebRTC) — needs a TURN server in production, see [docs/turn.md](docs/turn.md)
 
 Data is stored in `data/qix.db` and uploads in `data/uploads/`.

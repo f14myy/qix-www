@@ -54,6 +54,16 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Регистрация — Qix</title>
+	<meta name="description" content="Создайте новый аккаунт в Qix для защищенного общения, E2EE шифрования и звонков." />
+	<meta property="og:title" content="Регистрация в Qix Messenger" />
+	<meta property="og:description" content="Создайте аккаунт в Qix — быстрая регистрация без обязательной привязки лишних личных данных." />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Регистрация в Qix Messenger" />
+	<meta name="twitter:description" content="Создайте аккаунт в Qix — быстрая регистрация без обязательной привязки лишних личных данных." />
+</svelte:head>
+
 <div class="screen auth-screen">
 	<div class="auth-top-bar">
 		<div class="auth-lang-toggle" aria-label="Language">

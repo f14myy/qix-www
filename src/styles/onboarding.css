@@ -658,3 +658,69 @@
 .onboard-footer .btn {
 	min-width: 132px;
 }
+
+/* ── Onboarding in motion, second pass ───────────────────────────────────── */
+
+.onboard-skip {
+	transition: color var(--motion) var(--ease-soft), transform var(--motion-fast) var(--ease-soft);
+}
+.onboard-skip:active {
+	transform: scale(0.94);
+}
+
+/* The portrait ring breathes while it waits for a photo. */
+.onboard-avatar-ring {
+	animation: pop-in var(--motion-slower) 120ms var(--ease-spring) backwards;
+}
+
+/* Theme chips and language cards deal themselves out. */
+.onboard-theme-row > .onboard-chip {
+	--stagger: 44ms;
+	animation: pop-rise var(--motion-slow) var(--ease-spring) backwards;
+}
+.onboard-theme-row > .onboard-chip:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.onboard-theme-row > .onboard-chip:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.onboard-theme-row > .onboard-chip:nth-child(n + 4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.onboard-lang-grid > .onboard-lang {
+	--stagger: 38ms;
+	animation: rise-in var(--motion-enter) var(--ease-out) backwards;
+}
+.onboard-lang-grid > .onboard-lang:nth-child(2) {
+	animation-delay: var(--stagger);
+}
+.onboard-lang-grid > .onboard-lang:nth-child(3) {
+	animation-delay: calc(var(--stagger) * 2);
+}
+.onboard-lang-grid > .onboard-lang:nth-child(4) {
+	animation-delay: calc(var(--stagger) * 3);
+}
+.onboard-lang-grid > .onboard-lang:nth-child(n + 5) {
+	animation-delay: calc(var(--stagger) * 4);
+}
+.onboard-lang.active .onboard-lang-flag {
+	animation: bounce-in var(--motion) var(--ease-spring);
+}
+
+/* Tip carousel: the dot you are on swells, the rest stay quiet. */
+.onboard-tip-dots button {
+	transition: background-color var(--motion) var(--ease-soft), transform var(--motion)
+			var(--ease-spring);
+}
+.onboard-tip-dots button.active {
+	transform: scale(1.35);
+}
+.onboard-tip-dots button:active {
+	transform: scale(0.8);
+}
+.onboard-tip-nav > * {
+	animation: fade-in var(--motion-slower) 240ms var(--ease-soft) backwards;
+}
+.onboard-footer .btn {
+	animation: rise-in var(--motion-enter) 200ms var(--ease-out) backwards;
+}

@@ -1,5 +1,5 @@
 import { haptic } from '$lib/haptic';
-import { CallSession, type CallDTO, type CallPeer, type CallPhase } from './session';
+import { CallSession, type CallDTO, type CallPeer, type CallPhase } from './session.svelte';
 
 type InvitePayload = {
 	callId: string;
