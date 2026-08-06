@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { registerVoicePlayer, voiceEnded, voiceStarted } from '$lib/voiceChain';
 
-	let { src, id }: { src: string; id: string } = $props();
+	let { src, id, chatId, encrypted = false }: { src: string; id: string; chatId: string; encrypted?: boolean } = $props();
 
 	let audio: HTMLAudioElement | undefined = $state();
 	let playing = $state(false);
@@ -12,6 +12,10 @@
 	let duration = $state(0);
 	let current = $state(0);
 	let waveEl: HTMLDivElement | undefined = $state();
+	let speed = $state<1 | 1.5 | 2>(1);
+	let transcript = $state<string | null>(null);
+	let transcriptError = $state('');
+	let transcribing = $state(false);
 
 	function play() {
 		audio?.play().catch(() => {});
@@ -25,6 +29,28 @@
 		if (!audio) return;
 		if (playing) pause();
 		else play();
+	}
+
+	function cycleSpeed() {
+		speed = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
+		if (audio) audio.playbackRate = speed;
+	}
+
+	async function transcribe() {
+		if (encrypted || transcribing) return;
+		transcribing = true;
+		transcriptError = '';
+		try {
+			const response = await fetch(`/api/chats/${chatId}/messages/${id}/transcription`, { method: 'POST' });
+			const result = (await response.json().catch(() => null)) as { text?: string; error?: string } | null;
+			if (!response.ok || !result?.text) {
+				transcriptError = result?.error || 'Could not transcribe';
+				return;
+			}
+			transcript = result.text;
+		} finally {
+			transcribing = false;
+		}
 	}
 
 	function onTime() {
@@ -68,7 +94,7 @@
 	const heights = [34, 58, 42, 72, 48, 88, 55, 70, 40, 78, 52, 65];
 </script>
 
-<div class="voice-player">
+<div class="voice-player" class:playing>
 	<audio
 		bind:this={audio}
 		{src}
@@ -94,6 +120,7 @@
 			<Play size={16} />
 		{/if}
 	</button>
+	<button type="button" class="voice-speed" onclick={cycleSpeed} aria-label="Playback speed">{speed}×</button>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		class="voice-wave"
@@ -107,9 +134,19 @@
 	>
 		<div class="voice-bars" aria-hidden="true">
 			{#each heights as h, i}
-				<span style="height:{h}%" class:active={progress > i / heights.length}></span>
+				<span style="height:{h}%; --wave-delay:{i * -92}ms" class:active={progress > i / heights.length}></span>
 			{/each}
 		</div>
 		<span class="voice-time">{displayTime}</span>
 	</div>
+	{#if !encrypted}
+		<button type="button" class="voice-transcript-toggle" onclick={transcribe} disabled={transcribing}>
+			{transcribing ? '…' : transcript ? 'Text' : 'Aa'}
+		</button>
+	{/if}
 </div>
+{#if transcript}
+	<p class="voice-transcript">{transcript}</p>
+{:else if transcriptError}
+	<p class="voice-transcript error">{transcriptError}</p>
+{/if}

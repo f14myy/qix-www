@@ -160,6 +160,21 @@ export const messageReactions = sqliteTable(
 	(t) => [primaryKey({ columns: [t.messageId, t.userId] })]
 );
 
+/** A private bookmark: saving never changes the source chat or its message. */
+export const savedMessages = sqliteTable(
+	'saved_messages',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		messageId: text('message_id')
+			.notNull()
+			.references(() => messages.id, { onDelete: 'cascade' }),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+	},
+	(t) => [primaryKey({ columns: [t.userId, t.messageId] })]
+);
+
 export const linkPreviews = sqliteTable('link_previews', {
 	id: text('id').primaryKey(),
 	messageId: text('message_id')

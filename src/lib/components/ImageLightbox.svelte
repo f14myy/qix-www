@@ -223,19 +223,20 @@
 	{/if}
 
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-	<img
-		class="lightbox-img"
-		class:zoomed={scale > 1.05}
-		src={urls[current]}
-		alt=""
-		style="transform:{transform}"
-		onclick={(e) => e.stopPropagation()}
-		onpointerdown={onDown}
-		onpointermove={onMove}
-		onpointerup={onUp}
-		onpointercancel={onUp}
-		draggable="false"
-	/>
+	<div class="lightbox-stage" onclick={(e) => e.stopPropagation()}>
+		<img
+			class="lightbox-img"
+			class:zoomed={scale > 1.05}
+			src={urls[current]}
+			alt=""
+			style="transform:{transform}"
+			onpointerdown={onDown}
+			onpointermove={onMove}
+			onpointerup={onUp}
+			onpointercancel={onUp}
+			draggable="false"
+		/>
+	</div>
 
 	{#if urls.length > 1}
 		<span class="lightbox-count">{current + 1} / {urls.length}</span>

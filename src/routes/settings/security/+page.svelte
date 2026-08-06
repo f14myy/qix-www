@@ -3,6 +3,8 @@
 	import { onMount } from 'svelte';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import KeyRound from '@lucide/svelte/icons/key-round';
+	import Download from '@lucide/svelte/icons/download';
+	import Upload from '@lucide/svelte/icons/upload';
 	import Smartphone from '@lucide/svelte/icons/smartphone';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { useI18n } from '$lib/i18n/useI18n.svelte';
@@ -40,6 +42,8 @@
 	let deleteConfirm = $state('');
 	let deleteError = $state('');
 	let deleteLoading = $state(false);
+	let importStatus = $state('');
+	let importFile: HTMLInputElement | undefined = $state();
 
 	onMount(async () => {
 		await refreshSessions();
@@ -184,6 +188,30 @@
 			deleteLoading = false;
 		}
 	}
+
+	async function downloadExport() {
+		const response = await fetch('/api/me/export');
+		if (!response.ok) return;
+		const url = URL.createObjectURL(await response.blob());
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = 'qix-export.json';
+		link.click();
+		URL.revokeObjectURL(url);
+	}
+
+	async function importTelegram() {
+		const file = importFile?.files?.[0];
+		if (!file) return;
+		importStatus = 'Импортируем…';
+		const form = new FormData();
+		form.set('file', file);
+		const response = await fetch('/api/me/import/telegram', { method: 'POST', body: form });
+		const result = (await response.json().catch(() => null)) as { importedChats?: number; importedMessages?: number; error?: string } | null;
+		importStatus = response.ok
+			? `Импортировано: чатов ${result?.importedChats ?? 0}, сообщений ${result?.importedMessages ?? 0}`
+			: result?.error || 'Не удалось импортировать историю';
+	}
 </script>
 
 <div class="screen">
@@ -306,6 +334,17 @@
 					{regenLoading ? i18n.t('security.saving') : i18n.t('security.regenCodes')}
 				</button>
 			</form>
+		</section>
+
+		<section class="settings-section">
+			<h2>Данные</h2>
+			<div class="settings-card soft pad settings-form-stack">
+				<p class="field-hint" style="margin:0">Скачайте полную копию своей истории или перенесите текстовый архив Telegram Desktop.</p>
+				<button type="button" class="btn btn-ghost" onclick={downloadExport}><Download size={16} /> Экспортировать историю</button>
+				<input bind:this={importFile} type="file" accept="application/json,.json" />
+				<button type="button" class="btn btn-ghost" onclick={importTelegram}><Upload size={16} /> Импортировать Telegram JSON</button>
+				{#if importStatus}<p class="field-hint" style="margin:0">{importStatus}</p>{/if}
+			</div>
 		</section>
 
 		<section class="settings-section">

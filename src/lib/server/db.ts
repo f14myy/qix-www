@@ -86,6 +86,13 @@ sqlite.exec(`
 		PRIMARY KEY (message_id, user_id)
 	);
 
+	CREATE TABLE IF NOT EXISTS saved_messages (
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+		created_at INTEGER NOT NULL,
+		PRIMARY KEY (user_id, message_id)
+	);
+
 	CREATE TABLE IF NOT EXISTS link_previews (
 		id TEXT PRIMARY KEY,
 		message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
@@ -164,6 +171,7 @@ sqlite.exec(`
 	CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON blocks(blocked_id);
 	CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
 	CREATE INDEX IF NOT EXISTS idx_recovery_codes_user ON recovery_codes(user_id);
+	CREATE INDEX IF NOT EXISTS idx_saved_messages_user ON saved_messages(user_id, created_at);
 `);
 
 function ensureColumn(table: string, column: string, ddl: string) {

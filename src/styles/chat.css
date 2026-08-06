@@ -1696,6 +1696,28 @@
 }
 
 
+/* The photo enters independently from its gesture transform, so zoom/pan stays direct. */
+.lightbox-stage {
+	width: 100%;
+	height: 100%;
+	display: grid;
+	place-items: center;
+	animation: lightbox-photo-in 280ms var(--ease-spring) both;
+}
+
+
+@keyframes lightbox-photo-in {
+	from {
+		opacity: 0;
+		transform: scale(0.94);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+
 .lightbox-img.zoomed {
 	cursor: grab;
 }
@@ -1817,6 +1839,66 @@
 
 .voice-bars span.active {
 	background: var(--accent);
+}
+
+
+.voice-speed,
+.voice-transcript-toggle {
+	border: 0;
+	background: transparent;
+	color: var(--accent);
+	font: inherit;
+	font-size: var(--fs-xs);
+	font-weight: var(--fw-semi);
+	padding: 4px;
+	border-radius: var(--radius-sm);
+	flex-shrink: 0;
+}
+
+
+.voice-speed:active,
+.voice-transcript-toggle:active {
+	transform: scale(0.9);
+}
+
+
+.voice-transcript {
+	margin: -1px 0 5px 42px;
+	font-size: var(--fs-sm);
+	line-height: 1.35;
+	color: var(--text-muted);
+}
+
+
+.voice-transcript.error {
+	color: var(--danger);
+}
+
+
+/* A playing note gets a restrained, staggered pulse — the timeline remains exact. */
+.voice-player.playing .voice-btn {
+	animation: voice-playing-ring 1.7s var(--ease-soft) infinite;
+}
+
+
+.voice-player.playing .voice-bars span.active {
+	animation: voice-bar-breathe 820ms var(--ease-soft) var(--wave-delay, 0ms) infinite alternate;
+	transform-origin: bottom;
+}
+
+
+@keyframes voice-playing-ring {
+	50% {
+		box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
+	}
+}
+
+
+@keyframes voice-bar-breathe {
+	to {
+		transform: scaleY(0.68);
+		opacity: 0.72;
+	}
 }
 
 

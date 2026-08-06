@@ -435,7 +435,12 @@
 		{/if}
 
 		{#if message.kind === 'voice' && message.attachments[0]}
-			<VoicePlayer id={message.id} src={attSrc(message.attachments[0]) || `/api/files/${message.attachments[0].id}`} />
+			<VoicePlayer
+				id={message.id}
+				chatId={message.chatId}
+				encrypted={!!message.attachments[0].e2eeMeta}
+				src={attSrc(message.attachments[0]) || `/api/files/${message.attachments[0].id}`}
+			/>
 		{:else if message.kind === 'voice' && message.id.startsWith('tmp-')}
 			<p class="body">{t('chats.voice')}</p>
 		{:else if message.attachments.length}
@@ -511,7 +516,12 @@
 						type="button"
 						class="reaction-chip"
 						class:me={r.me}
-						onclick={() => onreact(message, r.emoji)}
+						onclick={() => {
+							burstEmoji = r.emoji;
+							hapticBurst();
+							setTimeout(() => (burstEmoji = null), 620);
+							onreact(message, r.emoji);
+						}}
 					>
 						{r.emoji} {r.count}
 					</button>
@@ -607,6 +617,20 @@
 							onforward(message);
 						}}>{t('chat.forward')}</button
 					>
+				{/if}
+				{#if !message.id.startsWith('tmp-')}
+					<button
+						type="button"
+						onclick={() => {
+							closeMenu();
+							haptic(8);
+							void fetch('/api/me/saved', {
+								method: 'POST',
+								headers: { 'content-type': 'application/json' },
+								body: JSON.stringify({ messageId: message.id })
+							});
+						}}
+					>Сохранить</button>
 				{/if}
 				{#if onpin && !message.id.startsWith('tmp-')}
 					<button
